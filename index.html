@@ -7,6 +7,9 @@
   <meta name="description" content="EPISTASSI — The Thirteen Cut: a first-person psychological horror investigation in the Po Valley.">
   <title>EPISTASSI — The Listening / The Thirteen Cut</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IM+Fell+English:ital@0;1&family=Reenie+Beanie&display=swap">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -67,6 +70,7 @@
       <div class="rule"></div>
       <p class="start-copy">A piano tuner has been called to a farmhouse in the Po Valley.<br>Fog has closed the roads. Thirteen people are waiting to be emptied.</p>
       <p class="start-quote">“I can hear when something stops being wrong.”</p>
+      <div class="content-notice"><b>CONTENT NOTICE</b> Epistassi contains depictions of ritual killing, self-harm under coercion, suicide and religious imagery used blasphemously. It is a work of fiction. If any of this touches your own life, please reach out to a local support line before you play.</div>
       <div class="difficulty-pick" id="difficulty-pick" role="radiogroup" aria-label="Difficulty"></div>
       <div class="difficulty-text" id="difficulty-text"></div>
       <button id="start-button" class="main-button">ENTER THE FOG <span>→</span></button>
@@ -78,7 +82,7 @@
 
   <section id="journal" class="screen panel-screen">
     <div class="panel-frame">
-      <div class="panel-head"><div><span class="eyebrow">RECOVERED DOCUMENTS</span><h2>The Journal</h2></div><button class="close-button" id="journal-close">CLOSE [TAB]</button></div>
+      <div class="panel-head"><div><span class="eyebrow">RECOVERED DOCUMENTS</span><h2>The Journal</h2></div><div class="journal-tabs" role="tablist"><button data-tab="evidence" class="selected">EVIDENCE</button><button data-tab="people">THE PEOPLE</button></div><button class="close-button" id="journal-close">CLOSE [TAB]</button></div>
       <div class="journal-grid">
         <div class="journal-list" id="journal-list"><div class="empty-note">No clues recorded.<br><br>The house is not visible yet.</div></div>
         <div class="journal-detail" id="journal-detail"><div class="detail-stamp">EPISTASSI / ARCHIVE 14-B</div><h3>An Inventory of Absence</h3><p>Things are found out of order. Do not look for an explanation: record what remains.</p><div class="handwritten">I engrave my memoirs<br>with a sunshine<br>that isn't there.</div><div class="detail-foot">UNDATED PAGE · BLUE-BLACK INK</div></div>
