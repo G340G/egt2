@@ -44,6 +44,20 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 10 — a real doorway, one body for everyone, a softer lamp
+
+- **Il Professore no longer gets stuck in the door.** The farmhouse's wall boards used to run across the bottom of the doorway, and behind the door the house was an empty dark box, so he walked into planks and the knee-high stone base. The boards now stop at the frame. Behind the door there is a short, lit hallway with a coat stand, a picture and a bulb. He steps up onto the porch, the door swings inward, and he walks into the hall on his own feet. No teleport is needed; the failsafe is still there.
+- **Everyone now uses the egtest body**, personalised per person from `js/people.js`:
+  - **Build:** height, width, a fuller middle for the heavy, a bust for the women.
+  - **Hair:** knot, bald fringe, headscarf, curls, long, long curls, bleached crop, fringe over one eye, receding, cropped.
+  - **Face and head:** beards, stubble, round glasses, shades, a knit cap, an earring, a cigarette behind the ear.
+  - **Clothing:** butcher's half apron, long apron, cassock with a white tab, loden and long coats, a scarf at the throat, reflective bands, track piping, prints woven into the shirt fabric, inked forearms.
+  - **Objects:** a rosary, keys, a camera on a strap.
+- **Anatomy:** eyelids that blink, lips, cheekbones, chin and brow ridge, hands with four fingers and a thumb.
+- **Habits on the new body:** Ottavio taps, Franco wipes his hands, Ines and the Widow fold their arms, Gabri glances at the fridge, Livia hums, Dario touches his throat, Walter measures. People look at whoever they are talking to in the overheard scenes.
+- **No white rectangle on anyone's chest.** The egtest jackets' flat shirt-front strips are replaced by a collar ring at the neckline.
+- **The porch light.** The iron lantern and its hard-edged beam are gone. An old hurricane oil lantern now hangs from a hook beside the door. It has a glass globe, a flame, a soft halo and a wide-penumbra light that fades out gradually instead of ending in a cone. Every light shaft in the game now fades at its edges and along its length.
+
 ## Version 9 — fixes
 
 - **The farmhouse door no longer stays locked.** If you spoke to Il Professore from a step away, before the close-up on his book started, his walk-in never began and the door stayed locked. He now walks you in either way, steps round the porch table, and a 14-second failsafe sends him through the door if anything stalls.

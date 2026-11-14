@@ -26,8 +26,8 @@ export const CAST = {
   attendant: { label: '', h: 1.8, w: 1.1, skin: 0x8a8a8a, hair: ['hood', 0x3a3428], top: [0x3d3a32, 'work', 0x5a5444], legs: 0x37352f, shoes: 0x1c1a16, f0: 100, hood: true }
 };
 
-export function makePerson(key) {
-  const s = CAST[key]; const R = rng(key.length * 977 + s.h * 100);
+export function makePerson(key, spec) {
+  const s = spec || CAST[key]; const R = rng(key.length * 977 + s.h * 100);
   const k = s.h / 1.75, W = s.w;
   const skin = M(s.skin, 0.78), top = M(s.top[0], s.top[1] === 'leather' ? 0.45 : 0.9), legsM = M(s.legs, 0.9), shoeM = M(s.shoes, 0.6), hairM = M(s.hair[1], 0.95);
   const under = s.top[2] !== undefined ? M(s.top[2], 0.9) : top;
@@ -52,12 +52,16 @@ export function makePerson(key) {
   const belly = cap(0.135 * W, 0.12 * k, top); belly.scale.set(1.22, 1, 0.82); belly.position.y = 0.16 * k; spine.add(belly);
   const chest = new THREE.Group(); chest.position.y = 0.27 * k; spine.add(chest); P.chest = chest;
   const ch = cap(0.155 * W, 0.16 * k, top); ch.scale.set(1.3, 1, 0.82); ch.position.y = 0.12 * k; chest.add(ch); P.chestMesh = ch;
+  if (s.female) for (const sd of [-1, 1]) { const b = sph(0.06 * W, top, 12, 10); b.scale.set(1, 0.85, 0.75); b.position.set(sd * 0.075 * W, 0.12 * k, 0.1 * W); chest.add(b); }
+  if (s.heavy) { const g = cap(0.15 * W, 0.08, top); g.scale.set(1.3, 1, 1.05); g.position.set(0, 0.1 * k, 0.03); spine.add(g); }
   // clothing details
   const kind = s.top[1];
-  if (['cardigan', 'jacket', 'blazer', 'leather', 'coat', 'track', 'work'].includes(kind)) { const st = bx(0.11 * W, 0.42 * k, 0.02, under); st.position.set(0, 0.14 * k, 0.135 * W * 0.86); chest.add(st); const st2 = bx(0.1 * W, 0.18 * k, 0.02, under); st2.position.set(0, 0.0, 0.12 * W); spine.add(st2); st2.position.y = 0.16 * k; }
-  if (kind === 'apron') { const ap = bx(0.34 * W, 0.78 * k, 0.02, under); ap.position.set(0, 0.0, 0.14 * W); spine.add(ap); ap.position.y = 0.05 * k; P.apron = ap; }
+  // v10: no flat under-shirt strips on the chest. A collar ring in the shirt colour shows at the neckline instead.
+  if (['cardigan', 'jacket', 'blazer', 'leather', 'coat', 'track', 'work', 'cassock'].includes(kind)) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.06 * W, 0.016, 6, 18), kind === 'cassock' ? M(0xf2efe6, 0.6) : under); ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.29 * k, 0.012); ring.scale.set(1, 1.15, 1); chest.add(ring); }
+  if (kind === 'apron') { const ap = new THREE.Mesh(new THREE.CylinderGeometry(0.17 * W, 0.2 * W, 0.62 * k, 18, 1, true, -1.15, 2.3), M(s.top[2] ?? 0xd8d3c6, 0.95, { side: THREE.DoubleSide })); ap.scale.z = 0.85; ap.position.y = 0.05 * k; spine.add(ap); P.apron = ap; }
   if (kind === 'track') { for (const sd of [-1, 1]) { const pipe = bx(0.012, 0.42 * k, 0.012, M(0xd8dde0, 0.3, { emissive: 0x222426 })); pipe.position.set(sd * 0.07 * W, 0.14 * k, 0.137 * W * 0.86); chest.add(pipe); } }
-  if (kind === 'work') { const strip = bx(0.36 * W, 0.03, 0.27 * W, M(0x9a9a7a, 0.5)); strip.position.y = 0.06 * k; chest.add(strip); }
+  if (kind === 'work') { const band = new THREE.Mesh(new THREE.TorusGeometry(0.2 * W, 0.012, 4, 24), M(0x9a9a7a, 0.5)); band.rotation.x = Math.PI / 2; band.scale.set(1, 0.82, 1); band.position.y = 0.06 * k; chest.add(band); }
+  if (kind === 'cassock') { const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.17 * W, 0.24 * W, 0.86 * k, 14, 1, true), M(s.top[0], 0.9, { side: THREE.DoubleSide })); sk.position.y = -0.44 * k; hips.add(sk); P.skirt = sk; }
   if (kind === 'coat' || s.skirt) { const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.17 * W, kind === 'coat' ? 0.26 * W : 0.22 * W, kind === 'coat' ? 0.78 * k : 0.5 * k, 14, 1, true), M(kind === 'coat' ? s.top[0] : s.skirt, 0.9, { side: THREE.DoubleSide })); sk.position.y = (kind === 'coat' ? -0.36 : -0.22) * k; sk.castShadow = true; hips.add(sk); P.skirt = sk; }
   if (s.keys) { const kc = new THREE.Group(); const lace = bx(0.008, 0.16, 0.008, M(0x222222)); lace.position.y = -0.08; kc.add(lace); for (let i = 0; i < 3; i++) { const key = bx(0.012, 0.05, 0.004, M(0x9a8a60, 0.3, { metalness: 0.8 })); key.position.set((i - 1) * 0.014, -0.17, 0); key.rotation.z = (i - 1) * 0.3; kc.add(key); } kc.position.set(0.16 * W, -0.02, 0.06); hips.add(kc); }
   // arms
@@ -66,10 +70,11 @@ export function makePerson(key) {
     const sh = new THREE.Group(); sh.position.set(sd * 0.21 * W, 0.24 * k, 0); chest.add(sh);
     const ua = cap(0.05 * W, 0.24 * k, top); ua.position.y = -0.15 * k; sh.add(ua);
     const el = new THREE.Group(); el.position.y = -0.3 * k; sh.add(el);
-    const fa = cap(0.043 * W, 0.21 * k, kind === 'apron' || kind === 'shirt' && false ? skin : top); fa.position.y = -0.13 * k; el.add(fa);
+    const fa = cap(0.043 * W, 0.21 * k, kind === 'tee' ? skin : top); P.forearms = P.forearms || []; P.forearms.push(fa); fa.position.y = -0.13 * k; el.add(fa);
     const wr = new THREE.Group(); wr.position.y = -0.27 * k; el.add(wr);
     const handM = s.hood ? M(0x1c1b18, 0.95) : skin;
-    const hand = bx(s.hood ? 0.1 : 0.075, s.hood ? 0.13 : 0.1, s.hood ? 0.05 : 0.032, handM); hand.position.y = -0.05; wr.add(hand);
+    const hand = bx(s.hood ? 0.1 : 0.068, s.hood ? 0.13 : 0.075, s.hood ? 0.05 : 0.03, handM); hand.position.y = -0.04; wr.add(hand);
+    if (!s.hood) for (let f = 0; f < 4; f++) { const fg = cap(0.0095, 0.045 - Math.abs(f - 1.5) * 0.006, handM); fg.position.set((f - 1.5) * 0.017, -0.1, 0.004); fg.rotation.x = 0.18; wr.add(fg); }
     const th = cap(s.hood ? 0.022 : 0.014, 0.035, handM); th.position.set(-sd * 0.04, -0.03, 0.015); th.rotation.z = sd * 0.6; wr.add(th);
     P.arms.push({ sh, el, wr, hand });
   }
@@ -92,6 +97,11 @@ export function makePerson(key) {
     const socket = M(new THREE.Color(s.skin).multiplyScalar(0.78).getHex(), 0.9);
     for (const sd of [-1, 1]) { const so = sph(0.019, socket, 10, 8); so.scale.set(1.25, 0.7, 0.45); so.position.set(sd * 0.035, 0.128, 0.086); head.add(so); const eye = sph(0.0085, M(0x0a0908, 0.2), 8, 6); eye.position.set(sd * 0.036, 0.13, 0.095); head.add(eye); const brow = bx(0.04, 0.008, 0.012, hairM); brow.position.set(sd * 0.037, 0.158, 0.095); brow.rotation.z = -sd * 0.08; head.add(brow); const ear = sph(0.022, skin, 8, 6); ear.scale.set(0.45, 1, 0.8); ear.position.set(sd * 0.095, 0.11, 0); head.add(ear); }
     const mouth = bx(0.034, 0.005, 0.01, M(new THREE.Color(s.skin).multiplyScalar(0.45).getHex(), 0.7)); mouth.position.set(0, 0.058, 0.092); head.add(mouth); P.mouth = mouth;
+    const lip = bx(0.036, 0.006, 0.012, M(new THREE.Color(s.skin).multiplyScalar(0.72).lerp(new THREE.Color(0x8a4a40), 0.25).getHex(), 0.6)); lip.position.set(0, 0.049, 0.09); head.add(lip);
+    const chin = sph(0.03, skin, 10, 8); chin.scale.set(1.2, 0.8, 0.8); chin.position.set(0, 0.022, 0.078); head.add(chin);
+    for (const sd of [-1, 1]) { const ck = sph(0.026, skin, 10, 8); ck.scale.set(1.2, 0.8, 0.7); ck.position.set(sd * 0.055, 0.095, 0.075); head.add(ck); }
+    const ridge = bx(0.09, 0.014, 0.02, skin); ridge.position.set(0, 0.148, 0.09); head.add(ridge);
+    P.lids = [-1, 1].map(sd => { const l = sph(0.02, skin, 10, 6); l.scale.set(1.25, 0.12, 0.6); l.position.set(sd * 0.036, 0.138, 0.094); head.add(l); return l; });
     if (s.stubble) { const st = sph(0.087, M(new THREE.Color(s.skin).multiplyScalar(0.7).getHex(), 1), 12, 8); st.scale.set(0.97, 0.7, 0.96); st.position.set(0, 0.035, 0.014); head.add(st); }
     if (s.earring) { const er = new THREE.Mesh(new THREE.TorusGeometry(0.009, 0.0025, 6, 10), M(0xcfd4d8, 0.2, { metalness: 1 })); er.position.set(0.098, 0.075, 0.005); head.add(er); }
     hair(head, s.hair[0], hairM, R);
@@ -117,6 +127,9 @@ function hair(head, style, m, R) {
     case 'longtop': capm(0.9, 0.9, 0.95, 0.12, -0.004, Math.PI * 0.45); blob(0.07, 0.01, 0.2, 0.01, 1.1, 0.55, 1.4).rotation.z = 0.25; break;
     case 'long': capm(0.97, 1.08, 1.03, 0.12, -0.01, Math.PI * 0.58); blob(0.07, 0, -0.06, -0.08, 1.2, 2.6, 0.55); break;
     case 'receding': capm(0.92, 0.95, 0.98, 0.115, -0.03, Math.PI * 0.42); break;
+    case 'bald': { const r = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.022, 6, 18, Math.PI * 1.2), m); r.rotation.set(Math.PI / 2, 0, Math.PI * 0.9); r.position.set(0, 0.1, -0.01); head.add(r); break; }
+    case 'scarf': { const sc = new THREE.Mesh(new THREE.SphereGeometry(0.118, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58), M(0x4b3d33, 1)); sc.position.set(0, 0.118, -0.006); sc.rotation.x = -0.35; head.add(sc); const kn = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 6), M(0x4b3d33, 1)); kn.position.set(0, 0.0, -0.1); kn.rotation.x = 0.5; head.add(kn); break; }
+    case 'longcurls': capm(0.98, 1.1, 1.04, 0.125, -0.01, Math.PI * 0.58); for (let i = 0; i < 26; i++) blob(0.032, (R() - 0.5) * 0.2, 0.12 - R() * 0.24, -0.06 - R() * 0.05); break;
   }
 }
 
@@ -183,6 +196,7 @@ export function updatePerson(P, dt, t, camPos) {
   P.neck.rotation.y += (hy * 0.4 - P.neck.rotation.y) * Math.min(1, dt * 5); P.head.rotation.y += (hy * 0.6 - P.head.rotation.y) * Math.min(1, dt * 5);
   P.head.rotation.x += (hx - P.head.rotation.x) * Math.min(1, dt * 5);
   P.head.rotation.z += (P.headTilt - P.head.rotation.z) * Math.min(1, dt * 3);
+  if (P.lids) { P.blinkT = (P.blinkT ?? (2 + P.t0 % 3)) - dt; let b = 0; if (P.blinkT < 0.12) b = 1; if (P.blinkT < 0) P.blinkT = 2.4 + Math.random() * 4; P.lids.forEach(l => { l.scale.y = 0.12 + b * 0.62; }); }
   if (P.mouth) {
     let open = 0;
     if (P.talk > 0) { open = (Math.sin(t * 17 + P.t0) * 0.5 + 0.5) * (Math.sin(t * 5.3) * 0.3 + 0.7); P.talk -= dt; }
@@ -195,4 +209,40 @@ export function updatePerson(P, dt, t, camPos) {
 
 export function walkTo(P, x, z, speed = 1.2, face) {
   return new Promise(res => { P.walk = { to: new THREE.Vector3(x, 0, z), speed, ph: 0, face, resolve: res }; });
+}
+
+// v10: personal details on the egtest body: beards, glasses, caps, prints, aprons, objects.
+export function personalize(P, X, tex = {}) {
+  const head = P.head, s = P.spec, k = P.k, W = s.w;
+  const hairM = new THREE.MeshStandardMaterial({ color: s.hair[1], roughness: 0.95 });
+  const add = (mesh, parent, x, y, z) => { mesh.position.set(x, y, z); mesh.castShadow = true; parent.add(mesh); return mesh; };
+  const e = new Set(X.extras || []);
+  if (e.has('beard-full') || e.has('beard-grey')) { const bm = e.has('beard-grey') ? M(0xa29d93, 1) : hairM; const b = add(new THREE.Mesh(new THREE.SphereGeometry(0.088, 14, 10, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.58), bm), head, 0, 0.065, 0.016); b.scale.set(0.98, 1.05, 1.0); add(new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.035, 3, 6), bm), head, 0, 0.066, 0.094).rotation.z = Math.PI / 2; }
+  if (e.has('stubble')) { const st = add(new THREE.Mesh(new THREE.SphereGeometry(0.087, 12, 8, 0, Math.PI * 2, Math.PI * 0.45, Math.PI * 0.55), M(new THREE.Color(s.skin).multiplyScalar(0.68).getHex(), 1)), head, 0, 0.07, 0.014); st.scale.set(0.98, 0.95, 0.97); }
+  if (e.has('moustache')) add(new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.035, 3, 6), M(0x9a948a, 1)), head, 0, 0.066, 0.094).rotation.z = Math.PI / 2;
+  if (e.has('glasses-round')) { const g = M(0x2b2620, 0.4, { metalness: 0.5 }); for (const sd of [-1, 1]) add(new THREE.Mesh(new THREE.TorusGeometry(0.019, 0.003, 5, 14), g), head, sd * 0.036, 0.13, 0.102); add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.003, 0.003), g), head, 0, 0.133, 0.103); }
+  if (e.has('shades')) { const g = M(0x050505, 0.12, { metalness: 0.6 }); add(new THREE.Mesh(new THREE.CylinderGeometry(0.103, 0.103, 0.026, 18, 1, true, -0.85, 1.7), g), head, 0, 0.132, 0.005); }
+  if (e.has('sunglasses-up')) { const g = M(0x0a0a0a, 0.2, { metalness: 0.4 }); for (const sd of [-1, 1]) add(new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.018, 0.006), g), head, sd * 0.03, 0.22, 0.06).rotation.x = -0.7; }
+  if (e.has('cap')) { const cm = tex.fabric ? new THREE.MeshStandardMaterial({ map: tex.fabric('knit', 0x1a1a1a), roughness: 1 }) : M(0x1a1a1a, 1); const c = add(new THREE.Mesh(new THREE.SphereGeometry(0.118, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), cm), head, 0, 0.135, -0.005); c.scale.set(0.98, 1.05, 1.02); add(new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.014, 6, 20), cm), head, 0, 0.14, -0.005).rotation.x = Math.PI / 2; }
+  if (e.has('earring')) add(new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.002, 5, 10), M(0xcfd4d8, 0.2, { metalness: 1 })), head, 0.098, 0.08, 0.005);
+  if (e.has('cigarette')) add(new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.05, 6), M(0xe8e2d4, 0.8)), head, 0.1, 0.13, -0.005).rotation.x = Math.PI / 2;
+  if (e.has('scarf-throat')) add(new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.022, 8, 16), M(0x5d4a3e, 1)), P.neck, 0, 0.02, 0).rotation.x = Math.PI / 2;
+  if (e.has('collar')) add(new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.016, 0.008), M(0xf2efe6, 0.6)), P.chest, 0, 0.29 * k, 0.07);
+  if (e.has('rosary')) { const bead = M(0x1d1714, 0.5); for (let i = 0; i < 9; i++) add(new THREE.Mesh(new THREE.SphereGeometry(0.005, 5, 4), bead), P.chest, Math.sin(i / 8 * Math.PI) * -0.04 + 0.02, 0.26 * k - i * 0.018, 0.155 * W); }
+  if (e.has('keys') && !s.keys) { const kc = new THREE.Group(); for (let i = 0; i < 3; i++) { const key = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.05, 0.004), M(0x9a8a60, 0.3, { metalness: 0.8 })); key.position.set((i - 1) * 0.014, -0.17, 0); key.rotation.z = (i - 1) * 0.3; kc.add(key); } kc.position.set(0.16 * W, -0.02, 0.06); P.hips.add(kc); }
+  if (e.has('apron-half')) { const am = tex.fabric ? new THREE.MeshStandardMaterial({ map: tex.fabric('apron', 0xd6d0c2), roughness: 1, side: THREE.DoubleSide }) : M(0xd6d0c2, 1, { side: THREE.DoubleSide }); const ap = new THREE.Mesh(new THREE.CylinderGeometry(0.17 * W, 0.22 * W, 0.5 * k, 18, 1, true, -1.2, 2.4), am); ap.scale.z = 0.85; ap.position.y = -0.18 * k; P.hips.add(ap); const tie = new THREE.Mesh(new THREE.TorusGeometry(0.165 * W, 0.006, 4, 24), M(0xcfc8b8, 1)); tie.rotation.x = Math.PI / 2; tie.scale.set(1.3, 1, 1); tie.position.y = 0.06; P.hips.add(tie); }
+  if (e.has('apron-long')) { const ap = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * W, 0.22 * W, 0.8 * k, 18, 1, true, -1.0, 2.0), M(0x6a5f52, 0.98, { side: THREE.DoubleSide })); ap.scale.z = 0.86; P.spine.add(ap); }
+  if (e.has('reflective')) { const rf = M(0xbdbcb0, 0.35, { metalness: 0.3, emissive: 0x1c1c18 }); const b = new THREE.Mesh(new THREE.TorusGeometry(0.2 * W, 0.01, 4, 24), rf); b.rotation.x = Math.PI / 2; b.scale.set(1, 0.82, 1); b.position.y = 0.16 * k; P.chest.add(b); }
+  if (e.has('tape')) add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.025, 12), M(0x9a7a1c, 0.55)), P.hips, 0.17 * W, 0, 0.02).rotation.z = Math.PI / 2;
+  if (e.has('camera')) { add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.04), M(0x111111, 0.4, { metalness: 0.5 })), P.chest, -0.05, 0.02, 0.16 * W); const strap = new THREE.Mesh(new THREE.TorusGeometry(0.14 * W, 0.004, 4, 24, Math.PI), M(0x111111, 0.6)); strap.rotation.z = Math.PI; strap.scale.z = 0.55; strap.position.set(-0.02, 0.27 * k, 0.02); P.chest.add(strap); }
+  if (e.has('paint-flecks')) for (let i = 0; i < 9; i++) add(new THREE.Mesh(new THREE.SphereGeometry(0.006, 4, 3), M([0x6e2e26, 0x8a8f86, 0x3b4a52][i % 3], 0.9)), P.chest, (Math.random() - 0.5) * 0.2, Math.random() * 0.3 * k, 0.15 * W);
+  if (e.has('piping')) P.arms.forEach(a => { const pp = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.26 * k, 0.006), M(0xdedbd2, 0.3, { emissive: 0x111111 })); pp.position.set(0.045 * W, -0.15 * k, 0); a.sh.add(pp); });
+  if ((e.has('sleeve-tattoo') || e.has('ink-forearm')) && tex.tattoo) (P.forearms || []).forEach((fa, i) => { const ink = new THREE.Mesh(new THREE.CylinderGeometry(0.046 * W, 0.046 * W, 0.18 * k, 10, 1, true), new THREE.MeshStandardMaterial({ map: tex.tattoo(i), transparent: true, roughness: 0.9, depthWrite: false })); fa.add(ink); });
+  // Cloth: real weaves instead of flat colour; prints are part of the shirt fabric.
+  if (tex.fabric) {
+    const topKind = { cardigan: 'knit', knit: 'knit', blazer: 'wool', shirt: 'cotton', leather: 'leather', track: 'nylon', work: 'canvas', jacket: 'canvas', tee: 'cotton', teelong: 'cotton', coat: 'loden', cassock: 'wool' }[s.top[1]] || 'cotton';
+    const topMat = P.chestMesh.material; topMat.map = tex.fabric(topKind, s.top[0]); topMat.color.setHex(0xffffff); topMat.needsUpdate = true;
+    const legMat = P.legs[0].th.children[0]?.material; if (legMat) { legMat.map = tex.fabric(X.denim ? 'denim' : 'wool', s.legs); legMat.color.setHex(0xffffff); legMat.needsUpdate = true; }
+    if (X.print && tex.print) { const pm = topMat.clone(); pm.map = tex.print(X.print, s.top[0]); P.chestMesh.material = pm; }
+  }
 }

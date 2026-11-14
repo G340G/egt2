@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, personFor } from './people.js';
-import { makePerson, updatePerson } from './rig.js';
+import { makePerson, updatePerson, personalize } from './rig.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
 // ---- Player settings: volumes, mouse sensitivity and difficulty persist between visits. ----
@@ -606,7 +606,7 @@ function makeNPC(group,x,z,name,coatColor=0x272725,variant=0){
  const displayName=name==='The First'?'Il Professore':name;
  const npc={head,id:'npc_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_'),type:'npc',object:root,point:root.position,radius:3.4,prompt:'[ E ] SPEAK — '+displayName.toUpperCase(),name,displayName,phase:Math.random()*7,coat:cloth,leftArm,rightArm,photoFace,photoKey,leftForearm,rightForearm,legs,lowerLegs,shoes,eyes,lids,blinkTimer:1.8+Math.random()*4,blinkAmount:0,walking:false,cultist:false,fate:'present',profile,isFirst};
  dressPersona(npc,{root,cloth,trim,hair,skin,boot,hx:first?-.055:0,sleeves,garnish,female});
- if(isFirst)attachRig(npc);
+ if(npc.persona)attachRig(npc);
  root.traverse(o=>{if(o.isMesh&&o!==photoFace){o.castShadow=true;o.receiveShadow=true;}});
  photoNPCs.push(npc);refreshPhotoNPC(npc);group.userData.interactables.push(npc);return npc;
 }
@@ -747,7 +747,8 @@ function addHouseExterior(group,x,z,w,d,h,seed=1,color=0x85877f,frontDoor=true){
   }else addBox(g,0,h/2,fz,w,h,.42,wall);
   for(let row=0;row<Math.floor(h/.34);row++){
     const y=.5+row*.34;
-    if(y<1.34||y>2.82)addBox(g,0,y,fz+.225,w-.12,.038,.05,wood,{castShadow:false});
+    if(frontDoor&&y<2.6&&(y<1.34)){const bw=(w-.12)/2-dw/2;addBox(g,-(dw/2+bw/2),y,fz+.225,bw,.038,.05,wood,{castShadow:false});addBox(g,dw/2+bw/2,y,fz+.225,bw,.038,.05,wood,{castShadow:false});}
+    else if(y<1.34||y>2.82)addBox(g,0,y,fz+.225,w-.12,.038,.05,wood,{castShadow:false});
     else if(frontDoor){addBox(g,-w*.30,y,fz+.225,w*.38,.038,.05,wood,{castShadow:false});addBox(g,w*.30,y,fz+.225,w*.38,.038,.05,wood,{castShadow:false});}
   }
   for(const s of [-1,1])for(let row=0;row<Math.floor(h/.4);row++)addBox(g,s*(w/2+.225),.54+row*.4,0,.05,.045,d-.26,wood,{castShadow:false});
@@ -4650,7 +4651,6 @@ function buildRoadV6() {
   makeSmokeColumn(g, 4.42, 8.15, -17.86, { count: 34, size: 1.2, grow: 4.6, rise: 1.0, life: 12, color: 0xb4b0a8, opacity: .62, drift: .6 });
   makeSmokeColumn(g, -4.4, 7.72, -12.9, { count: 28, size: 1.0, grow: 3.8, rise: .95, life: 11, color: 0xa8a49c, opacity: .55, drift: .55 });
   // Lamps: the porch, the road, the church portal, the cemetery gate.
-  addLamp(g, 1.3, 2.45, -8.25, { style: 'lantern', color: 0xffb266, intensity: 6, distance: 12, flicker: .06 });
   [[-6.9, 40, Math.PI / 2], [6.9, 22, -Math.PI / 2], [-6.9, 5, Math.PI / 2]].forEach(([x, zz, r]) => addLamp(g, x, 4.3, zz, { style: 'post', rotY: r, color: 0xffa250, intensity: 11, distance: 17, flicker: .03 }));
   buildGothicPortal(g);
   buildCemeteryGate();
@@ -4851,7 +4851,7 @@ function layNPC(npc, holder, surfaceY) {
   npc.object.rotation.set(-Math.PI / 2, 0, 0); npc.object.position.set(0, 0, .98); holder.position.y = surfaceY + .2;
   npc.leftArm.rotation.set(0, 0, -.12); npc.rightArm.rotation.set(0, 0, .12);
 }
-function raiseArms(npc, k = 1) { npc.leftArm.rotation.set(-.3 * k, 0, -2.3 * k); npc.rightArm.rotation.set(-.3 * k, 0, 2.3 * k); npc.leftForearm.rotation.z = -.4 * k; npc.rightForearm.rotation.z = .4 * k; }
+function raiseArms(npc, k = 1) { npc.raiseK = k; npc.leftArm.rotation.set(-.3 * k, 0, -2.3 * k); npc.rightArm.rotation.set(-.3 * k, 0, 2.3 * k); npc.leftForearm.rotation.z = -.4 * k; npc.rightForearm.rotation.z = .4 * k; }
 function viewZone(name) {
   Object.values(zones).forEach(v => { v.group.visible = false; });
   zone = zones[name]; currentZone = name; zone.group.visible = true;
@@ -6238,16 +6238,17 @@ function updatePorchPrimo(dt = 1 / 60) {
     if (n.talkedOnce && porch.stage !== 'book') porch.stage = 'talk';
   }
   if (porch.stage === 'talk' && n.talkedOnce && !dialogueOpen) { porch.stage = 'walk'; porch.t = 0; porch.ember.visible = false; if (n.rig) n.rig.pose = 'stand'; n.rightArm.rotation.x = 0; n.rightForearm.rotation.x = 0; }
-  if (porch.stage === 'walk' && porch.t > 14 && !storyFlags.has('porch-primo-gone')) { n.object.position.set(0, 0, -9.6); porch.opened = true; porch.openT = 2; }
+  if (porch.stage === 'walk' && porch.t > 14 && !storyFlags.has('porch-primo-gone')) { n.object.position.set(0, .5, -10.6); porch.opened = true; porch.openT = 2; }
   if (porch.stage === 'walk') {
     porch.t += dt; n.porchOverride = true;
+    { const z = n.object.position.z, gy = z > -7.15 ? 0 : z > -7.9 ? .56 : .5; n.object.position.y += (gy - n.object.position.y) * Math.min(1, dt * 10); }
     if (porch.t > .6) {
       if (!porch.wp1) porch.wp1 = walkNPC(n, -1.95, -6.75, 1.1, dt);
-      const reached = porch.wp1 && walkNPC(n, 0, -7.55, 1.1, dt);
+      const reached = porch.wp1 && walkNPC(n, 0, -7.25, 1.1, dt);
       if (reached && !porch.opened) { porch.opened = true; porch.openT = 0; audio?.doorCreak(); setTimeout(() => { laugh(); setTimeout(laugh, 380); }, 700); storyLine('IL PROFESSORE: Come in. They have been waiting longer than you have.'); }
       if (porch.opened) {
-        porch.openT += dt; const k = Math.min(1, porch.openT / 1.2); if (door?.doorPivot) door.doorPivot.rotation.y = -k * 1.55; porch.spill.intensity = k * 14;
-        if (porch.openT > 1.3) { const inside = walkNPC(n, 0, -9.6, 1.0, dt); if (inside) { n.object.visible = false; n.walking = false; porch.stage = 'gone'; storyFlags.add('porch-primo-gone'); const ix = zones.road.interactables.indexOf(n); if (ix >= 0) zones.road.interactables.splice(ix, 1); if (door) { door.locked = false; door.prompt = '[ E ] GO IN — THE FARMHOUSE'; } showToast('GO IN.'); } }
+        porch.openT += dt; const k = Math.min(1, porch.openT / 1.2); if (door?.doorPivot) door.doorPivot.rotation.y = k * 1.45; porch.spill.intensity = k * 22; if (porch.hall) porch.hall.visible = true;
+        if (porch.openT > 1.3) { const inside = walkNPC(n, 0, -10.6, 1.0, dt); if (inside) { n.object.visible = false; n.walking = false; porch.stage = 'gone'; storyFlags.add('porch-primo-gone'); const ix = zones.road.interactables.indexOf(n); if (ix >= 0) zones.road.interactables.splice(ix, 1); if (door) { door.locked = false; door.openAngle = 1.45; door.prompt = '[ E ] GO IN — THE FARMHOUSE'; } showToast('GO IN.'); } }
       }
     }
   }
@@ -6443,16 +6444,19 @@ function addCandelabra(group, x, z, h = 1.6, color = 0xffb066) {
 }
 function addLightShaft(group, from, to, radius, color = 0xffd9a0, opacity = .06) {
   const len = from.distanceTo(to);
-  const m = new THREE.Mesh(new THREE.ConeGeometry(radius, len, 24, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: true }));
+  const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: opacity * 1.6 } },
+    vertexShader: 'varying vec3 vN; varying vec3 vV; varying float vY; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); vY = uv.y; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform vec3 uColor; uniform float uOpacity; varying vec3 vN; varying vec3 vV; varying float vY; void main(){ float f = pow(abs(dot(normalize(vN), normalize(vV))), 2.2); float along = smoothstep(0.0, 0.35, vY) * smoothstep(1.0, 0.75, vY); gl_FragColor = vec4(uColor, uOpacity * f * along); }' });
+  const m = new THREE.Mesh(new THREE.ConeGeometry(radius, len, 32, 1, true), mat);
   m.position.copy(from).add(to).multiplyScalar(.5); m.lookAt(to); m.rotateX(-Math.PI / 2); group.add(m);
-  shafts.push({ m, base: opacity, ph: Math.random() * 6 }); return m;
+  shafts.push({ m, base: opacity * 1.6, ph: Math.random() * 6, shader: true }); return m;
 }
 const shafts = [];
 function buildLightingV8() {
   const R = zones.road.group;
   // The porch: the man under the lamp is the first frame of the game.
-  addLamp(R, 0, 2.95, -8.0, { style: 'gothic', color: 0xffb066, intensity: 5.5, distance: 11, flicker: .07, shadow: true, spot: { angle: .75, target: [-1.6, -3, 2.6] } });
-  addLightShaft(R, new THREE.Vector3(0, 2.75, -7.6), new THREE.Vector3(-1.7, 0, -5.6), 1.15, 0xffc690, .055);
+  buildPorchLanternV10(R);
   // The church portal: two lanterns and a cold shaft from the rose window.
   const cz = -25 + 7.5 + .45; [-1.75, 1.75].forEach(dx => addLamp(R, 37 + dx, 3.3, cz, { style: 'gothic', color: 0xffa860, intensity: 4.2, distance: 9, flicker: .09 }));
   addLightShaft(R, new THREE.Vector3(37, 3.1, cz + .2), new THREE.Vector3(37, 0, cz + 3.5), 1.5, 0xffb47a, .045);
@@ -6479,26 +6483,66 @@ function buildLightingV8() {
   // The empty house: cold light through the broken window onto the newspapers.
   addLightShaft(zones.ruin.group, new THREE.Vector3(-7.6, 3.4, 4.2), new THREE.Vector3(-3.2, 0, 2.2), 1.2, 0xc8d0d4, .06);
 }
-function updateShafts(t) { shafts.forEach(s => { s.m.material.opacity = s.base * (.82 + Math.sin(t * .0007 + s.ph) * .12 + (Math.random() < .01 ? -.2 : 0)); }); }
+function updateShafts(t) { shafts.forEach(s => { const v = s.base * (.82 + Math.sin(t * .0007 + s.ph) * .12 + (Math.random() < .01 ? -.2 : 0)); if (s.shader) s.m.material.uniforms.uOpacity.value = v; else s.m.material.opacity = v; }); }
 
 // ---- v9: Il Professore wears the egtest rig (articulated hips, spine, neck, look-at, smoke) ----
+function RIG_HAIR() { return { knot: 'knot', bald: 'bald', scarf: 'scarf', 'curls-short': 'curls', receding: 'receding', 'crop-bleached': 'bleach', long: 'long', 'long-curls': 'longcurls', 'fringe-eye': 'overeye', shaved: 'crop', scribble: 'short' }; }
+function RIG_TOP() { return { cardigan: 'cardigan', turtleneck: 'knit', dress: 'knit', blazer: 'blazer', 'shirt-oversized': 'shirt', leather: 'leather', track: 'track', workjacket: 'work', tee: 'tee', 'tee-long': 'teelong', longcoat: 'coat', cassock: 'cassock' }; }
+function RIG_FEMALE() { return ['ines', 'anna', 'marta', 'livia', 'the widow']; }
+function rigSpec(npc) {
+  const P = npc.persona, L = P.look, key = personaKey(npc);
+  const skin = new THREE.Color(L.skin).lerp(new THREE.Color(0xd8c0a8), .45).getHex();
+  return { label: (npc.displayName || npc.name).toUpperCase(), h: 1.74 * (L.height || 1), w: L.heft || 1, skin, hair: [RIG_HAIR()[L.hair] || 'short', L.hairColor], top: [L.coat, RIG_TOP()[L.garment] || 'shirt', L.under ?? 0xcfccc2], legs: L.legs ?? 0x2a2a2a, shoes: L.shoes ?? 0x1a1a1a, skirt: L.garment === 'dress' ? L.coat : undefined, female: RIG_FEMALE().includes(key), heavy: (L.heft || 1) > 1.15, earring: false, f0: 120 };
+}
 function attachRig(npc) {
-  const P = makePerson('first'), root = npc.object;
+  const first = personaKey(npc) === 'the first';
+  const P = first ? makePerson('first') : makePerson(personaKey(npc).replace(/\s+/g, '_'), rigSpec(npc)), root = npc.object;
+  const X = first ? { extras: ['camera'] } : npc.persona.look;
+  personalize(P, X, { fabric: fabricTexture, print: printTexture, tattoo: tattooTexture });
   root.children.forEach(c => { c.visible = false; });
-  // The rig is authored at 1.78 m; cancel any persona scaling on the old body.
   P.root.scale.set(1.06 / (root.scale.x || 1), 1.06 / (root.scale.y || 1), 1.06 / (root.scale.z || 1));
   root.add(P.root); P.look = 'cam'; P.lookW = 0; npc.rig = P; npc.radius = Math.max(npc.radius || 0, 3.2); (attachRig.list || (attachRig.list = [])).push(npc);
+  P.idle = (R, t, dt) => rigIdle(npc, R, t, dt);
+}
+// Habits on the articulated body, run inside the rig's own update.
+function rigIdle(n, R, t, dt) {
+  const tic = n.persona?.tic, scripted = n.posed || (storyScene && storyScene.type !== 'hold'), s = t + n.phase;
+  if (n.raiseK) R.arms.forEach((a, i) => { a.sh.rotation.set(-.3 * n.raiseK, 0, (i === 0 ? -2.3 : 2.3) * n.raiseK); a.el.rotation.x = -.2; });
+  if (scripted || R.walking || n.porchOverride) return;
+  const cyc = (period, dur) => { const c = (s % period + period) % period; return c < dur ? Math.sin(c / dur * Math.PI) : 0; };
+  const A = R.arms;
+  if ((tic === 'fold' || tic === 'arms') && !n.seated) { const br = Math.sin(s * 1.3) * .02; A.forEach((a, i) => { const sd = i === 0 ? 1 : -1; a.sh.rotation.set(-.32 + br, 0, sd * .42); a.el.rotation.set(-1.85, 0, 0); a.wr.rotation.set(0, 0, sd * .5); }); if (tic === 'fold') A[0].el.rotation.x = -1.85 + Math.sin(s * 2.1) * .06; }
+  switch (tic) {
+    case 'tap': { const k = cyc(5, .6); if (k) A[1].el.rotation.x = -.95 + Math.abs(Math.sin(s * 14)) * .25; break; }
+    case 'wipe': { const k = cyc(6, 2.2); if (k) { A[0].el.rotation.x = -1.2 + Math.sin(s * 9) * .15 * k; A[1].el.rotation.x = -1.2 - Math.sin(s * 9) * .15 * k; } break; }
+    case 'stir': A[1].sh.rotation.x = -.6; A[1].el.rotation.x = -1.0 + Math.sin(s * 3) * .12; A[1].sh.rotation.z = -.15 + Math.cos(s * 3) * .08; break;
+    case 'carve': A[1].el.rotation.x = -1.1 + Math.sin(s * 12) * .04 * cyc(4, 2.5); A[0].el.rotation.x = -1.0; break;
+    case 'cross': { const k = cyc(9, 1.6); if (k) { A[1].sh.rotation.x = -.5 * k; A[1].el.rotation.x = -2.0 * k; A[1].sh.rotation.z = -.35 * k; } break; }
+    case 'measure': { const k = cyc(11, 2.2); if (k && !n.seated) { A[0].sh.rotation.z = 1.2 * k; A[1].sh.rotation.z = -1.2 * k; } break; }
+    case 'keys': { const k = cyc(5, 1.2); if (k) A[1].el.rotation.x = -.7 * k; break; }
+    case 'hum': R.headTilt = Math.sin(s * 1.9) * .12; break;
+    case 'glance': { const k = cyc(5.5, 1.4); if (k > .3) { R.look = rigIdle.fridge || (rigIdle.fridge = new THREE.Vector3(-6, 1.2, -8.3)); R.lookW = 1; } else if (R.look === rigIdle.fridge) R.look = 'cam'; break; }
+  }
 }
 function driveRig(n, t, dt) {
-  const P = n.rig; const _camW = driveRig.v || (driveRig.v = new THREE.Vector3()); if (P._frame === renderer.info.render.frame) return; P._frame = renderer.info.render.frame;
-  camera.getWorldPosition(_camW);
+  const P = n.rig; if (P._frame === renderer.info.render.frame) return; P._frame = renderer.info.render.frame;
+  const cam = driveRig.v || (driveRig.v = new THREE.Vector3()); camera.getWorldPosition(cam);
   P.parentYaw = n.object.rotation.y;
   P.extWalk = P.extWalk || { on: false, ph: 0, speed: 1.1 }; P.extWalk.on = !!n.walking;
-  if (n.seated && P.pose !== 'sit') P.pose = 'sit';
-  const wp = new THREE.Vector3(); n.object.getWorldPosition(wp); const d = wp.distanceTo(_camW);
-  const want = n.walking ? .25 : d < 7 ? 1 : d < 14 ? .5 : 0; P.lookW += (want - P.lookW) * Math.min(1, dt * 2.5);
+  const tic = n.persona?.tic, key = personaKey(n);
+  if (key !== 'the first' || !n.porchOverride) {
+    if (n.seated) { P.pose = tic === 'lean' ? 'lean' : 'sit'; if (!n.posed) n.object.position.y = 0; }
+    else if (P.pose === 'sit' || P.pose === 'lean' || P.pose === 'fold') P.pose = 'stand';
+  }
+  const wp = driveRig.w || (driveRig.w = new THREE.Vector3()); n.object.getWorldPosition(wp); const d = wp.distanceTo(cam);
+  const gz = n.persona?.gaze, shy = gz === 'avoid' ? 0 : gz === 'away' ? .3 : gz === 'down' || gz === 'hands' ? .45 : 1;
+  let want = n.posed ? 0 : n.walking ? .25 : (d < 7 ? 1 : d < 14 ? .5 : 0) * shy;
+  if (house.welcomeT > 0 && currentZone === 'home') want = 1;
+  const m = house.moment?.speakers?.includes(n) ? house.moment.speakers.find(x => x !== n) : null;
+  if (m?.rig) { P.look = m.rig.head.getWorldPosition(new THREE.Vector3()); want = 1; } else if (P.look !== rigIdle.fridge) P.look = 'cam';
+  P.lookW += (want - P.lookW) * Math.min(1, dt * 2.5);
   if (n.talkT > 0) { P.talk = Math.max(P.talk, n.talkT); n.talkT -= dt; }
-  updatePerson(P, dt, t * .001, _camW);
+  updatePerson(P, dt, t * .001, cam);
 }
 function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent || !isVisibleChain(n.object)) return; driveRig(n, t, dt); }); }
 
@@ -6507,12 +6551,50 @@ function v8Tick(dt, t) {
   updateRigs(dt, t); updateShafts(t); updateWelcome(dt);
   if (gameStarted && !gameEnded && currentZone === 'road' && !storyScene && !dialogueOpen && crolloReady()) startCrollo();
 }
+// An old hurricane oil lantern on an iron hook beside the door: a soft halo, a wide
+// penumbra, light that falls off instead of ending in a cone.
+function buildPorchLanternV10(R) {
+  const g = new THREE.Group(); g.position.set(1.05, 2.5, -8.05); R.add(g);
+  const iron = v7mat(0x1b1c1b, .5, { metalness: .65 }), tin = v7mat(0x3a3426, .55, { metalness: .5 }), rust = M.rust;
+  tubeBetween(g, [0, .42, -.2], [0, .42, .12], .014, iron, 6);
+  const scroll = new THREE.Mesh(new THREE.TorusGeometry(.09, .01, 5, 16, Math.PI * 1.4), iron); scroll.position.set(0, .34, -.12); scroll.rotation.y = Math.PI / 2; g.add(scroll);
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(.025, .006, 5, 10, Math.PI * 1.5), iron); hook.position.set(0, .4, .12); g.add(hook);
+  const L = new THREE.Group(); L.position.set(0, .14, .12); g.add(L); porch.lantern = L;
+  const bail = new THREE.Mesh(new THREE.TorusGeometry(.085, .005, 4, 18, Math.PI), iron); bail.position.y = .2; L.add(bail);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(.04, .075, .06, 14), tin); cap.position.y = .13; L.add(cap);
+  const vent = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .04, 10), tin); vent.position.y = .18; L.add(vent);
+  const globe = new THREE.Mesh(new THREE.SphereGeometry(.075, 18, 14), new THREE.MeshStandardMaterial({ color: 0xfff0d0, emissive: 0xffb060, emissiveIntensity: .9, transparent: true, opacity: .55, roughness: .1 })); globe.scale.y = 1.35; L.add(globe);
+  for (let i = 0; i < 4; i++) { const w = new THREE.Mesh(new THREE.TorusGeometry(.08, .004, 4, 20, Math.PI), iron); w.rotation.y = i * Math.PI / 4; w.scale.y = 1.4; L.add(w); }
+  const flame = new THREE.Mesh(new THREE.SphereGeometry(.016, 8, 6), new THREE.MeshStandardMaterial({ color: 0x221a10, emissive: 0xffc070, emissiveIntensity: 4 })); flame.scale.y = 2.2; L.add(flame);
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(.08, .085, .07, 16), rust); tank.position.y = -.13; L.add(tank);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xffb466, transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false })); halo.scale.set(2.2, 2.2, 1); L.add(halo);
+  const halo2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xffcf8a, transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false })); halo2.scale.set(.45, .55, 1); L.add(halo2);
+  const pl = new THREE.PointLight(0xffa860, 24, 11, 2); L.add(pl);
+  const sp = new THREE.SpotLight(0xffb06a, 42, 14, 1.05, 1.0, 2); sp.position.set(0, .05, 0); sp.target.position.set(-1.6, -2.6, 2.6); L.add(sp); L.add(sp.target);
+  sp.castShadow = !lowFx; if (sp.castShadow) { sp.shadow.mapSize.set(1024, 1024); sp.shadow.radius = 6; sp.shadow.bias = -.0015; sp.shadow.normalBias = .04; }
+  lampFlickers.push({ light: pl, base: 24, flicker: .08, bulb: flame.material, phase: 2 }); lampFlickers.push({ light: sp, base: 42, flicker: .06, bulb: flame.material, phase: 2 });
+  porch.halo = [halo, halo2];
+}
+// The hall behind the front door: a real opening, warm and narrow, that he walks into.
+function buildHallV10(R) {
+  const h = new THREE.Group(); h.visible = false; R.add(h); porch.hall = h;
+  const plaster = v7mat(0x8a7a62, 1, { map: TEX.plaster }), boards = v7mat(0x4a3a2a, 1, { map: TEX.wood });
+  addBox(h, 0, .48, -9.9, 2.0, .04, 2.6, boards);
+  addBox(h, -1.0, 1.6, -9.9, .08, 2.3, 2.6, plaster); addBox(h, 1.0, 1.6, -9.9, .08, 2.3, 2.6, plaster);
+  addBox(h, 0, 1.6, -11.2, 2.0, 2.3, .08, plaster); addBox(h, 0, 2.74, -9.9, 2.0, .06, 2.6, boards);
+  const frame = new THREE.Mesh(new THREE.PlaneGeometry(.5, .7), new THREE.MeshStandardMaterial({ color: 0x2a2620, roughness: .9 })); frame.position.set(.5, 1.75, -11.14); h.add(frame);
+  addBox(h, -.7, 1.5, -10.9, .04, 1.9, .04, M.darkWood); for (const y of [2.2, 2.3]) addBox(h, -.7, y, -10.9, .3, .03, .03, M.darkWood);
+  const coat = new THREE.Mesh(new THREE.CapsuleGeometry(.12, .5, 4, 8), v7mat(0x2a2620, 1)); coat.position.set(-.62, 1.85, -10.86); h.add(coat);
+  const bulb = new THREE.PointLight(0xffa860, 18, 7, 2); bulb.position.set(0, 2.5, -10.2); h.add(bulb); lampFlickers.push({ light: bulb, base: 18, flicker: .05, bulb: new THREE.MeshStandardMaterial(), phase: 4 });
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xffa860, transparent: true, opacity: .35, blending: THREE.AdditiveBlending, depthWrite: false })); glow.position.set(0, 2.45, -10.2); glow.scale.set(1.2, 1.2, 1); h.add(glow);
+}
 function buildV8World() {
+  buildHallV10(zones.road.group);
   buildPorchV8(); buildHomeFirstV8(); buildGraveV8(); buildLightingV8();
 }
 
 buildV8World();
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);
