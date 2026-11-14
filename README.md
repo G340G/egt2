@@ -44,6 +44,12 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 9 — fixes
+
+- **The farmhouse door no longer stays locked.** If you spoke to Il Professore from a step away, before the close-up on his book started, his walk-in never began and the door stayed locked. He now walks you in either way, steps round the porch table, and a 14-second failsafe sends him through the door if anything stalls.
+- **Il Professore uses the egtest rig** (`js/rig.js`, ported from G340G/egtest): articulated hips, spine, neck and head, real look-at, the cigarette pose and the reach for the book, a heavier walk with bending knees, and his plain jacket-over-pale-shirt look. He uses it on the porch, at the table, in the collapse scene, in the dark room and in the car.
+- **Walking for everyone else** is slower and heavier. Arms swing forward and back instead of sideways, knees bend, and the side-to-side body roll and head lurch are gone.
+
 ## Version 8 — work, ruin and the man under the lamp
 
 - **Jobs for cash (v10 §5.4).** Ten repairs, each asked by a person after you have spoken with them once. Examples: the guitar rattle for Il Professore (€40), Franco's cleaver, Anna's floor hatch, Marta's burin, Gabri's car door, Sergio's radio, the confessional latch and the bell clapper for Don Remo, Walter's blasting-machine lead (€50) and Ottavio's harpsichord at A=415. Each opens a bench: either *tap and listen* until you find where the fault lives, or *compare two tones* until the beating stops. All pitch work is relative comparison with unlimited retries. Then you **do it well, do it badly, or refuse**. Cash appears in the HUD. The result is written into that person's Station: a handle that holds or splits, a hatch that seals or lifts, a bell that tolls six times or more. It moves ACCORDO / RIFIUTO and is counted in the final ledger.

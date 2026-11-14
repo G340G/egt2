@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, personFor } from './people.js';
+import { makePerson, updatePerson } from './rig.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
 // ---- Player settings: volumes, mouse sensitivity and difficulty persist between visits. ----
@@ -605,6 +606,7 @@ function makeNPC(group,x,z,name,coatColor=0x272725,variant=0){
  const displayName=name==='The First'?'Il Professore':name;
  const npc={head,id:'npc_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_'),type:'npc',object:root,point:root.position,radius:3.4,prompt:'[ E ] SPEAK — '+displayName.toUpperCase(),name,displayName,phase:Math.random()*7,coat:cloth,leftArm,rightArm,photoFace,photoKey,leftForearm,rightForearm,legs,lowerLegs,shoes,eyes,lids,blinkTimer:1.8+Math.random()*4,blinkAmount:0,walking:false,cultist:false,fate:'present',profile,isFirst};
  dressPersona(npc,{root,cloth,trim,hair,skin,boot,hx:first?-.055:0,sleeves,garnish,female});
+ if(isFirst)attachRig(npc);
  root.traverse(o=>{if(o.isMesh&&o!==photoFace){o.castShadow=true;o.receiveShadow=true;}});
  photoNPCs.push(npc);refreshPhotoNPC(npc);group.userData.interactables.push(npc);return npc;
 }
@@ -3623,7 +3625,7 @@ function updateDarkroomHunt(dt,t){
   }
 }
 function storyTick(dt, t) {
-  try { updatePorchPrimo(); updateAtmosphere(); updateEscalation(dt); updateCellarHunt(dt, t); updateDarkroomHunt(dt,t); updateChurchBell(dt); updateCinematic(); } catch (err) { console.error('primo', err); }
+  try { updatePorchPrimo(dt); updateAtmosphere(); updateEscalation(dt); updateCellarHunt(dt, t); updateDarkroomHunt(dt,t); updateChurchBell(dt); updateCinematic(); } catch (err) { console.error('primo', err); }
   try {
     updateEmitters(dt);
     updateIndustryNoise(dt);
@@ -4136,15 +4138,16 @@ function animateZone(t, dt) {
       s.material.opacity = (.07 + dread * .07) * (z.name === 'cellar' ? .55 : 1);
     });
     [...new Set([...z.interactables.filter(x => x.type === 'npc'),...cultRoster.filter(n=>n.object.parent===z.group)])].forEach(n => {
-      const phase=t*.0011+n.phase, stride=n.walking?Math.sin(t*.008+n.phase):Math.sin(phase)*.035;
-      const bob=n.walking?Math.abs(Math.sin(t*.008+n.phase))*.035:Math.sin(phase)*.009;
+      if(n.rig){personaAnimate(n,t,dt);return;}
+      // v9 walk: a slower, heavier stride; arms swing forward and back, not sideways; no body roll.
+      const phase=t*.0011+n.phase, wph=t*.005+n.phase, stride=n.walking?Math.sin(wph):0;
+      const bob=n.walking?Math.abs(Math.cos(wph))*-.022:Math.sin(phase)*.006;
       n.object.position.y = n.fate==='dead'?n.object.position.y:(n.baseY||0)+(n.seated?bob*.3:bob);
-      if(n.seated){n.leftArm.rotation.z=-.08+Math.sin(phase)*.01;n.rightArm.rotation.z=.08-Math.sin(phase)*.01;} else {
-      n.leftArm.rotation.z = -.13 + stride*.46 + Math.sin(phase)*.018;
-      n.rightArm.rotation.z = .13 - stride*.46 - Math.sin(phase)*.018;
-      n.leftForearm.rotation.z=-.24+stride*.25;n.rightForearm.rotation.z=.24-stride*.25;}
-      if(!n.seated&&n.legs?.length===2){n.legs[0].rotation.x=stride*.52;n.legs[1].rotation.x=-stride*.52;n.shoes?.forEach((shoe,i)=>{shoe.rotation.x=i===0?stride*.52:-stride*.52;});}
-      if(n.head){const lurch=n.walking?1+.4*Math.sin(t*.0031+n.phase*3):1;n.head.rotation.z=Math.sin(t*.0009+n.phase)*.12*lurch+(n.walking?Math.sin(t*.008+n.phase)*.07:0);n.head.rotation.x=n.walking?.16:-.05+Math.sin(t*.0007+n.phase)*.05;n.object.rotation.z=n.walking?Math.sin(t*.0045+n.phase)*.035:Math.sin(t*.0013+n.phase)*.012;}
+      if(n.seated){n.leftArm.rotation.z=-.08+Math.sin(phase)*.01;n.rightArm.rotation.z=.08-Math.sin(phase)*.01;}
+      else if(n.walking){n.leftArm.rotation.z=-.09;n.rightArm.rotation.z=.09;n.leftArm.rotation.x=-stride*.38;n.rightArm.rotation.x=stride*.38;n.leftForearm.rotation.z=-.06;n.rightForearm.rotation.z=.06;n.leftForearm.rotation.x=-.22-Math.max(0,stride)*.18;n.rightForearm.rotation.x=-.22-Math.max(0,-stride)*.18;n.wasWalking=true;}
+      else{if(n.wasWalking){n.leftArm.rotation.x=n.rightArm.rotation.x=0;n.leftForearm.rotation.x=n.rightForearm.rotation.x=0;n.wasWalking=false;}n.leftArm.rotation.z=-.11+Math.sin(phase)*.012;n.rightArm.rotation.z=.11-Math.sin(phase)*.012;n.leftForearm.rotation.z=-.12;n.rightForearm.rotation.z=.12;}
+      if(!n.seated&&n.legs?.length===2){n.legs[0].rotation.x=stride*.42;n.legs[1].rotation.x=-stride*.42;n.shoes?.forEach(shoe=>{shoe.rotation.x=0;});}
+      if(n.head){n.head.rotation.z=Math.sin(t*.0009+n.phase)*.05;n.head.rotation.x=-.03+Math.sin(t*.0007+n.phase)*.03;n.object.rotation.z=0;n.object.rotation.x=n.walking?.035:(n.object.rotation.x||0);}
       n.blinkTimer-=dt;if(n.blinkTimer<=0){n.blinkAmount=Math.min(1,n.blinkAmount+dt*15);if(n.blinkAmount>=1){n.blinkTimer=.12;n.blinkAmount=Math.max(0,n.blinkAmount-dt*15);}if(n.blinkAmount===0)n.blinkTimer=2.4+Math.random()*4.8;}
       n.lids?.forEach(lid=>{lid.scale.y=.08+n.blinkAmount*.72;lid.position.y=(lid.userData.baseY??1.955)-n.blinkAmount*.012;});
       personaAnimate(n,t,dt);
@@ -5723,6 +5726,7 @@ function dressPersona(npc, parts) {
 
 // ---- Habits, posture and gaze ---------------------------------------------
 function personaAnimate(n, t, dt) {
+  if (n.rig) { driveRig(n, t, dt); return; }
   const P = n.persona; if (!P || n.fate === 'dead' || !n.headPivot) return;
   const scripted = n.posed || (storyScene && storyScene.type !== 'hold');
   const hp = n.headPivot, s = t * .001 + n.phase;
@@ -6049,7 +6053,7 @@ function bodyRealism(n, t, dt) {
   const parts = findPersonaParts(n), s = t * .001 + n.phase;
   if (parts.chest) parts.chest.scale.y = .56 * (1 + Math.sin(s * 1.4) * .025);
   if (parts.mouth) { let open = 0; if (n.talkT > 0) { n.talkT -= dt; open = (Math.sin(s * 17) * .5 + .5) * (Math.sin(s * 5.3) * .3 + .7); if (n.headPivot) n.headPivot.rotation.x += Math.sin(s * 6) * .03; } parts.mouth.scale.y += (1 + open * 4.5 - parts.mouth.scale.y) * Math.min(1, dt * 18); }
-  if (n.walking && n.lowerLegs?.length === 2) { const ph = t * .008 + n.phase; n.lowerLegs[0].rotation.x = Math.max(0, -Math.cos(ph)) * .7 + .05; n.lowerLegs[1].rotation.x = Math.max(0, Math.cos(ph)) * .7 + .05; }
+  if (n.walking && n.lowerLegs?.length === 2) { const ph = t * .005 + n.phase; n.lowerLegs[0].rotation.x = Math.max(0, -Math.cos(ph)) * .62 + .05; n.lowerLegs[1].rotation.x = Math.max(0, Math.cos(ph)) * .62 + .05; }
   else if (!n.seated && n.lowerLegs?.length === 2) { n.lowerLegs[0].rotation.x = .02 + Math.max(0, Math.sin(s * .3)) * .05; n.lowerLegs[1].rotation.x = .02; }
 }
 
@@ -6170,8 +6174,8 @@ function primoPhotograph(note = 'IL PROFESSORE PHOTOGRAPHS THE FACES, NOT THE BO
   audio?.mechanicalTone(2400, 900, .05, 'square', .03); setTimeout(() => showToast(note), 300);
 }
 function setEarplugs(npc, on) {
-  if (!npc?.headPivot) return;
-  if (!npc._plugs) { npc._plugs = [-1, 1].map(sd => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.016, .016, .03, 8), v7mat(0xd9661c, .8, { emissive: 0x2a0d00 })); m.position.set(sd * .19, .19, .005); m.rotation.z = Math.PI / 2; npc.headPivot.add(m); return m; }); }
+  const holder = npc?.rig?.head || npc?.headPivot; if (!holder) return;
+  if (!npc._plugs) { npc._plugs = [-1, 1].map(sd => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .022, 8), v7mat(0xd9661c, .8, { emissive: 0x2a0d00 })); if (npc.rig) m.position.set(sd * .1, .11, 0); else m.position.set(sd * .19, .19, .005); m.rotation.z = Math.PI / 2; holder.add(m); return m; }); }
   npc._plugs.forEach(m => m.visible = on);
 }
 
@@ -6215,27 +6219,31 @@ function buildPorchV8() {
   const spill = new THREE.SpotLight(0xffb066, 0, 14, .7, .6, 1.4); spill.position.set(0, 2.1, -8.6); spill.target.position.set(0, 0, -3.5); g.add(spill); g.add(spill.target); porch.spill = spill;
   for (let i = 0; i < 7; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xb0b4b8, transparent: true, opacity: 0, depthWrite: false })); g.add(sp); porch.puffs.push({ s: sp, life: 99 }); }
 }
-function updatePorchPrimo() {
+function updatePorchPrimo(dt = 1 / 60) {
   const n = porchFirst(); if (!n || !gameStarted) return;
-  const dt = 1 / 60, door = zones.road.interactables.find(i => i.destination === 'home');
+  const _unused = 0, door = zones.road.interactables.find(i => i.destination === 'home');
   if (door && !storyFlags.has('primo-first-contact') && !door.v8locked) { door.v8locked = true; door.locked = true; door.prompt = '[ E ] HE IS STANDING BY THE DOOR. SPEAK TO HIM FIRST.'; }
-  if (!porch.ember) { porch.ember = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xff8a4a, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false })); porch.ember.scale.set(.06, .06, 1); porch.ember.position.set(0, -.5, .08); n.rightForearm.add(porch.ember); }
+  if (!porch.ember) { porch.ember = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xff8a4a, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false })); porch.ember.scale.set(.05, .05, 1); if (n.rig) { porch.ember.position.set(0, -.11, .04); n.rig.arms[1].wr.add(porch.ember); } else { porch.ember.position.set(0, -.5, .08); n.rightForearm.add(porch.ember); } }
   porch.puffs.forEach((p, i) => { p.life += dt; if (p.life < 0 || p.life > 6) { p.s.material.opacity = 0; return; } p.s.position.y += dt * .18; p.s.position.x += dt * .05 * Math.sin(i); const k = .15 + p.life * .25; p.s.scale.set(k, k, 1); p.s.material.opacity = .16 * (1 - p.life / 6); });
   if (currentZone !== 'road' || storyFlags.has('porch-primo-gone')) return;
   const pp = currentPosition(), d = Math.hypot(pp.x - n.object.position.x, pp.z - n.object.position.z);
   if (porch.stage === 'smoke' || porch.stage === 'watch') {
     n.porchOverride = true; porch.cig += dt; const cyc = porch.cig % 8, raise = cyc > 5 && cyc < 6.4;
-    n.rightArm.rotation.x = raise ? -.35 : 0; n.rightArm.rotation.z = raise ? .5 : .13; n.rightForearm.rotation.x = raise ? -2.2 : -.3;
+    if (n.rig) n.rig.pose = raise ? 'smoke' : 'stand'; else { n.rightArm.rotation.x = raise ? -.35 : 0; n.rightArm.rotation.z = raise ? .5 : .13; n.rightForearm.rotation.x = raise ? -2.2 : -.3; }
     porch.ember.material.opacity = raise && cyc > 5.6 ? 1 : .5; porch.ember.visible = true;
     if (cyc > 6.9 && cyc - dt <= 6.9) { const hp = new THREE.Vector3(); n.headPivot.getWorldPosition(hp); porch.puffs.forEach((p, i) => { p.life = -i * .15; p.s.position.copy(hp).add(new THREE.Vector3(0, .15, .15)); }); }
     if (d < 11) { porch.stage = 'watch'; turnNPC(n, pp.x, pp.z, dt, 2.5); }
     if (d < 3.6 && !n.talkedOnce && !storyScene && !dialogueOpen) startPorchScene(n);
+    // Spoken to before the close-up began (E from a step away): go straight to the walk-in.
+    if (n.talkedOnce && porch.stage !== 'book') porch.stage = 'talk';
   }
-  if (porch.stage === 'talk' && n.talkedOnce && !dialogueOpen) { porch.stage = 'walk'; porch.t = 0; porch.ember.visible = false; n.rightArm.rotation.x = 0; n.rightForearm.rotation.x = 0; }
+  if (porch.stage === 'talk' && n.talkedOnce && !dialogueOpen) { porch.stage = 'walk'; porch.t = 0; porch.ember.visible = false; if (n.rig) n.rig.pose = 'stand'; n.rightArm.rotation.x = 0; n.rightForearm.rotation.x = 0; }
+  if (porch.stage === 'walk' && porch.t > 14 && !storyFlags.has('porch-primo-gone')) { n.object.position.set(0, 0, -9.6); porch.opened = true; porch.openT = 2; }
   if (porch.stage === 'walk') {
     porch.t += dt; n.porchOverride = true;
     if (porch.t > .6) {
-      const reached = walkNPC(n, 0, -7.55, 1.1, dt);
+      if (!porch.wp1) porch.wp1 = walkNPC(n, -1.95, -6.75, 1.1, dt);
+      const reached = porch.wp1 && walkNPC(n, 0, -7.55, 1.1, dt);
       if (reached && !porch.opened) { porch.opened = true; porch.openT = 0; audio?.doorCreak(); setTimeout(() => { laugh(); setTimeout(laugh, 380); }, 700); storyLine('IL PROFESSORE: Come in. They have been waiting longer than you have.'); }
       if (porch.opened) {
         porch.openT += dt; const k = Math.min(1, porch.openT / 1.2); if (door?.doorPivot) door.doorPivot.rotation.y = -k * 1.55; porch.spill.intensity = k * 14;
@@ -6251,10 +6259,11 @@ function startPorchScene(n) {
     if (s.t < 2.6) aimCamera(porch.book.world, Math.min(1, dt * 2.6));
     else { const hp = new THREE.Vector3(); n.headPivot.getWorldPosition(hp); hp.y += .18; aimCamera(hp, Math.min(1, dt * 2.2)); }
     if (s.t > .6 && !s.l1) { s.l1 = true; storyLine('(Underlined, in pencil: “Become who you are.”)'); }
-    if (s.t > 2.1 && s.t < 2.9) { n.porchOverride = true; n.leftArm.rotation.x = -.9; n.leftForearm.rotation.x = -.5; }
+    if (s.t > 2.1 && s.t < 2.9) { n.porchOverride = true; if (n.rig) n.rig.pose = 'reach'; else { n.leftArm.rotation.x = -.9; n.leftForearm.rotation.x = -.5; } }
+    if (s.t > 2.9 && n.rig?.pose === 'reach') n.rig.pose = 'stand';
     if (s.t > 2.6) { porch.book.hinge.rotation.z = -Math.min(1, (s.t - 2.6) / .4) * Math.PI; if (!s.snap) { s.snap = true; audio?.mechanicalNoise(.12, 1800, 1, .05); } }
     if (s.t > 3.0) { n.leftArm.rotation.x *= .9; n.leftForearm.rotation.x *= .9; }
-    if (s.t >= s.dur) { storyScene = null; porch.stage = 'talk'; $('subtitle-wrap').classList.remove('visible'); openDialogue(n); }
+    if (s.t >= s.dur) { storyScene = null; porch.stage = 'talk'; $('subtitle-wrap').classList.remove('visible'); if (!n.talkedOnce && !dialogueOpen) openDialogue(n); }
   }, skip(s) { s.t = s.dur - .01; } };
 }
 
@@ -6472,9 +6481,30 @@ function buildLightingV8() {
 }
 function updateShafts(t) { shafts.forEach(s => { s.m.material.opacity = s.base * (.82 + Math.sin(t * .0007 + s.ph) * .12 + (Math.random() < .01 ? -.2 : 0)); }); }
 
+// ---- v9: Il Professore wears the egtest rig (articulated hips, spine, neck, look-at, smoke) ----
+function attachRig(npc) {
+  const P = makePerson('first'), root = npc.object;
+  root.children.forEach(c => { c.visible = false; });
+  // The rig is authored at 1.78 m; cancel any persona scaling on the old body.
+  P.root.scale.set(1.06 / (root.scale.x || 1), 1.06 / (root.scale.y || 1), 1.06 / (root.scale.z || 1));
+  root.add(P.root); P.look = 'cam'; P.lookW = 0; npc.rig = P; npc.radius = Math.max(npc.radius || 0, 3.2); (attachRig.list || (attachRig.list = [])).push(npc);
+}
+function driveRig(n, t, dt) {
+  const P = n.rig; const _camW = driveRig.v || (driveRig.v = new THREE.Vector3()); if (P._frame === renderer.info.render.frame) return; P._frame = renderer.info.render.frame;
+  camera.getWorldPosition(_camW);
+  P.parentYaw = n.object.rotation.y;
+  P.extWalk = P.extWalk || { on: false, ph: 0, speed: 1.1 }; P.extWalk.on = !!n.walking;
+  if (n.seated && P.pose !== 'sit') P.pose = 'sit';
+  const wp = new THREE.Vector3(); n.object.getWorldPosition(wp); const d = wp.distanceTo(_camW);
+  const want = n.walking ? .25 : d < 7 ? 1 : d < 14 ? .5 : 0; P.lookW += (want - P.lookW) * Math.min(1, dt * 2.5);
+  if (n.talkT > 0) { P.talk = Math.max(P.talk, n.talkT); n.talkT -= dt; }
+  updatePerson(P, dt, t * .001, _camW);
+}
+function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent || !isVisibleChain(n.object)) return; driveRig(n, t, dt); }); }
+
 // ---- v8 tick ----
 function v8Tick(dt, t) {
-  updateShafts(t); updateWelcome(dt);
+  updateRigs(dt, t); updateShafts(t); updateWelcome(dt);
   if (gameStarted && !gameEnded && currentZone === 'road' && !storyScene && !dialogueOpen && crolloReady()) startCrollo();
 }
 function buildV8World() {
