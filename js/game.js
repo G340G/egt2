@@ -5,7 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, personFor } from './people.js';
+import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, personFor } from './people.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
 // ---- Player settings: volumes, mouse sensitivity and difficulty persist between visits. ----
@@ -435,7 +435,7 @@ function addLamp(group, x, y, z, { color = 0xffb46a, intensity = 6, distance = 1
     const shade = new THREE.Mesh(new THREE.ConeGeometry(.24, .18, 18, 1, true), mat(0x3a3d34, .6, { metalness: .4, side: THREE.DoubleSide })); shade.position.y = .05; root.add(shade);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(.05, 10, 8), bulbMat); bulb.position.y = -.02; root.add(bulb);
     root.userData.lightPos = new THREE.Vector3(0, -.08, 0);
-  } else { root.userData.lightPos = new THREE.Vector3(); }
+  } else if (style === 'gothic') { addGothicLampParts(root, iron, bulbMat, color); } else { root.userData.lightPos = new THREE.Vector3(); }
   const lp = root.userData.lightPos; intensity *= 2.6;
   let light;
   if (spot) {
@@ -598,8 +598,8 @@ function makeNPC(group,x,z,name,coatColor=0x272725,variant=0){
  if(first){
   leftArm.position.y+=.11;leftArm.rotation.z=-.24;rightArm.position.y-=.045;rightArm.rotation.z=.14;rightForearm.rotation.z=-.28;leftForearm.rotation.z=.10;
   const shoulder=new THREE.Mesh(new THREE.SphereGeometry(.20,10,8),trim);shoulder.position.set(-.35,1.49,.015);shoulder.scale.set(1.15,.58,.78);root.add(shoulder);
-  const lapel=new THREE.Mesh(new THREE.BoxGeometry(.11,.65,.06),M.darkWood);lapel.position.set(-.16,1.25,.235);lapel.rotation.z=.32;root.add(lapel);
-  const seam=new THREE.Mesh(new THREE.CylinderGeometry(.012,.02,.52,5),M.rust);seam.position.set(.25,.72,.19);seam.rotation.z=-.18;root.add(seam);
+  const lapel=new THREE.Mesh(new THREE.BoxGeometry(.11,.65,.06),M.darkWood);lapel.position.set(-.16,1.25,.235);lapel.rotation.z=.32;root.add(lapel);garnish.push(lapel);
+  const seam=new THREE.Mesh(new THREE.CylinderGeometry(.012,.02,.52,5),M.rust);seam.position.set(.25,.72,.19);seam.rotation.z=-.18;root.add(seam);garnish.push(seam);
   root.rotation.z=-.025;root.scale.set(1.04,1.08,.94);
  }
  const displayName=name==='The First'?'Il Professore':name;
@@ -807,6 +807,7 @@ function addRomanesqueChurchExterior(group,x,z,w=12,d=15,h=6.8){
   const cap=new THREE.Mesh(new THREE.ConeGeometry(2,1.7,4),roof);cap.rotation.y=Math.PI/4;cap.position.set(-4.25,11.35,5);g.add(cap);
   addBox(g,-4.25,12.35,5,.07,.72,.07,M.rust);addBox(g,-4.25,12.46,5,.46,.065,.07,M.rust);
   for(let row=0;row<9;row++)for(let col=0;col<8;col++)addBox(g,-w/2+.78+col*1.48+(row%2)*.38,.45+row*.66,front+.315,1.3,.045,.045,row%3===0?pale:stone,{castShadow:false});
+  return g;
 }
 
 const TREE_MATERIALS = [mat(0x28352b, 1), mat(0x34402f, 1), mat(0x444434, 1)];
@@ -1274,7 +1275,7 @@ function buildRoad() {
   }
   // Weathered timber houses retain different silhouettes; the church is a separate Romanesque stone mass.
   addHouseExterior(z.group,0,-15,15,13,5.4,2,0x87867b,true);
-  addRomanesqueChurchExterior(z.group,37,-25,12,15,6.8);
+  storyRef.churchExt = addRomanesqueChurchExterior(z.group,37,-25,12,15,6.8);
   addHouseExterior(z.group,-36,-14,12,10,4.8,4,0x77766c,true);
   addHouseExterior(z.group,27,22,10,9,4.2,5,0x555a55,true);
   addRoadSurfaceDetails(z.group); addWoodPavement(z.group,27,10.2,18.2,3.3); addMachineComplex(z.group);
@@ -2205,7 +2206,7 @@ function speakVoice(text, npcName = '') {
   const clean = String(text).replace(/^[^:]*:\s*/, '');
   const dur = Math.min(4.8, .9 + clean.length * .045);
   const seed = (npcName || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const pan = ((seed % 5) - 2) * .35;
+  const pan = ((seed % 5) - 2) * .35; markTalking(npcName, dur);
   audio.whisper(dur, pan);
   setTimeout(() => audio.whisper(dur * .6, -pan), 280 + (seed % 3) * 90);
   const sub = $('subtitle'); if (sub) { sub.classList.add('distorted'); setTimeout(() => sub.classList.remove('distorted'), dur * 1000); }
@@ -2213,7 +2214,8 @@ function speakVoice(text, npcName = '') {
 }
 function openDialogue(npc) {
   if (dialogueOpen) return;
-  if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { openSecondDialogue(npc); return; }
+  if (npc.isHomeFirst) { const j = jobFor(npc); if (j) offerJob(npc, j); else storyLine('IL PROFESSORE: ' + (primoAside() || 'Sit wherever the room puts you. You will know which chair.')); return; }
+  if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { const j = jobFor(npc); if (j) { offerJob(npc, j); return; } openSecondDialogue(npc); return; }
   dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
   $('speaker').textContent = (npc.displayName||npc.name).toUpperCase(); $('subtitle').textContent = npc.dialogue?.line || 'No answer. Only the sound of clothes.'; speakVoice(npc.dialogue?.line || 'No answer.',npc.name);
   const options = $('dialogue-options'); options.innerHTML = '';
@@ -2621,11 +2623,13 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) audio.toggle();
   if (e.code === 'KeyP' && !e.repeat) { settingsOpen ? closeSettings() : openSettings(); }
   if (e.code === 'Space' && !e.repeat && storyScene && storyScene.skippable !== false && storyScene.type !== 'hold') { e.preventDefault(); skipStoryScene(); }
+  if (e.code === 'Tab' && bench) { e.preventDefault(); return; }
   if (e.code === 'Tab' && !e.repeat && !listeningPending) { e.preventDefault(); journalOpen ? closeJournal() : openJournal(); }
   if (e.code === 'KeyE' && playerInputEnabled() && activeTarget) inspectTarget(activeTarget);
   if (dialogueOpen && (e.code === 'Digit1' || e.code === 'Digit2')) $('dialogue-options').querySelectorAll('button')[Number(e.code.slice(-1)) - 1]?.click();
   // Escape exits Pointer Lock at browser level. Do not request it again in the same key event;
   // the canvas click handler will reacquire it on the next deliberate click.
+  if (bench && e.code === 'Escape') { e.preventDefault(); if (bench.stage === 'done') closeBench(); return; }
   if (dialogueOpen && e.code === 'Escape') { e.preventDefault(); closeDialogue(false); }
 });
 window.addEventListener('keyup', e => {keys.delete(e.code);if(e.code==='KeyQ')hiddenBreath=false;});
@@ -2810,8 +2814,8 @@ function completeDig() {
   updateJournalCount(); syncDigSite();
   showToast('THERE IS A NAME UNDER THE EARTH. IT IS NOT A SINGER’S NAME.');
   audio.killSting(); glitchPulse = Math.max(glitchPulse, 1.1);
-  speakVoice('Aurelio. The name was on the cross. Someone buried it before the others.', 'RECORDING 14-B');
   updateMissions();
+  if (grave.group) startGraveScene();
 }
 function buildStoryExtras() {
   buildRoadV6();
@@ -3271,7 +3275,7 @@ function buildForest() {
   for(let i=0;i<42;i++){const leaf=new THREE.Mesh(new THREE.PlaneGeometry(.18+(i%4)*.045,.055+(i%3)*.02),new THREE.MeshStandardMaterial({color:[0x5c6245,0x77714e,0x333d2d][i%3],roughness:1,transparent:true,opacity:.82,side:THREE.DoubleSide}));leaf.position.set(Math.cos(i*2.399)*(2.8+(i%3)),.18+(i%6)*.23,-29+Math.sin(i*2.399)*(2+(i%4)));leaf.userData={phase:i*2.399,radius:Math.hypot(leaf.position.x,leaf.position.z+29),height:leaf.position.y};g.add(leaf);storyRef.voidLeaves.push(leaf);}
 }
 // Il Professore: friendly on the surface, and every task he gives brings the new arrival closer to the void.
-function primoDialogue(){
+function primoDialogueBase(){
   const f=storyFlags;
   if(f.has('darkroom-cleared')&&!f.has('first-tea'))return{line:'You read the margins. The sentence about willing nothingness is printed. The timings are mine. I added one line beneath them: “What is falling must also be pushed.” Those are not instructions for falling. They are the seconds I watched after each body stopped moving. You found the earplugs, too.',choices:['Why did you wear them?','Did you ever hear The White?'],replies:['I wanted the image without the sound. Sound makes a fall belong to someone. An image can be kept.','I heard the reels turn. I heard the room when the motor stopped. I never heard an album.'],actions:[()=>storyFlags.add('first-questioned'),()=>storyFlags.add('first-questioned')]};
   if(f.has('first-tea'))return{line:'The cup was warm. The room was not. You keep looking for the moment I fell, but you have already watched it. The sound came later.',choices:['Who is left in the house?','What was The White?'],replies:['The person who pours. The person who opens the door. The person who arrives.','A room that kept being mistaken for a song. That is all I can tell you now.'],actions:[()=>storyFlags.add('ines-survivor-seen'),()=>storyFlags.add('white-questioned')]};
@@ -3322,8 +3326,9 @@ function endFirstTeaScene(){
   showToast('IL PROFESSORE IS GONE.');
 }
 function storyLine(text) {
-  const m = /^([^:]+):\s*/.exec(text);
-  $('speaker').textContent = m ? m[1].toUpperCase() : 'VOICE';
+  const m = /^\(/.test(text) ? null : /^([^:]+):\s*/.exec(text);
+  if (!dialogueOpen) $('dialogue-options').innerHTML = '';
+  $('speaker').textContent = m ? m[1].toUpperCase() : '';
   $('subtitle').textContent = text.replace(/^[^:]+:\s*/, '');
   $('subtitle-wrap').classList.add('visible');
   speakVoice(text, m ? m[1] : '');
@@ -3468,6 +3473,7 @@ function beginForestCar() {
 }
 function updateStoryScene(dt, t) {
   const s = storyScene; s.t += dt;
+  if (s.type === 'v8') { while (s.i < s.lines.length && s.t >= s.lines[s.i][0]) { storyLine(s.lines[s.i][1]); s.i++; } s.update(s, dt); return; }
   if (['pino-combine','first-tea','confession','car'].includes(s.type) && !s.savedAnchor) { s.savedAnchor = playerAnchor.position.clone(); s.savedRot = [camera.rotation.x, camera.rotation.y]; playerAnchor.position.set(0, 0, 0); setCinema(true); }
   while (s.i < s.lines.length && s.t >= s.lines[s.i][0]) { storyLine(s.lines[s.i][1]); s.i++; }
   if (s.type === 'hold') {
@@ -3626,7 +3632,7 @@ function storyTick(dt, t) {
     if (pendingCar && !dialogueOpen && gameStarted && !gameEnded && currentZone === 'abattoir') { pendingCar = false; beginForestCar(); }
     if (storyScene) updateStoryScene(dt, t);
     if (chaseState) updateChase(dt, t);
-    v6Tick(dt, t);
+    v6Tick(dt, t); v8Tick(dt, t);
   } catch (err) { console.error('story', err); }
 }
 
@@ -3992,7 +3998,7 @@ function updateFinale(s, dt) {
 }
 
 // The porch Il Primo leaves after his first words, and returns later as the enemy.
-function updatePorchPrimo() {
+function updatePorchPrimoOld() {
   if (!storyFlags.has('primo-first-contact') || storyFlags.has('porch-primo-gone') || dialogueOpen) return;
   for (const zn of Object.values(zones)) {
     const ix = zn.interactables.findIndex(i => i.isOpeningPrimo);
@@ -4011,12 +4017,13 @@ function updatePorchPrimo() {
 // =============================================================================
 let escTier = 0;
 const PRIMO_TIER_LINES = {
-  1: ['Il Professore: I was not born empty. I was taught to listen until listening was the only thing I had left.', 'Il Professore: You have started counting the chairs. I did that too, in the same house, on the same night.'],
-  2: ['Il Professore: Every name you collect is a little less room for your own. I am not taking anything. I am making space.', 'Il Professore: Notice how quiet the rooms become when you stop answering them.'],
-  3: ['Il Professore: The fog is not outside the house. It is the house, breathing out a little more each time you come back.', 'Il Professore: I stopped hearing my own voice around the third winter. It was a relief. You will see.'],
-  4: ['Il Professore: Look behind you. You will not see me. That is the nature of a hollow thing: it is always just out of the frame.', 'Il Professore: The doors do not lock. They simply stop opening for people who are still full of themselves.'],
-  5: ['Il Professore: Do you know the worst part? I liked it when it took me. I had been so tired of being heard.', 'Il Professore: Soon the corridor will be the only way left, and it will be very warm.'],
-  6: ['Il Professore: Come down. The record is waiting, and so, a little, am I.', 'Il Professore: Listen. Can you hear the laugh? It is not mine. It is yours, coming back to you late.']
+  // He never commands. He asks questions he already knows the answer to, and misquotes.
+  1: ['Il Professore: Have you counted the chairs yet? Everyone does, the first hour. What number did you get?', 'Il Professore: You listen like a man who expects to be paid for it. That is not a criticism.'],
+  2: ['Il Professore: “Become who you are.” Do you know who you are, Tobia, or only what you repair?', 'Il Professore: Notice how no one in this house has been told to do anything. I would like you to notice that.'],
+  3: ['Il Professore: Nothing is true, everything is permitted. It is in the same book. Look for it.', 'Il Professore: I do not like the sound of things. I like the second before the sound. Do you know that second?'],
+  4: ['Il Professore: When you were a boy, did you ever stand very far from something falling, and wait? The waiting is the best part.', 'Il Professore: I write down what people choose. You would be surprised how rarely it is what they say.'],
+  5: ['Il Professore: You could stop me. You know that. You have known it since the porch. Why haven’t you?', 'Il Professore: My father’s crew brought down a quarry face on a man. The sound came a second late. I have been living in that second.'],
+  6: ['Il Professore: Come down. The platter is empty. That is not the same as silent.', 'Il Professore: I put the earplugs in for the church. I will take them out for you. Isn’t that a kind of respect?']
 };
 function startMonologue(lines, dur = 16) {
   if (storyScene) return;
@@ -4887,7 +4894,7 @@ function stationDef(id) {
 }
 const STATION_CARD = 3.4, PAST_GAP = 1.2, PAST_DUR = 6.5, PAST_OUT = 1.0;
 function startStation(id) {
-  cancelHold(); const def = stationDef(id); if (!def) return;
+  cancelHold(); const def = stationDef(id); if (!def) return; jobStationLine(id, def);
   keys.clear(); activeTarget = null; $('prompt').classList.remove('visible'); if (dialogueOpen) closeDialogue(false);
   const save = { zone: currentZone, pos: playerAnchor.position.clone(), rx: camera.rotation.x, ry: camera.rotation.y };
   const P0 = STATION_CARD + def.dur, P1 = P0 + PAST_GAP, P2 = P1 + PAST_DUR, END = P2 + PAST_OUT;
@@ -4936,6 +4943,7 @@ function finishStationScene(s) {
   storyFlags.add('station-' + s.id); storyFlags.add('station-any');
   journal.push({ id: 'station-' + s.id, title: `Station ${def.roman} · ${def.name.charAt(0) + def.name.slice(1).toLowerCase()}`, description: def.journal, kind: 'station', zone: def.zone }); updateJournalCount();
   fear = Math.min(1, fear + .08); glitchPulse = Math.max(glitchPulse, .8);
+  setTimeout(() => primoPhotograph(), 500);
 }
 function endStation(s) {
   if (!s.finished) finishStationScene(s);
@@ -4949,6 +4957,7 @@ function endStation(s) {
 }
 function skipStoryScene() {
   const s = storyScene; if (!s) return;
+  if (s.type === 'v8') { s.skip?.(s); return; }
   if (s.type === 'station') {
     if (s.phase <= 2) { s.t = Math.max(s.t, s.P0); if (s.phase === 0) { updateStation(s, 0); } }
     else if (s.phase <= 5) { s.t = s.P2; s.phase = 5; }
@@ -5660,35 +5669,47 @@ function dressPersona(npc, parts) {
   const heft = L.heft || 1, height = L.height || 1;
   root.scale.set(heft * (root.scale.x || 1), height * (root.scale.y || 1), (.6 + heft * .4) * (root.scale.z || 1));
   npc.stoop = L.stoop || 0; npc.gait = P.gait || 1;
-  // ---- Garments ----
+  // ---- Garments (v8: no flat panels — every garment wraps the body) ----
   const coatMat = cloth, under = v7mat(L.under ?? L.coat, .98);
-  const front = (w, h, y, mat, z = .232) => add(new THREE.BoxGeometry(w, h, .03), mat, 0, y, z, 1, 1, 1, root);
-  const edge = (sd, h, y, mat, rz = 0) => { const m = add(new THREE.BoxGeometry(.05, h, .035), mat, sd * .1, y, .238, 1, 1, 1, root); m.rotation.z = rz; return m; };
+  const fabricKind = { cardigan: 'knit', turtleneck: 'knit', dress: 'wool', blazer: 'wool', 'shirt-oversized': 'cotton', leather: 'leather', track: 'nylon', workjacket: 'canvas', tee: 'cotton', 'tee-long': 'cotton', longcoat: 'loden', cassock: 'wool' }[L.garment] || 'cotton';
+  cloth.map = fabricTexture(fabricKind, L.coat); cloth.bumpMap = cloth.map; cloth.bumpScale = .012; cloth.color.setHex(0xffffff); cloth.needsUpdate = true;
+  trim.map = fabricTexture(L.denim ? 'denim' : 'wool', L.legs ?? L.coat); trim.color.setHex(0xffffff); trim.needsUpdate = true;
+  const torso = root.children.find(c => c.isMesh && c.geometry.type === 'CapsuleGeometry' && Math.abs((c.geometry.parameters?.radius || 0) - .285) < .001);
+  if (L.print && torso) { const pm = cloth.clone(); pm.map = printTexture(L.print, L.coat); pm.bumpMap = cloth.map; torso.material = pm; }
+  // A curved band that follows the torso: collars, plackets, strips, aprons are all made from this.
+  const wrap = (r0, r1, h, y, theta0, theta, material, parent = root, scaleZ = .78) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, 22, 1, true, theta0, theta), material); m.position.y = y; m.scale.z = scaleZ; parent.add(m); return m; };
+  const shade = (hex, k) => new THREE.Color(hex).multiplyScalar(k).getHex();
   switch (L.garment) {
-    case 'cardigan': front(.16, .62, 1.18, under); edge(-1, .66, 1.17, v7mat(new THREE.Color(L.coat).multiplyScalar(.7).getHex())); edge(1, .66, 1.17, v7mat(new THREE.Color(L.coat).multiplyScalar(.7).getHex())); break;
+    case 'cardigan': for (const sd of [-1, 1]) wrap(.292, .296, .64, 1.16, sd > 0 ? .05 : -.17, .12, v7mat(shade(L.coat, .62), 1)); wrap(.1, .12, .1, 1.6, 0, Math.PI * 2, under, root, .9); break;
     case 'turtleneck': add(new THREE.CylinderGeometry(.095, .1, .16, 12), coatMat, 0, 1.63, 0, 1, 1, 1, root); break;
     case 'dress': add(new THREE.CylinderGeometry(.24, .33, .62, 14, 1, true), coatMat, 0, .4, 0, 1, 1, .82, root); break;
-    case 'blazer': front(.13, .5, 1.26, under); for (const sd of [-1, 1]) edge(sd, .5, 1.28, v7mat(0x070707, .8), sd * -.28); break;
+    case 'blazer': for (const sd of [-1, 1]) { const lap = wrap(.293, .3, .42, 1.34, sd > 0 ? .08 : -.26, .18, v7mat(shade(L.coat, .55), .8)); lap.rotation.z = sd * .05; } wrap(.075, .082, .1, 1.6, -.9, 1.8, under, root, 1); break;
     case 'shirt-oversized': root.children.forEach(c => { if (c.isMesh && c.material === cloth && c.position.y > .9 && c.position.y < 1.5) c.scale.x *= 1.12; }); sleeves.forEach(sl => { sl.scale.y = .62; sl.position.y = -.1; }); break;
-    case 'leather': front(.12, .58, 1.2, under); for (const sd of [-1, 1]) edge(sd, .42, 1.34, v7mat(0x050505, .4), sd * -.32); add(new THREE.BoxGeometry(.012, .6, .01), v7mat(0x8a8a86, .3, { metalness: .8 }), .05, 1.16, .25, 1, 1, 1, root); break;
-    case 'track': add(new THREE.BoxGeometry(.012, .62, .01), v7mat(0xc8c8c8, .3, { metalness: .7 }), 0, 1.17, .246, 1, 1, 1, root); break;
-    case 'workjacket': for (const sd of [-1, 1]) add(new THREE.BoxGeometry(.11, .11, .02), v7mat(new THREE.Color(L.coat).multiplyScalar(.75).getHex()), sd * .12, 1.0, .238, 1, 1, 1, root); front(.1, .3, 1.42, under); break;
-    case 'tee': sleeves.forEach(sl => { sl.material = skin; }); break;
-    case 'longcoat': add(new THREE.CylinderGeometry(.24, .3, .66, 14, 1, true), coatMat, 0, .42, 0, 1, 1, .8, root); front(.12, .3, 1.42, under); break;
-    case 'cassock': add(new THREE.CylinderGeometry(.24, .29, .74, 14, 1, true), coatMat, 0, .36, 0, 1, 1, .82, root); for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.011, 5, 4), v7mat(0x050505, .5), 0, 1.5 - i * .14, .245, 1, 1, 1, root); break;
+    case 'leather': wrap(.293, .297, .62, 1.18, -.03, .06, v7mat(0x7d7d78, .3, { metalness: .8 })); for (const sd of [-1, 1]) wrap(.295, .31, .3, 1.42, sd > 0 ? .1 : -.4, .3, v7mat(0x050505, .45)); break;
+    case 'track': wrap(.293, .296, .62, 1.17, -.012, .024, v7mat(0xc8c8c8, .3, { metalness: .7 })); wrap(.1, .11, .12, 1.6, 0, Math.PI * 2, coatMat, root, .9); break;
+    case 'workjacket': wrap(.1, .115, .12, 1.6, 0, Math.PI * 2, coatMat, root, .9); for (const sd of [-1, 1]) wrap(.29, .3, .14, .86, sd > 0 ? .5 : -.85, .35, v7mat(shade(L.coat, .78), 1)); break;
+    case 'tee': sleeves.forEach(sl => { sl.material = skin; }); wrap(.085, .092, .05, 1.57, 0, Math.PI * 2, coatMat, root, .95); break;
+    case 'tee-long': wrap(.085, .092, .05, 1.57, 0, Math.PI * 2, coatMat, root, .95); sleeves.forEach(sl => { const sp = new THREE.Mesh(new THREE.CylinderGeometry(.064, .064, .22, 8, 1, true, -.25, .5), new THREE.MeshStandardMaterial({ map: sleevePrintTexture(), transparent: true, roughness: 1 })); sp.position.y = -.02; sl.add(sp); }); break;
+    case 'longcoat': add(new THREE.CylinderGeometry(.24, .3, .66, 14, 1, true), coatMat, 0, .42, 0, 1, 1, .8, root); wrap(.11, .13, .14, 1.6, 0, Math.PI * 2, coatMat, root, .9); break;
+    case 'cassock': add(new THREE.CylinderGeometry(.24, .29, .74, 14, 1, true), coatMat, 0, .36, 0, 1, 1, .82, root); for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.011, 5, 4), v7mat(0x050505, .5), 0, 1.5 - i * .14, .222, 1, 1, 1, root); break;
   }
-  if (extras.has('collar')) add(new THREE.BoxGeometry(.05, .035, .02), v7mat(0xf2efe6, .6), 0, 1.62, .1, 1, 1, 1, root);
-  if (extras.has('apron-white')) { const ap = add(new THREE.BoxGeometry(.4, .82, .025), v7mat(0xd8d3c6, .92), 0, 1.0, .238, 1, 1, 1, root); add(new THREE.BoxGeometry(.008, .4, .008), v7mat(0xd8d3c6), -.14, 1.55, .2, 1, 1, 1, root).rotation.z = .5; add(new THREE.BoxGeometry(.06, .03, .01), v7mat(0x6a2a1e, 1), .08, .82, .253, 1, 1, 1, root); ap.userData.stain = true; }
-  if (extras.has('apron-long')) add(new THREE.BoxGeometry(.36, .78, .03), v7mat(0x6a5f52, .98), 0, .78, .24, 1, 1, 1, root);
-  if (extras.has('reflective')) { const rf = v7mat(0xbdbcb0, .35, { metalness: .3, emissive: 0x1c1c18 }); add(new THREE.BoxGeometry(.56, .035, .02), rf, 0, 1.05, .23, 1, 1, .9, root); add(new THREE.BoxGeometry(.24, .035, .02), rf, -.14, 1.3, .235, 1, 1, .9, root); }
+  if (extras.has('collar')) wrap(.083, .086, .035, 1.62, -.25, .5, v7mat(0xf2efe6, .6), root, 1.05);
+  if (extras.has('apron-white')) wrap(.3, .36, .8, 1.0, -1.15, 2.3, v7mat(0xd8d3c6, .95, { side: THREE.DoubleSide }));
+  if (extras.has('apron-half')) { const ap = wrap(.27, .37, .62, .66, -1.2, 2.4, new THREE.MeshStandardMaterial({ map: fabricTexture('apron', 0xd6d0c2), roughness: 1, side: THREE.DoubleSide }), root, .8); wrap(.275, .275, .035, .97, 0, Math.PI * 2, v7mat(0xcfc8b8, 1), root, .8); ap.userData.apron = true; }
+  if (extras.has('apron-long')) wrap(.3, .36, .78, .78, -1.0, 2.0, v7mat(0x6a5f52, .98, { side: THREE.DoubleSide }));
+  if (extras.has('reflective')) { const rf = v7mat(0xbdbcb0, .35, { metalness: .3, emissive: 0x1c1c18 }); wrap(.292, .292, .04, 1.05, 0, Math.PI * 2, rf); wrap(.293, .293, .04, 1.3, -1.6, 1.4, rf); }
   if (extras.has('piping')) sleeves.forEach(sl => { const pp = new THREE.Mesh(new THREE.BoxGeometry(.012, .3, .012), v7mat(0xdedbd2, .3, { emissive: 0x111111 })); pp.position.set(.06, 0, 0); sl.add(pp); });
-  if (extras.has('tape')) add(new THREE.BoxGeometry(.07, .07, .035), v7mat(0x9a7a1c, .55), .2, .74, .16, 1, 1, 1, root);
+  if (extras.has('tape')) add(new THREE.CylinderGeometry(.035, .035, .03, 12), v7mat(0x9a7a1c, .55), .26, .74, .08, 1, 1, 1, root).rotation.z = Math.PI / 2;
   if (extras.has('scarf-throat')) add(new THREE.TorusGeometry(.1, .04, 8, 16), v7mat(0x5d4a3e, 1), 0, 1.6, 0, 1, 1, 1, root).rotation.x = Math.PI / 2;
-  if (extras.has('rosary')) { const bead = v7mat(0x1d1714, .5); for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.009, 5, 4), bead, Math.sin(i / 8 * Math.PI) * -.07 + .04, 1.52 - i * .03, .245, 1, 1, 1, root); }
+  if (extras.has('rosary')) { const bead = v7mat(0x1d1714, .5); for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.009, 5, 4), bead, Math.sin(i / 8 * Math.PI) * -.07 + .04, 1.52 - i * .03, .225, 1, 1, 1, root); }
   if (extras.has('keys')) { const k = new THREE.Group(); k.position.set(.18, .72, .17); root.add(k); add(new THREE.TorusGeometry(.028, .004, 4, 12), v7mat(0x8c8270, .35, { metalness: .8 }), 0, 0, 0, 1, 1, 1, k); for (let i = 0; i < 4; i++) { const kk = add(new THREE.BoxGeometry(.012, .07, .004), v7mat(0x9c8f72, .35, { metalness: .8 }), (i - 1.5) * .012, -.05, 0, 1, 1, 1, k); kk.rotation.z = (i - 1.5) * .25; } npc.keys = k; }
-  if (extras.has('camera')) { add(new THREE.BoxGeometry(.13, .08, .05), v7mat(0x111111, .4, { metalness: .5 }), -.06, 1.12, .26, 1, 1, 1, root); add(new THREE.CylinderGeometry(.025, .025, .04, 10), v7mat(0x222222, .2, { metalness: .6 }), -.06, 1.12, .3, 1, 1, 1, root).rotation.x = Math.PI / 2; }
-  if (extras.has('paint-flecks')) for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.012, 4, 3), v7mat([0x6e2e26, 0x8a8f86, 0x3b4a52][i % 3], .9), (Math.random() - .5) * .3, .8 + Math.random() * .6, .24, 1, 1, .4, root);
-  if (extras.has('ink-forearm')) [npc.leftForearm, npc.rightForearm].forEach(f => { const ink = new THREE.Mesh(new THREE.CylinderGeometry(.066, .066, .1, 8, 1, true), v7mat(0x26302f, 1, { transparent: true, opacity: .8 })); ink.position.y = -.2; f.add(ink); });
+  if (extras.has('camera')) { const strap = new THREE.Mesh(new THREE.TorusGeometry(.2, .006, 4, 24, Math.PI), v7mat(0x111111, .6)); strap.position.set(-.02, 1.33, .02); strap.rotation.set(0, 0, Math.PI); strap.scale.z = .5; root.add(strap); const body = add(new THREE.BoxGeometry(.12, .075, .05), v7mat(0x111111, .4, { metalness: .5 }), -.06, 1.14, .24, 1, 1, 1, root); add(new THREE.CylinderGeometry(.025, .025, .04, 10), v7mat(0x222222, .2, { metalness: .6 }), -.06, 1.14, .28, 1, 1, 1, root).rotation.x = Math.PI / 2; npc.camera = body; }
+  if (extras.has('paint-flecks')) for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.012, 4, 3), v7mat([0x6e2e26, 0x8a8f86, 0x3b4a52][i % 3], .9), (Math.random() - .5) * .3, .8 + Math.random() * .6, .225, 1, 1, .4, root);
+  if (extras.has('ink-forearm') || extras.has('sleeve-tattoo')) [npc.leftForearm, npc.rightForearm].forEach((f, i) => { if (extras.has('sleeve-tattoo') && i === 0 && L.garment !== 'tee') return; const ink = new THREE.Mesh(new THREE.CylinderGeometry(.065, .065, .24, 10, 1, true), new THREE.MeshStandardMaterial({ map: tattooTexture(i), transparent: true, roughness: .9, depthWrite: false })); ink.position.y = -.2; f.add(ink); });
+  if (extras.has('beard-grey')) { const bm = v7mat(0xa29d93, 1); add(new THREE.SphereGeometry(.15, 12, 9), bm, 0, hy - .16, .07, .9, .78, .82); add(new THREE.CapsuleGeometry(.03, .08, 3, 6), bm, 0, hy - .095, .19).rotation.z = Math.PI / 2; }
+  if (extras.has('stubble')) add(new THREE.SphereGeometry(.15, 12, 9), v7mat(new THREE.Color(L.skin).multiplyScalar(.62).getHex(), 1), 0, hy - .15, .055, .92, .72, .86);
+  if (extras.has('cap')) { const cm = new THREE.MeshStandardMaterial({ map: fabricTexture('knit', 0x1a1a1a), roughness: 1 }); add(new THREE.SphereGeometry(.214, 16, 10, 0, Math.PI * 2, 0, Math.PI * .5), cm, 0, hy + .05, -.01, .98, .95, 1.02); wrap(.205, .21, .06, hy + .06, 0, Math.PI * 2, cm, pivot, 1); }
+  if (extras.has('shades')) { const g = v7mat(0x050505, .12, { metalness: .6 }); add(new THREE.CylinderGeometry(.205, .205, .05, 18, 1, true, -.9, 1.8), g, 0, hy + .03, .0, 1, 1, .98); }
   // Things held in the hand.
   const inHand = (forearm, geo, material, rot = [0, 0, 0]) => { const m = new THREE.Mesh(geo, material); m.position.set(0, -.47, .07); m.rotation.set(...rot); forearm.add(m); return m; };
   if (extras.has('cloth')) inHand(npc.leftForearm, new THREE.BoxGeometry(.12, .02, .1), v7mat(0xe4e0d4, 1));
@@ -5696,7 +5717,8 @@ function dressPersona(npc, parts) {
   if (extras.has('knife')) inHand(npc.rightForearm, new THREE.BoxGeometry(.012, .13, .03), v7mat(0x9a9a92, .25, { metalness: .9 }));
   if (extras.has('earplug')) inHand(npc.rightForearm, new THREE.CylinderGeometry(.012, .012, .03, 8), v7mat(0xd9661c, .8, { emissive: 0x2a0d00 }));
   // Archival photo faces are shared between people; vary how each one sits.
-  if (npc.photoFace) { const k = (npc.name || '').length; npc.photoFace.material.opacity = .58 + (k % 3) * .06; npc.photoFace.material.color = new THREE.Color(L.skin).lerp(new THREE.Color(0xffffff), .55); if (k % 2) npc.photoFace.scale.x = -1; if (extras.has('beard-full')) npc.photoFace.scale.y = .8; }
+  if (npc.photoFace && (extras.has('shades') || extras.has('beard-grey'))) npc.photoFace.material.opacity = .32;
+  if (npc.photoFace) { const k = (npc.name || '').length; npc.photoFace.material.opacity = Math.min(npc.photoFace.material.opacity, .58 + (k % 3) * .06); npc.photoFace.material.color = new THREE.Color(L.skin).lerp(new THREE.Color(0xffffff), .55); if (k % 2) npc.photoFace.scale.x = -1; if (extras.has('beard-full')) npc.photoFace.scale.y = .8; }
 }
 
 // ---- Habits, posture and gaze ---------------------------------------------
@@ -5710,15 +5732,17 @@ function personaAnimate(n, t, dt) {
     n.object.getWorldPosition(house.gazeT); const p = currentPosition(); const dx = p.x - house.gazeT.x, dz = p.z - house.gazeT.z, d = Math.hypot(dx, dz);
     const near = THREE.MathUtils.clamp(1 - (d - 1.2) / 4.2, 0, 1);
     let rel = Math.atan2(dx, dz) - n.object.rotation.y; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-    const g = { warm: .8, eager: 1, steady: .7, record: 1, checking: .9, avoid: -.45, away: -.25, hands: .3, down: .2, surfaces: .35, door: .15, structure: .4 }[P.gaze] ?? .5;
-    yaw = THREE.MathUtils.clamp(rel, -1.0, 1.0) * g * near;
+    let g = { warm: .8, eager: 1, steady: .7, record: 1, checking: .9, avoid: -.45, away: -.25, hands: .3, down: .2, surfaces: .35, door: .15, structure: .4 }[P.gaze] ?? .5;
+    const welcomeK = house.welcomeT > 0 && currentZone === 'home' ? 1 : 0; if (welcomeK) g = .95;
+    yaw = THREE.MathUtils.clamp(rel, -1.0, 1.0) * g * Math.max(near, welcomeK);
     if (P.gaze === 'hands' || P.gaze === 'down') pitch += .28 * near;
     if (P.gaze === 'checking') yaw += Math.sin(s * 1.7) * .25 * near;
     if (house.moment?.speakers?.includes(n)) { const o = house.moment.speakers.find(x => x !== n); if (o) { o.object.getWorldPosition(house.gazeT); n.object.getWorldPosition(camDir2); let r2 = Math.atan2(house.gazeT.x - camDir2.x, house.gazeT.z - camDir2.z) - n.object.rotation.y; r2 = Math.atan2(Math.sin(r2), Math.cos(r2)); yaw = THREE.MathUtils.clamp(r2, -1.1, 1.1); } }
   }
   // Tics: small repeated actions, readable from across a room.
   const cyc = (period, dur) => { const c = (s % period + period) % period; return c < dur ? Math.sin(c / dur * Math.PI) : 0; };
-  if (!scripted && !n.walking) {
+  bodyRealism(n, t, dt);
+  if (!scripted && !n.walking && !n.porchOverride) {
     switch (P.tic) {
       case 'fold': n.leftForearm.rotation.x = -1.25 + Math.sin(s * 2.1) * .12; n.rightForearm.rotation.x = -1.2 + Math.cos(s * 2.1) * .12; n.leftArm.rotation.z = .1; n.rightArm.rotation.z = -.1; pitch += .12; break;
       case 'tap': { const k = cyc(3.2, .5); n.rightForearm.rotation.x = -1.15 - Math.abs(Math.sin(s * 22)) * .18 * k; break; }
@@ -5858,6 +5882,8 @@ function renderPeoplePage() {
       const ties = Object.entries(P.ties || {}).filter(([k]) => personNamed(k)?.met).map(([k, v]) => `<li><b>${k[0].toUpperCase() + k.slice(1)}</b> — ${v}</li>`).join('');
       let html = `<div class="detail-stamp">EPISTASSI / THE PEOPLE / ${(n.displayName || n.name).toUpperCase()}</div><h3>${n.displayName || n.name}${gone ? ' <em class="gone-mark">— no longer answers</em>' : ''}</h3>`;
       html += layer('AT THE TABLE', P.surface) + layer('WATCH FOR', P.tell, 'tell');
+      if (P.method) html += layer('HOW HE WORKS', P.method, 'wound');
+      if (P.source) html += layer('WHAT THEY WEAR', P.source);
       if (n.talkedTwice) html += layer('LATER, WHEN THE HOUSE WAS QUIET', P.wound, 'wound');
       if (n.talkedTwice && n.secondChoice === 'rifiuto') html += layer('WHAT THEY DID NOT SAY', P.secret, 'secret');
       if (n.talkedTwice && n.secondChoice === 'accordo') html += layer('WHAT THE HOUSE UNDERSTANDS', P.contradiction, 'secret');
@@ -5886,8 +5912,11 @@ function writeEndingLedger(choice) {
   else lines.push('The fourteenth hesitated. The house wrote that down too.');
   if (storyFlags.has('pino-left-alive')) lines.push('You told a man to take the road. Somewhere a van radio is still playing.');
   if (storyFlags.has('remo-confessed')) lines.push('The sacristan said the priest’s name aloud. Fifty years late.');
-  if (storyFlags.has('cleaver-refused')) lines.push('You took the cleaver off the table. They used the bread knife.');
+  if (storyFlags.has('job-cleaver-refused')) lines.push('You took the cleaver off the table. They used the bread knife.');
   if (house.moments.size) lines.push(`You watched them be ordinary ${house.moments.size === 1 ? 'once' : house.moments.size + ' times'}. It is the part you will remember.`);
+  { const d = Object.values(jobState.done); if (d.length) lines.push(`Paid €${jobState.cash}. Repairs: ${d.filter(r => r === 'well').length} well, ${d.filter(r => r === 'badly').length} badly, ${d.filter(r => r === 'refused').length} refused.`); }
+  if (storyFlags.has('grave-body-seen')) lines.push('A body with your scar is still under the willow. Nobody has asked whose.');
+  if (storyFlags.has('church-collapsed')) lines.push('The church came down inward. The sound arrived four seconds after the image.');
   let el = $('ending-ledger'); if (!el) { el = document.createElement('div'); el.id = 'ending-ledger'; el.className = 'ending-ledger'; $('ending-result').prepend(el); }
   el.innerHTML = lines.map(l => `<p>${l}</p>`).join('') + '<div class="ending-card">THE TENTH HAS NO NAME. IT IS YOU.</div>';
 }
@@ -5955,7 +5984,505 @@ function buildMaterialWorldV7() {
   const road = zones.road; if (road) { addLeafLitter(road.group, 0, 18, 12, 52, 1400, 5); addLeafLitter(road.group, 0, -4, 8, 10, 260, 9); }
 }
 
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+// =============================================================================
+// v8 — jobs for cash, the porch walk-in, the grave, the church comes down,
+// gothic light that frames shots, a deeper Il Professore, and bodies that
+// breathe, talk and bend their knees.
+// =============================================================================
+
+// ---- Cloth: procedural weaves so garments read as fabric, not painted wood ----
+
+function fabricTexture(kind, hex) {
+  const FABRIC_CACHE = fabricTexture.cache || (fabricTexture.cache = {}); const key = kind + hex; if (FABRIC_CACHE[key]) return FABRIC_CACHE[key];
+  const base = new THREE.Color(hex), css = c => `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`;
+  const t = canvasTex(128, 128, (ctx, w, h) => {
+    ctx.fillStyle = css(base); ctx.fillRect(0, 0, w, h);
+    const dk = base.clone().multiplyScalar(.72), lt = base.clone().lerp(new THREE.Color(0xffffff), .12);
+    if (kind === 'knit') { for (let y = 0; y < h; y += 6) for (let x = 0; x < w; x += 6) { ctx.strokeStyle = css((x / 6 + y / 6) % 2 ? dk : lt); ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 3, y + 5); ctx.lineTo(x + 6, y); ctx.stroke(); } }
+    else if (kind === 'denim') { for (let i = -h; i < w; i += 3) { ctx.strokeStyle = css(i % 2 ? dk : lt.clone().lerp(new THREE.Color(0x9aa6b4), .25)); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + h, h); ctx.stroke(); } }
+    else if (kind === 'canvas' || kind === 'loden' || kind === 'wool' || kind === 'apron') { for (let y = 0; y < h; y += 2) { ctx.fillStyle = css(y % 4 ? dk : lt); ctx.globalAlpha = .25; ctx.fillRect(0, y, w, 1); } for (let x = 0; x < w; x += 2) { ctx.fillStyle = css(dk); ctx.globalAlpha = .18; ctx.fillRect(x, 0, 1, h); } ctx.globalAlpha = 1; }
+    else if (kind === 'leather') { for (let i = 0; i < 90; i++) { ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.beginPath(); const x = Math.random() * w, y = Math.random() * h; ctx.moveTo(x, y); ctx.lineTo(x + Math.random() * 14 - 7, y + Math.random() * 6); ctx.stroke(); } }
+    else if (kind === 'nylon') { for (let y = 0; y < h; y += 4) { ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(0, y, w, 1); } }
+    else { for (let i = 0; i < 400; i++) { ctx.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.05)'; ctx.fillRect(Math.random() * w, Math.random() * h, 1, 1); } }
+    if (kind === 'apron') for (let i = 0; i < 7; i++) { ctx.fillStyle = `rgba(${90 + Math.random() * 40},${30 + Math.random() * 15},20,${.12 + Math.random() * .2})`; ctx.beginPath(); ctx.ellipse(Math.random() * w, Math.random() * h, 4 + Math.random() * 12, 3 + Math.random() * 9, Math.random() * 3, 0, Math.PI * 2); ctx.fill(); }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(kind === 'denim' ? 3 : 4, kind === 'denim' ? 3 : 4); FABRIC_CACHE[key] = t; return t;
+}
+// A cracked screen print on a black shirt: invented graphics, no names or logos.
+// The capsule's UV seam sits at the front, so the print is drawn at both edges.
+function printTexture(kind, hex) {
+  const t = canvasTex(512, 256, (ctx, w, h) => {
+    const base = new THREE.Color(hex); ctx.fillStyle = `rgb(${base.r * 255},${base.g * 255},${base.b * 255})`; ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1500; i++) { ctx.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.035)'; ctx.fillRect(Math.random() * w, Math.random() * h, 1, 1); }
+    const draw = (cx) => {
+      ctx.save(); ctx.translate(cx, h * .42); ctx.globalAlpha = .62;
+      const ink = '#b9b2a2';
+      if (kind === 'reel') { ctx.strokeStyle = ink; ctx.lineWidth = 3; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * 26, 0, 20, 0, Math.PI * 2); ctx.stroke(); for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(s * 26, 0); ctx.lineTo(s * 26 + Math.cos(k * 2.1) * 18, Math.sin(k * 2.1) * 18); ctx.stroke(); } } ctx.beginPath(); ctx.moveTo(-26, 20); ctx.lineTo(26, 20); ctx.stroke(); }
+      if (kind === 'road') { ctx.fillStyle = ink; ctx.beginPath(); ctx.moveTo(-6, -34); ctx.lineTo(6, -34); ctx.lineTo(40, 30); ctx.lineTo(-40, 30); ctx.fill(); ctx.fillStyle = '#111'; for (let y = -26; y < 28; y += 12) ctx.fillRect(-2, y, 4, 6); ctx.fillStyle = ink; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.fillText('1979', 0, 50); }
+      if (kind === 'beast') { ctx.strokeStyle = ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 0, 34, 24, 0, 0, Math.PI * 2); ctx.stroke(); for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 20, -16); ctx.quadraticCurveTo(s * 46, -40, s * 30, -50); ctx.stroke(); } ctx.fillStyle = ink; ctx.fillRect(-14, -4, 8, 6); ctx.fillRect(6, -4, 8, 6); }
+      ctx.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 60; i++) { ctx.fillRect(Math.random() * 100 - 50, Math.random() * 100 - 50, Math.random() * 7, 1); }
+      ctx.restore();
+    };
+    draw(0); draw(w);
+  });
+  t.wrapS = THREE.RepeatWrapping; t.offset.set(0, 0); return t;
+}
+function sleevePrintTexture() { return canvasTex(64, 128, (ctx, w, h) => { ctx.clearRect(0, 0, w, h); ctx.fillStyle = 'rgba(190,182,166,.55)'; for (let y = 8; y < h - 8; y += 9) ctx.fillRect(24 + Math.random() * 4, y, 10 + Math.random() * 6, 5); }); }
+function tattooTexture(seed) { return canvasTex(128, 128, (ctx, w, h) => { ctx.clearRect(0, 0, w, h); ctx.strokeStyle = 'rgba(28,36,38,.7)'; ctx.lineWidth = 3; for (let i = 0; i < 7; i++) { ctx.beginPath(); const y = 10 + i * 16 + seed * 3; ctx.moveTo(10, y); ctx.bezierCurveTo(40, y - 18, 80, y + 18, 118, y); ctx.stroke(); } ctx.fillStyle = 'rgba(28,36,38,.5)'; ctx.beginPath(); ctx.arc(64, 64, 16, 0, Math.PI * 2); ctx.fill(); }); }
+
+// ---- Bodies that breathe, talk and bend at the knee (after egtest's rig) ----
+function findPersonaParts(npc) {
+  if (npc._parts) return npc._parts;
+  const root = npc.object, piv = npc.headPivot;
+  npc._parts = {
+    chest: root.children.find(c => c.isMesh && c.geometry.type === 'SphereGeometry' && Math.abs((c.geometry.parameters?.radius || 0) - .285) < .001),
+    mouth: piv?.children.find(c => c.isMesh && c.geometry.type === 'BoxGeometry' && Math.abs((c.geometry.parameters?.width || 0) - .075) < .001)
+  };
+  return npc._parts;
+}
+function markTalking(name, dur) {
+  const key = (name || '').toLowerCase(); if (!key) return;
+  const all = [...cultRoster, ...Object.values(zones).flatMap(z => z.interactables || [])];
+  for (const n of all) if (n?.type === 'npc' && (n.name || '').toLowerCase() === key && n.object?.visible) n.talkT = Math.max(n.talkT || 0, dur);
+}
+function bodyRealism(n, t, dt) {
+  const parts = findPersonaParts(n), s = t * .001 + n.phase;
+  if (parts.chest) parts.chest.scale.y = .56 * (1 + Math.sin(s * 1.4) * .025);
+  if (parts.mouth) { let open = 0; if (n.talkT > 0) { n.talkT -= dt; open = (Math.sin(s * 17) * .5 + .5) * (Math.sin(s * 5.3) * .3 + .7); if (n.headPivot) n.headPivot.rotation.x += Math.sin(s * 6) * .03; } parts.mouth.scale.y += (1 + open * 4.5 - parts.mouth.scale.y) * Math.min(1, dt * 18); }
+  if (n.walking && n.lowerLegs?.length === 2) { const ph = t * .008 + n.phase; n.lowerLegs[0].rotation.x = Math.max(0, -Math.cos(ph)) * .7 + .05; n.lowerLegs[1].rotation.x = Math.max(0, Math.cos(ph)) * .7 + .05; }
+  else if (!n.seated && n.lowerLegs?.length === 2) { n.lowerLegs[0].rotation.x = .02 + Math.max(0, Math.sin(s * .3)) * .05; n.lowerLegs[1].rotation.x = .02; }
+}
+
+// ---- The bench: repair jobs, cash, consequences (v10 §5.4) ------------------
+const jobState = { done: {}, cash: 0, open: null };
+function jobFor(npc) {
+  if (npc?.isHomeFirst) return jobState.done.guitar ? null : 'guitar';
+  const k = personaKey(npc);
+  for (const [id, j] of Object.entries(JOBS)) {
+    if (j.by !== k || jobState.done[id] || id === 'guitar') continue;
+    if (j.arms && storyFlags.has('station-' + j.arms)) continue;
+    const victim = j.arms && cultist(stationDef(j.arms)?.victim); if (victim && victim.fate !== 'present') continue;
+    return id;
+  }
+  return null;
+}
+function offerJob(npc, id) {
+  const J = JOBS[id];
+  dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
+  $('speaker').textContent = (npc.displayName || npc.name).toUpperCase() + ' · A JOB';
+  $('subtitle').textContent = J.ask; speakVoice(J.ask, npc.name);
+  const o = $('dialogue-options'); o.innerHTML = '';
+  [[`Take the job. (€${J.pay})`, () => { closeDialogue(false); openBench(id, npc); }], ['Not now.', () => closeDialogue()]].forEach(([label, fn], i) => { const b = document.createElement('button'); b.className = 'dialogue-option'; b.innerHTML = `<b>[${i + 1}]</b>${label}`; b.addEventListener('click', fn); o.appendChild(b); });
+  activeTarget = null; $('prompt').classList.remove('visible');
+}
+let bench = null;
+function openBench(id, npc) {
+  const J = JOBS[id]; bench = { id, J, npc, stage: 'diagnose', tapped: [], last: -1, wave: 0, slider: .1, t: 0, raf: 0, tones: null };
+  jobState.open = id; dialogueOpen = true; controls.unlock(); $('bench').classList.add('active');
+  $('bench-title').textContent = J.title; $('bench-by').textContent = `ASKED BY ${(npc.displayName || npc.name).toUpperCase()} · €${J.pay}`;
+  renderBench(); bench.raf = requestAnimationFrame(drawBench);
+}
+function benchButtons(list) { const box = $('bench-actions'); box.innerHTML = ''; list.forEach(([label, fn, cls]) => { const b = document.createElement('button'); b.className = 'bench-btn ' + (cls || ''); b.innerHTML = label; b.addEventListener('click', fn); box.appendChild(b); }); }
+function renderBench() {
+  const b = bench, J = b.J;
+  if (b.stage === 'diagnose' && J.kind === 'locate') {
+    $('bench-tip').textContent = 'Tap each place and listen. When you are sure, choose THIS ONE.';
+    benchButtons([...J.spots.map((sp, i) => [`TAP · ${sp}`, () => benchTap(i), b.last === i ? 'sel' : '']), ['THIS ONE', () => benchCommit(), 'commit']]);
+  } else if (b.stage === 'diagnose' && J.kind === 'tune') {
+    $('bench-tip').textContent = 'Move the slider until the beating slows and stops. Compare, do not guess. It is a relative difference.';
+    $('bench-actions').innerHTML = `<input type="range" id="bench-slider" min="0" max="1" step="0.002" value="${b.slider}"><div class="bench-row"><button class="bench-btn commit" id="bench-settle">IT HAS SETTLED</button></div>`;
+    $('bench-slider').addEventListener('input', e => { b.slider = +e.target.value; });
+    $('bench-settle').addEventListener('click', () => { if (Math.abs(b.slider - J.target) < .035) { benchFound(); } else { $('bench-tip').textContent = 'Not yet. The beating is still there. Listen to the swell.'; audio?.stinger(.1); } });
+    startBenchTones();
+  } else if (b.stage === 'choice') {
+    $('bench-tip').textContent = J.found;
+    benchButtons([['DO IT WELL<small>Paid. The work holds.</small>', () => benchFinish('well'), 'well'], ['DO IT BADLY<small>Paid. Nobody checks until it matters.</small>', () => benchFinish('badly'), 'badly'], ['REFUSE<small>No pay. A brief silence.</small>', () => benchFinish('refused'), 'refuse']]);
+  } else if (b.stage === 'done') {
+    benchButtons([['PUT THE TOOLS DOWN', closeBench, 'commit']]);
+  }
+}
+function benchTap(i) {
+  const b = bench, J = b.J; b.last = i; b.wave = 1; b.faultTap = i === J.fault;
+  if (audio?.ctx) { if (b.faultTap) audio.mechanicalTone(180, 150, .45, 'sawtooth', .05); else audio.mechanicalTone(320 + i * 40, 300 + i * 40, .18, 'triangle', .03); }
+  if (b.faultTap && b.id === 'guitar' && !b.sawChurch) { b.sawChurch = true; setTimeout(() => { flashFragment('collapse', 160); laugh(); $('bench-tip').textContent = '(Through the sound hole the braces recede too far: a miniature nave, two rows of chairs, an altar. A small man at the far end looks up and laughs. Four seconds. The guitar is ordinary again.)'; }, 500); return renderBenchKeepTip(); }
+  renderBench();
+}
+function renderBenchKeepTip() { const tip = $('bench-tip').textContent; renderBench(); setTimeout(() => { if (bench?.stage === 'diagnose') $('bench-tip').textContent = tip; }, 0); }
+function benchCommit() { const b = bench; if (b.last < 0) return; if (b.last === b.J.fault) benchFound(); else { $('bench-tip').textContent = 'No. That is not where it lives. Again.'; audio?.stinger(.1); } }
+function benchFound() { stopBenchTones(); bench.stage = 'choice'; renderBench(); }
+function benchFinish(result) {
+  const b = bench, J = b.J; b.stage = 'done'; stopBenchTones();
+  jobState.done[b.id] = result; storyFlags.add(`job-${b.id}-${result}`);
+  const paid = result === 'refused' ? 0 : J.pay; jobState.cash += paid; $('cash-value').textContent = jobState.cash;
+  $('bench-tip').textContent = (J[result === 'refused' ? 'refuse' : result]) + (paid ? `  Paid €${paid}.` : '');
+  if (paid && audio?.ctx) [0, 90, 170].forEach(d => setTimeout(() => audio.mechanicalTone(1800, 1500, .08, 'triangle', .02), d));
+  nudgeHouse(result === 'well' ? 'accordo' : 'rifiuto', result === 'badly' ? .5 : 1, true);
+  const clock = `${22 + Math.floor(elapsed / 900)}:${String(Math.floor(elapsed / 15) % 60).padStart(2, '0')}`;
+  journal.push({ id: 'job-' + b.id, title: `Job · ${J.title}`, description: `${clock} · ${J.found} ${J[result === 'refused' ? 'refuse' : result]} ${paid ? 'Paid €' + paid + '.' : 'Not paid.'}`, kind: 'repair log', zone: currentZone }); updateJournalCount();
+  if (b.id === 'guitar') { storyFlags.add('tooth-found'); journal.push({ id: 'tooth', title: 'A Molar in a Matchbox', description: 'A human molar with an old grey filling fell out of the guitar. Il Professore gave me a matchbox to keep it in. “Then you found something I could not. Keep it.”', kind: 'object', zone: currentZone }); updateJournalCount(); }
+  const line = result === 'well' ? 'Clean work. Thank you.' : result === 'badly' ? 'Good. Thank you.' : '(A short silence. Then someone asks if you want more bread.)';
+  setTimeout(() => storyLine(`${(b.npc.displayName || b.npc.name).toUpperCase()}: ${line}`), 400);
+  renderBench();
+}
+function closeBench() { cancelAnimationFrame(bench?.raf); stopBenchTones(); bench = null; jobState.open = null; $('bench').classList.remove('active'); dialogueOpen = false; requestMouseLock(); updateMissions(); }
+function startBenchTones() {
+  if (!audio?.ctx || bench.tones) return; const ctx = audio.ctx, g = ctx.createGain(); g.gain.value = .025 * (muted ? 0 : 1);
+  const a = ctx.createOscillator(), b2 = ctx.createOscillator(); a.type = b2.type = 'sine'; a.frequency.value = 415; b2.frequency.value = 415; a.connect(g); b2.connect(g); g.connect(audio.master); a.start(); b2.start(); bench.tones = { a, b: b2, g };
+}
+function stopBenchTones() { const t = bench?.tones; if (!t) return; try { t.a.stop(); t.b.stop(); t.g.disconnect(); } catch (_) {} bench.tones = null; }
+function drawBench() {
+  if (!bench) return; bench.raf = requestAnimationFrame(drawBench);
+  const c = $('bench-canvas'), ctx = c.getContext('2d'), w = c.width, h = c.height, b = bench, J = b.J; b.t += 1 / 60;
+  ctx.fillStyle = '#0f0d0b'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = 'rgba(217,207,184,.08)'; for (let x = 0; x < w; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  ctx.strokeStyle = '#d9cfb8'; ctx.lineWidth = 1.6; ctx.beginPath();
+  if (J.kind === 'locate') {
+    b.wave = Math.max(0, b.wave - .012);
+    const amp = b.wave * (b.faultTap ? 52 : 18), jag = b.faultTap ? 1 : 0;
+    for (let x = 0; x < w; x++) { const tt = x / w * 30 + b.t * 14; const y = h / 2 + Math.sin(tt) * amp * Math.exp(-x / w * 2) + (jag ? (Math.random() - .5) * amp * .5 : 0); x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke(); ctx.fillStyle = '#c39a5a'; ctx.font = '10px "IBM Plex Mono", monospace'; ctx.fillText(b.last >= 0 ? `LISTENING AT · ${J.spots[b.last]}` : 'NOTHING TAPPED YET', 14, 20);
+  } else if (b.stage === 'diagnose') {
+    const diff = (b.slider - J.target), beat = Math.abs(diff) * 14;
+    if (b.tones) { b.tones.b.frequency.value = 415 * (1 + diff * .08); }
+    for (let x = 0; x < w; x++) { const tt = b.t + x / w * 2; const env = Math.cos(Math.PI * beat * tt) ; const y = h / 2 + Math.sin(x * .35) * 40 * env; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke(); ctx.fillStyle = '#c39a5a'; ctx.font = '10px "IBM Plex Mono", monospace'; ctx.fillText(beat < .5 ? 'THE BEATING HAS ALMOST STOPPED' : beat < 2 ? 'SLOWER' : 'BEATING', 14, 20);
+  } else { for (let x = 0; x < w; x++) { const y = h / 2 + Math.sin(x * .2 + b.t * 3) * 3; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+}
+function jobStationLine(id, def) {
+  for (const [jid, J] of Object.entries(JOBS)) {
+    if (J.arms !== id || !J.station) continue; const r = jobState.done[jid]; if (!r) continue;
+    const key = r === 'refused' ? 'refuse' : r; def.lines = [...def.lines, [Math.max(2, def.dur * .55), J.station[key]]].sort((a, b) => a[0] - b[0]);
+    if (r === 'badly') nudgeHouse('rifiuto', .5, true);
+  }
+}
+
+// ---- Il Professore: the man who arranges rooms ---------------------------------
+function primoAside() {
+  const done = Object.values(jobState.done), well = done.filter(r => r === 'well').length, refused = done.filter(r => r === 'refused').length, lean = houseLean();
+  if (refused >= 2) return 'You say no in such a reasonable voice. Have you noticed that the room does it anyway, and only takes longer? I write that down too. ';
+  if (well >= 3) return `You have earned €${jobState.cash} tonight. I counted. Good hands are a kind of consent, did you know? `;
+  if (lean >= 2) return 'You have started saying “we”. I did not ask you to. ';
+  if (lean <= -2) return 'You keep your own name like a coin in your fist. I admire that. Who is it for? ';
+  return '';
+}
+function primoDialogue() { const d = primoDialogueBase(); const a = primoAside(); if (a && d) d.line = a + d.line; return d; }
+function primoPhotograph(note = 'IL PROFESSORE PHOTOGRAPHS THE FACES, NOT THE BODY.') {
+  const f = $('event-flash'); if (f) { f.style.background = 'rgba(255,250,235,.9)'; f.classList.add('active'); setTimeout(() => { f.classList.remove('active'); f.style.background = ''; }, 90); }
+  audio?.mechanicalTone(2400, 900, .05, 'square', .03); setTimeout(() => showToast(note), 300);
+}
+function setEarplugs(npc, on) {
+  if (!npc?.headPivot) return;
+  if (!npc._plugs) { npc._plugs = [-1, 1].map(sd => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.016, .016, .03, 8), v7mat(0xd9661c, .8, { emissive: 0x2a0d00 })); m.position.set(sd * .19, .19, .005); m.rotation.z = Math.PI / 2; npc.headPivot.add(m); return m; }); }
+  npc._plugs.forEach(m => m.visible = on);
+}
+
+// ---- Camera helpers for authored shots ----
+const _aim = new THREE.Vector3();
+function aimCamera(target, k = 1) {
+  const eye = new THREE.Vector3(); camera.getWorldPosition(eye); _aim.copy(target).sub(eye);
+  const yaw = Math.atan2(-_aim.x, -_aim.z), pitch = Math.atan2(_aim.y, Math.hypot(_aim.x, _aim.z));
+  camera.rotation.order = 'YXZ';
+  let dy = yaw - camera.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+  camera.rotation.y += dy * k; camera.rotation.x += (pitch - camera.rotation.x) * k; camera.rotation.z *= 1 - k;
+}
+function setFov(f) { camera.fov = f; camera.updateProjectionMatrix(); }
+function walkNPC(n, tx, tz, speed, dt) {
+  const p = n.object.position, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
+  if (d < .05) { n.walking = false; return true; }
+  const st = Math.min(d, speed * dt); p.x += dx / d * st; p.z += dz / d * st; n.walking = true;
+  let dy = Math.atan2(dx, dz) - n.object.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); n.object.rotation.y += dy * Math.min(1, dt * 6);
+  return false;
+}
+function turnNPC(n, tx, tz, dt, rate = 3) { let dy = Math.atan2(tx - n.object.position.x, tz - n.object.position.z) - n.object.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); n.object.rotation.y += dy * Math.min(1, dt * rate); }
+
+// ---- The porch: he smokes under the lamp, closes the book, walks you in --------
+const porch = { stage: 'smoke', t: 0, cig: 0, puffs: [], ember: null, first: null, book: null, door: null, glow: null };
+function porchFirst() { if (!porch.first) porch.first = zones.road.interactables.find(i => i.isOpeningPrimo) || null; return porch.first; }
+function buildPorchV8() {
+  const g = zones.road.group;
+  // A small iron table on the porch with the paperback face down, then face up.
+  const tbl = new THREE.Group(); tbl.position.set(-1.25, 0, -6.05); g.add(tbl);
+  const iron = v7mat(0x1b1c1b, .55, { metalness: .6 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .03, 20), iron); top.position.y = .72; tbl.add(top);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(.025, .04, .7, 8), iron); stem.position.y = .36; tbl.add(stem);
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(.18, .2, .03, 12), iron); foot.position.y = .015; tbl.add(foot);
+  const book = new THREE.Group(); book.position.set(0, .745, 0); book.rotation.y = .4; tbl.add(book);
+  const page = new THREE.Mesh(new THREE.BoxGeometry(.24, .02, .17), v7mat(0xd9cfb8, 1)); book.add(page);
+  const hinge = new THREE.Group(); hinge.position.set(-.12, .012, 0); book.add(hinge);
+  const cover = new THREE.Mesh(new THREE.BoxGeometry(.12, .006, .175), v7mat(0x5a2614, .9)); cover.position.set(-.06, 0, 0); hinge.add(cover);
+  const line = new THREE.Mesh(new THREE.PlaneGeometry(.09, .004), new THREE.MeshBasicMaterial({ color: 0x2a2620 })); line.rotation.x = -Math.PI / 2; line.position.set(.05, .0115, .02); book.add(line);
+  porch.book = { group: book, hinge, world: new THREE.Vector3(-1.25, .76, -6.05) };
+  // Warm light that will spill out when he opens the door.
+  const spill = new THREE.SpotLight(0xffb066, 0, 14, .7, .6, 1.4); spill.position.set(0, 2.1, -8.6); spill.target.position.set(0, 0, -3.5); g.add(spill); g.add(spill.target); porch.spill = spill;
+  for (let i = 0; i < 7; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xb0b4b8, transparent: true, opacity: 0, depthWrite: false })); g.add(sp); porch.puffs.push({ s: sp, life: 99 }); }
+}
+function updatePorchPrimo() {
+  const n = porchFirst(); if (!n || !gameStarted) return;
+  const dt = 1 / 60, door = zones.road.interactables.find(i => i.destination === 'home');
+  if (door && !storyFlags.has('primo-first-contact') && !door.v8locked) { door.v8locked = true; door.locked = true; door.prompt = '[ E ] HE IS STANDING BY THE DOOR. SPEAK TO HIM FIRST.'; }
+  if (!porch.ember) { porch.ember = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xff8a4a, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false })); porch.ember.scale.set(.06, .06, 1); porch.ember.position.set(0, -.5, .08); n.rightForearm.add(porch.ember); }
+  porch.puffs.forEach((p, i) => { p.life += dt; if (p.life < 0 || p.life > 6) { p.s.material.opacity = 0; return; } p.s.position.y += dt * .18; p.s.position.x += dt * .05 * Math.sin(i); const k = .15 + p.life * .25; p.s.scale.set(k, k, 1); p.s.material.opacity = .16 * (1 - p.life / 6); });
+  if (currentZone !== 'road' || storyFlags.has('porch-primo-gone')) return;
+  const pp = currentPosition(), d = Math.hypot(pp.x - n.object.position.x, pp.z - n.object.position.z);
+  if (porch.stage === 'smoke' || porch.stage === 'watch') {
+    n.porchOverride = true; porch.cig += dt; const cyc = porch.cig % 8, raise = cyc > 5 && cyc < 6.4;
+    n.rightArm.rotation.x = raise ? -.35 : 0; n.rightArm.rotation.z = raise ? .5 : .13; n.rightForearm.rotation.x = raise ? -2.2 : -.3;
+    porch.ember.material.opacity = raise && cyc > 5.6 ? 1 : .5; porch.ember.visible = true;
+    if (cyc > 6.9 && cyc - dt <= 6.9) { const hp = new THREE.Vector3(); n.headPivot.getWorldPosition(hp); porch.puffs.forEach((p, i) => { p.life = -i * .15; p.s.position.copy(hp).add(new THREE.Vector3(0, .15, .15)); }); }
+    if (d < 11) { porch.stage = 'watch'; turnNPC(n, pp.x, pp.z, dt, 2.5); }
+    if (d < 3.6 && !n.talkedOnce && !storyScene && !dialogueOpen) startPorchScene(n);
+  }
+  if (porch.stage === 'talk' && n.talkedOnce && !dialogueOpen) { porch.stage = 'walk'; porch.t = 0; porch.ember.visible = false; n.rightArm.rotation.x = 0; n.rightForearm.rotation.x = 0; }
+  if (porch.stage === 'walk') {
+    porch.t += dt; n.porchOverride = true;
+    if (porch.t > .6) {
+      const reached = walkNPC(n, 0, -7.55, 1.1, dt);
+      if (reached && !porch.opened) { porch.opened = true; porch.openT = 0; audio?.doorCreak(); setTimeout(() => { laugh(); setTimeout(laugh, 380); }, 700); storyLine('IL PROFESSORE: Come in. They have been waiting longer than you have.'); }
+      if (porch.opened) {
+        porch.openT += dt; const k = Math.min(1, porch.openT / 1.2); if (door?.doorPivot) door.doorPivot.rotation.y = -k * 1.55; porch.spill.intensity = k * 14;
+        if (porch.openT > 1.3) { const inside = walkNPC(n, 0, -9.6, 1.0, dt); if (inside) { n.object.visible = false; n.walking = false; porch.stage = 'gone'; storyFlags.add('porch-primo-gone'); const ix = zones.road.interactables.indexOf(n); if (ix >= 0) zones.road.interactables.splice(ix, 1); if (door) { door.locked = false; door.prompt = '[ E ] GO IN — THE FARMHOUSE'; } showToast('GO IN.'); } }
+      }
+    }
+  }
+}
+function startPorchScene(n) {
+  porch.stage = 'book'; keys.clear();
+  const save = { rx: camera.rotation.x, ry: camera.rotation.y };
+  storyScene = { type: 'v8', t: 0, dur: 4.6, lines: [], i: 0, update(s, dt) {
+    if (s.t < 2.6) aimCamera(porch.book.world, Math.min(1, dt * 2.6));
+    else { const hp = new THREE.Vector3(); n.headPivot.getWorldPosition(hp); hp.y += .18; aimCamera(hp, Math.min(1, dt * 2.2)); }
+    if (s.t > .6 && !s.l1) { s.l1 = true; storyLine('(Underlined, in pencil: “Become who you are.”)'); }
+    if (s.t > 2.1 && s.t < 2.9) { n.porchOverride = true; n.leftArm.rotation.x = -.9; n.leftForearm.rotation.x = -.5; }
+    if (s.t > 2.6) { porch.book.hinge.rotation.z = -Math.min(1, (s.t - 2.6) / .4) * Math.PI; if (!s.snap) { s.snap = true; audio?.mechanicalNoise(.12, 1800, 1, .05); } }
+    if (s.t > 3.0) { n.leftArm.rotation.x *= .9; n.leftForearm.rotation.x *= .9; }
+    if (s.t >= s.dur) { storyScene = null; porch.stage = 'talk'; $('subtitle-wrap').classList.remove('visible'); openDialogue(n); }
+  }, skip(s) { s.t = s.dur - .01; } };
+}
+
+// ---- The farmhouse: the table looks up; he names them -------------------------
+const welcome = { done: false, first: null, t: 0 };
+function buildHomeFirstV8() {
+  const T = storyRef.tableSeats, z = zones.home; if (!T) return;
+  const n = makeNPC(z.group, T.top[0] + .2, T.top[1] - 2.95, 'The First', 0x1d2330, 1);
+  n.isHomeFirst = true; n.object.rotation.y = 0; n.prompt = '[ E ] SPEAK — IL PROFESSORE'; n.object.visible = false;
+  const ix = z.interactables.indexOf(n); if (ix >= 0) z.interactables.splice(ix, 1);
+  welcome.first = n;
+}
+function updateWelcome(dt) {
+  const n = welcome.first; if (!n) return;
+  if (!welcome.done && currentZone === 'home' && storyFlags.has('porch-primo-gone')) {
+    welcome.done = true; n.object.visible = true; if (!zones.home.interactables.includes(n)) zones.home.interactables.push(n);
+    house.welcomeT = 6;
+    const lines = ['IL PROFESSORE: This is Ines. Ottavio looks after the instruments. Franco works with meat. Pino knows the roads.', 'IL PROFESSORE: Anna cooks. Marta marks the beams. Gabri sits by the refrigerator. Sergio has opinions.', 'IL PROFESSORE: Dario remembers the prayers. Livia sings. Walter measures the places.', 'TOBIA: And you?', 'IL PROFESSORE: The First is enough. The guitar is on the table. Take your time.'];
+    lines.forEach((l, i) => setTimeout(() => { if (!storyScene) storyLine(l); }, 900 + i * 3900));
+    setTimeout(() => showToast('THE NAMES USED HERE. THEY MAKE THE TABLE EASIER TO SET.'), 900 + lines.length * 3900);
+  }
+  if (house.welcomeT > 0) house.welcomeT -= dt;
+  if (welcome.done && n.object.visible && jobState.done.guitar && currentZone !== 'home') { n.object.visible = false; const ix = zones.home.interactables.indexOf(n); if (ix >= 0) zones.home.interactables.splice(ix, 1); }
+}
+
+// ---- The grave under the willow (v10 §7.5) -----------------------------------
+const grave = { built: false, group: null, larvae: [], hand: null, jaw: null, case: null };
+function buildGraveV8() {
+  const g = new THREE.Group(); g.position.set(-21.5, 0, 19.9); g.visible = false; zones.road.group.add(g); grave.group = g;
+  const soil = v7mat(0x231a12, 1), soilLt = v7mat(0x33261a, 1);
+  const pit = new THREE.Mesh(new THREE.CircleGeometry(1, 28), v7mat(0x0d0a07, 1)); pit.scale.set(1.15, .55, 1); pit.rotation.x = -Math.PI / 2; pit.position.y = .012; g.add(pit);
+  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; const m = new THREE.Mesh(new THREE.SphereGeometry(.22 + Math.random() * .12, 8, 6), i % 2 ? soil : soilLt); m.position.set(Math.cos(a) * 1.25, .03, Math.sin(a) * .7); m.scale.y = .45; g.add(m); }
+  const heap = new THREE.Mesh(new THREE.SphereGeometry(.7, 10, 7), soilLt); heap.scale.set(1, .4, .7); heap.position.set(1.9, .05, .3); g.add(heap);
+  // The body, in grey cloth, lying east-west.
+  const body = new THREE.Group(); body.position.y = .06; g.add(body);
+  const linen = new THREE.MeshStandardMaterial({ map: fabricTexture('apron', 0x77756c), roughness: 1 });
+  const shroud = new THREE.Mesh(new THREE.CapsuleGeometry(.24, 1.25, 6, 14), linen); shroud.rotation.z = Math.PI / 2; shroud.scale.set(1, 1, .55); body.add(shroud);
+  for (let i = 0; i < 9; i++) { const f = new THREE.Mesh(new THREE.TorusGeometry(.24, .018, 5, 14, Math.PI), linen); f.position.set(-.6 + i * .15, .02, 0); f.rotation.y = Math.PI / 2; f.scale.set(1, .55, 1); body.add(f); }
+  const flesh = v7mat(0x7a7464, .9), dark = v7mat(0x2c261f, 1);
+  const head = new THREE.Group(); head.position.set(-.92, .05, 0); body.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(.15, 16, 12), flesh); skull.scale.set(1.05, .85, .95); head.add(skull);
+  const socketL = new THREE.Mesh(new THREE.SphereGeometry(.035, 8, 6), dark); socketL.position.set(-.02, .1, .06); head.add(socketL); const socketR = socketL.clone(); socketR.position.z = -.06; head.add(socketR);
+  const jaw = new THREE.Group(); jaw.position.set(.06, .02, 0); head.add(jaw); grave.jaw = jaw;
+  const jm = new THREE.Mesh(new THREE.SphereGeometry(.1, 12, 8, 0, Math.PI * 2, Math.PI * .5, Math.PI * .5), flesh); jm.rotation.z = -Math.PI / 2; jaw.add(jm);
+  const tooth = v7mat(0xc9c2ae, .5), filling = v7mat(0x6e7270, .3, { metalness: .6 });
+  for (let i = 0; i < 9; i++) { if (i === 6) continue; const tt = new THREE.Mesh(new THREE.BoxGeometry(.014, .02, .016), i > 5 ? filling : tooth); const a = -1.1 + i * .27; tt.position.set(.075 + Math.cos(a) * .015, .07, Math.sin(a) * .06); head.add(tt); }
+  jaw.rotation.z = -.45;
+  // The left hand outside the cloth, palm up: the pale scar inside the thumb.
+  const hand = new THREE.Group(); hand.position.set(-.25, .1, .3); hand.rotation.y = -.3; body.add(hand); grave.hand = hand;
+  const fore = new THREE.Mesh(new THREE.CapsuleGeometry(.045, .3, 4, 8), flesh); fore.rotation.z = Math.PI / 2; fore.position.x = .2; hand.add(fore);
+  for (let i = 0; i < 4; i++) { const cut = new THREE.Mesh(new THREE.BoxGeometry(.004, .002, .05), v7mat(0x4a1f17, 1)); cut.position.set(.14 + i * .035, .045, 0); hand.add(cut); }
+  const palm = new THREE.Mesh(new THREE.BoxGeometry(.1, .025, .085), flesh); hand.add(palm);
+  for (let i = 0; i < 4; i++) { const fg = new THREE.Mesh(new THREE.CapsuleGeometry(.011, .06, 3, 5), flesh); fg.rotation.z = Math.PI / 2; fg.position.set(-.09, .006, -.032 + i * .022); fg.rotation.y = (i - 1.5) * .08; hand.add(fg); }
+  const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(.013, .05, 3, 5), flesh); thumb.position.set(-.03, .01, .06); thumb.rotation.set(0, .8, Math.PI / 2); hand.add(thumb);
+  const scar = new THREE.Mesh(new THREE.BoxGeometry(.035, .003, .004), v7mat(0xe8dfcc, .6, { emissive: 0x2a2620 })); scar.position.set(-.03, .025, .06); scar.rotation.y = .8; hand.add(scar);
+  const string = inkCurveTube([[.3, .05, -.02], [.18, .06, .02], [.05, .05, -.01], [-.04, .04, .03]], .0018, v7mat(0xb8b4a8, .2, { metalness: .9 })); hand.add(string);
+  // Larvae in the folds.
+  const lm = v7mat(0xe6e0cc, .6);
+  for (let i = 0; i < 26; i++) { const l = new THREE.Mesh(new THREE.CapsuleGeometry(.006, .018, 3, 4), lm); l.rotation.z = Math.PI / 2; const base = new THREE.Vector3(-.7 + Math.random() * 1.3, .14 + Math.random() * .05, (Math.random() - .5) * .25); l.position.copy(base); body.add(l); grave.larvae.push({ m: l, base, ph: Math.random() * 6 }); }
+  // The metal case under the body.
+  const cs = new THREE.Mesh(new THREE.BoxGeometry(.32, .08, .22), M.rust); cs.position.set(.75, .03, -.35); g.add(cs); grave.case = cs;
+  // A lantern hung in the willow: the frame for the whole scene.
+  addLamp(zones.road.group, -21.2, 2.35, 18.9, { style: 'gothic', color: 0xffa95a, intensity: 2.2, distance: 7, flicker: .12, spot: { angle: .55, target: [-.2, -2.4, 1.0] } });
+  addLightShaft(zones.road.group, new THREE.Vector3(-21.2, 2.2, 18.9), new THREE.Vector3(-21.45, 0, 19.9), .95, 0xffc58a, .03);
+}
+function startGraveScene() {
+  grave.group.visible = true; keys.clear();
+  const save = { pos: playerAnchor.position.clone(), rx: camera.rotation.x, ry: camera.rotation.y, fov: camera.fov };
+  const gp = grave.group.position, W = (x, y, z) => new THREE.Vector3(gp.x + x, y, gp.z + z);
+  const shots = [[0, W(0, 0, 0), 72], [5.5, W(-.25, .15, .3), 92], [10.5, W(-.88, .2, 0), 96], [15, W(.75, .05, -.35), 80]];
+  audio?.setMuffle(true, 1.2); fear = Math.min(1, fear + .14);
+  storyScene = { type: 'v8', t: 0, dur: 20.5, i: 0, lines: [[.6, '(The blade hits wood, then grey cloth.)'], [3.2, '(Larvae move in the folds. Bruises on the upper arms and throat, like the marks of many hands.)'], [6.2, '(Inside the left thumb, the same pale scar as yours. A short guitar string is caught in the sleeve.)'], [8.6, 'TOBIA: That is my hand.'], [11.2, '(The jaw has fallen open. One molar is missing. The others have grey fillings, like the tooth in your matchbox.)'], [14.0, 'TOBIA: I have not been here.'], [16.0, '(Under the body: a metal case. One name from 1977, and the word REMOVED.)']], update(s, dt) {
+    playerAnchor.position.set(gp.x - .2, 0, gp.z + 1.15); camera.position.set(0, 1.3, 0);
+    let shot = shots[0]; for (const sh of shots) if (s.t >= sh[0]) shot = sh;
+    aimCamera(shot[1], Math.min(1, dt * 1.8)); setFov(THREE.MathUtils.lerp(camera.fov, shot[2], Math.min(1, dt * 1.2)));
+    grave.larvae.forEach(l => { l.ph += dt * 3; l.m.position.set(l.base.x + Math.sin(l.ph) * .01, l.base.y, l.base.z + Math.cos(l.ph * .7) * .008); l.m.rotation.y = l.ph; });
+    if (s.t > 8.5 && !s.flash1) { s.flash1 = true; flashFragment('nosebleed', 140); glitchPulse = 1; }
+    if (s.t >= s.dur) endGraveScene(save);
+  }, skip(s) { s.t = s.dur; } };
+  setCinema(true);
+}
+function endGraveScene(save) {
+  storyScene = null; setCinema(false); setFov(save.fov); audio?.setMuffle(false, 1.2); $('subtitle-wrap').classList.remove('visible');
+  playerAnchor.position.copy(save.pos); camera.position.set(0, 1.63, 0); camera.rotation.set(save.rx, save.ry, 0); resetLook();
+  journal.push({ id: 'grave-body', title: 'The Body Under the Willow', description: 'The grave held a body with my scar and my teeth. Four short healed cuts on the inside of the left forearm, evenly spaced. A guitar string in the sleeve. I have not been buried. I cannot make the two sentences agree.', kind: 'witness account', zone: 'road' }); updateJournalCount();
+  storyFlags.add('grave-body-seen'); updateMissions();
+}
+
+// ---- The church comes down: Crollo (v10 §8.12) --------------------------------
+const crollo = { pieces: [], dust: [], extras: [], done: false };
+function crolloReady() { return !crollo.done && storyRef.churchExt && storyFlags.has('station-walter') && storyFlags.has('dario-bell-death') && storyFlags.has('altar-lit'); }
+function prepareCollapse() {
+  const g = storyRef.churchExt; g.updateMatrixWorld(true); crollo.pieces = [];
+  const add = (m, center) => {
+    const rel = m.position.clone().sub(center), y = m.position.y, high = y > 4.2, tower = center.lengthSq() === 0 && Math.abs(m.position.x + 4.25) < 1.6 && m.position.z > 3;
+    const delay = (tower ? .9 : 0) + Math.min(2.4, Math.max(0, (8 - y) * .2)) + Math.random() * .6;
+    const to = new THREE.Vector3(center.x + rel.x * (high ? .55 : .92) + (tower ? 3 : 0), high ? .25 + Math.random() * 1.1 : Math.max(.05, y * (.25 + Math.random() * .3)), center.z + rel.z * (high ? .6 : .95) + (tower ? -2.5 : 0));
+    crollo.pieces.push({ m, from: m.position.clone(), rot: m.rotation.clone(), sc: m.scale.clone(), delay, high, to, spin: new THREE.Vector3((Math.random() - .5) * 1.4, (Math.random() - .5) * .6, (Math.random() - .5) * 1.4), squash: high ? 1 : .3 + Math.random() * .35 });
+  };
+  g.children.forEach(m => { if (m.isMesh || m.isGroup) add(m, new THREE.Vector3()); });
+  // The portal, rose window and lanterns belong to the road group: they come down with the front.
+  const cg = g.position;
+  zones.road.group.children.forEach(m => { if (m === g || m.isLight || !(m.isMesh || m.isGroup)) return; const p = m.position; if (p.x > cg.x - 7 && p.x < cg.x + 7 && p.z > cg.z + 6.5 && p.z < cg.z + 9.2 && p.y > .3) add(m, new THREE.Vector3(cg.x, 0, cg.z)); });
+}
+function applyCollapse(t) {
+  crollo.pieces.forEach(p => {
+    const k = THREE.MathUtils.clamp((t - p.delay) / (p.high ? 1.5 : 2.6), 0, 1), e = k * k * (3 - 2 * k), fall = p.high ? k * k : e;
+    p.m.position.lerpVectors(p.from, p.to, fall);
+    p.m.rotation.set(p.rot.x + p.spin.x * e, p.rot.y + p.spin.y * e, p.rot.z + p.spin.z * e);
+    if (!p.high) p.m.scale.set(p.sc.x, p.sc.y * (1 - (1 - p.squash) * e), p.sc.z);
+  });
+}
+function startCrollo() {
+  crollo.done = true; prepareCollapse(); keys.clear(); storyFlags.add('church-collapsing');
+  const save = { pos: playerAnchor.position.clone(), rx: camera.rotation.x, ry: camera.rotation.y, fov: camera.fov };
+  const g = zones.road.group, cg = storyRef.churchExt.position;
+  const first = extraFigure(g, 36.5, -8.2, 'The First', 0x1d2330, 1); first.object.rotation.y = Math.PI * 1.01;
+  const ines = extraFigure(g, 40.3, -8.9, 'Ines', 0x52483d, 0); ines.object.rotation.y = Math.PI * 1.06;
+  const ott = extraFigure(g, 41.4, -7.9, 'Ottavio', 0x373735, 1); ott.object.rotation.y = Math.PI * 1.1;
+  crollo.extras = [first, ines, ott]; setEarplugs(first, true);
+  for (let i = 0; i < 70; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xb8b2a4, transparent: true, opacity: 0, depthWrite: false })); s.position.set(cg.x + (Math.random() - .5) * 14, .5 + Math.random() * 3, cg.z + (Math.random() - .5) * 16); s.userData.v = new THREE.Vector3((Math.random() - .5) * 2.2, .5 + Math.random() * 1.4, Math.random() * 2.4); g.add(s); crollo.dust.push(s); }
+  const target = new THREE.Vector3(cg.x - .6, 4.6, cg.z);
+  storyRef.shedMeshes?.forEach(m => { if (storyFlags.has('shed-gone')) m.visible = false; });
+  storyScene = { type: 'v8', t: 0, dur: 27, i: 0, lines: [[.8, '(Il Professore puts in both earplugs.)'], [16.2, '(Someone laughs once, and covers her mouth. Ottavio sits down in the road.)'], [18.0, 'TOBIA: You knew it would come down.'], [20.0, 'IL PROFESSORE: We built it so that it could.'], [22.0, 'TOBIA: You called this freedom.'], [24.0, 'IL PROFESSORE: I called it a place where nothing had to remain standing.']], update(s, dt) {
+    playerAnchor.position.set(38.4, 0, -4.6); camera.position.set(0, 1.5, 0); aimCamera(target, Math.min(1, dt * 2));
+    const ct = s.t - 4; if (ct > 0) applyCollapse(ct);
+    if (ct > 0 && !s.mute) { s.mute = true; audio?.setMuffle(true, .4); audio?.setDuck?.(.05, .4); }
+    setFov(THREE.MathUtils.lerp(camera.fov, ct > 0 && ct < 9 ? 90 : 72, Math.min(1, dt * .9)));
+    if (ct > 1.2) crollo.dust.forEach(d => { d.position.addScaledVector(d.userData.v, dt * (ct < 6 ? 1 : .25)); const k = Math.min(1, (ct - 1.2) / 3); d.scale.setScalar(1 + ct * 1.4); d.material.opacity = Math.max(0, .5 * k - Math.max(0, ct - 14) * .05); });
+    if (ct > 9 && !s.sound) { s.sound = true; audio?.setMuffle(false, .2); audio?.setDuck?.(1, .2); audio?.mechanicalNoise(6, 55, .6, .6); audio?.mechanicalNoise(3.5, 140, .8, .35, .3); audio?.killSting(); glitchPulse = 1.4; }
+    if (ct > 9 && ct < 11) camera.rotation.z = (Math.random() - .5) * .03 * (11 - ct);
+    if (s.t > 16.2 && !s.laugh) { s.laugh = true; laugh(); if (ott.seated !== true) { ott.object.position.y = -.35; } }
+    if (s.t > 25.2 && !s.photo) { s.photo = true; primoPhotograph('IL PROFESSORE PHOTOGRAPHS THE DUST, NOT THE ALTAR.'); }
+    if (s.t >= s.dur) endCrollo(save);
+  }, skip(s) { s.t = s.dur; } };
+  setCinema(true);
+}
+function endCrollo(save) {
+  applyCollapse(99); crollo.dust.forEach(d => d.material.opacity = 0);
+  crollo.extras.forEach(n => n.object.parent?.remove(n.object)); crollo.extras = [];
+  storyScene = null; setCinema(false); setFov(save.fov); camera.rotation.z = 0; audio?.setMuffle(false, .5); audio?.setDuck?.(1, .5); $('subtitle-wrap').classList.remove('visible');
+  playerAnchor.position.copy(save.pos); camera.position.set(0, 1.63, 0); camera.rotation.set(save.rx, save.ry, 0); resetLook();
+  storyFlags.add('church-collapsed');
+  const d = zones.road.interactables.find(i => i.destination === 'church'); if (d) { d.locked = true; d.prompt = '[ E ] THE NAVE IS FULL OF ITS OWN ROOF'; }
+  const g = zones.road.group, cg = storyRef.churchExt.position, silver = v7mat(0xbdbab2, .25, { metalness: .9 });
+  for (let i = 0; i < 14; i++) { const ear = new THREE.Mesh(new THREE.TorusGeometry(.05, .016, 6, 12, Math.PI * 1.4), silver); ear.position.set(cg.x + (Math.random() - .5) * 5, .03, cg.z + 8.2 + Math.random() * 1.6); ear.rotation.set(-Math.PI / 2, 0, Math.random() * 6); g.add(ear); }
+  addLook(g, cg.x, .4, cg.z + 8.8, 'Silver ears in the rubble', 'Ex-voto ears, the kind people nailed to the north wall to thank a saint for hearing them. Dozens, in the dust in front of the portal. Beyond them, the forest has not moved.', 3);
+  journal.push({ id: 'crollo', title: 'Crollo', description: 'The church came down inward. The image arrived first; the sound came four seconds later. Il Professore had his earplugs in. He photographed the dust, not the altar. “I called it a place where nothing had to remain standing.”', kind: 'witness account', zone: 'road' }); updateJournalCount();
+  showToast('THE CHURCH IS A RUIN FOR THE REST OF THE NIGHT.'); updateMissions();
+}
+
+// ---- Gothic light: lamps and shafts that compose the frame ----------------------
+function addGothicLampParts(root, iron, bulbMat, color) {
+  // Scroll bracket from the wall, a hexagonal cage with a pointed spire and finial.
+  const scroll = new THREE.Mesh(new THREE.TorusGeometry(.16, .014, 6, 20, Math.PI * 1.3), iron); scroll.position.set(0, .05, .2); scroll.rotation.y = Math.PI / 2; root.add(scroll);
+  tubeBetween(root, [0, .2, 0], [0, .2, .42], .02, iron, 6);
+  const cage = new THREE.Group(); cage.position.set(0, -.12, .42); root.add(cage);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const bar = new THREE.Mesh(new THREE.BoxGeometry(.018, .42, .018), iron); bar.position.set(Math.cos(a) * .12, 0, Math.sin(a) * .12); cage.add(bar); const arch = new THREE.Mesh(new THREE.TorusGeometry(.06, .007, 4, 10, Math.PI), iron); arch.position.set(Math.cos(a + Math.PI / 6) * .105, .15, Math.sin(a + Math.PI / 6) * .105); arch.rotation.y = -a - Math.PI / 6 + Math.PI / 2; cage.add(arch); }
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(.15, .13, .05, 6), iron); crown.position.y = .23; cage.add(crown);
+  const spire = new THREE.Mesh(new THREE.ConeGeometry(.15, .34, 6), iron); spire.position.y = .42; cage.add(spire);
+  const finial = new THREE.Mesh(new THREE.SphereGeometry(.03, 8, 6), iron); finial.position.y = .62; cage.add(finial);
+  const spike = new THREE.Mesh(new THREE.ConeGeometry(.012, .1, 5), iron); spike.position.y = .69; cage.add(spike);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(.11, .05, .08, 6), iron); base.position.y = -.24; cage.add(base);
+  const drop = new THREE.Mesh(new THREE.ConeGeometry(.03, .1, 6), iron); drop.position.y = -.32; drop.rotation.x = Math.PI; cage.add(drop);
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(.115, .115, .4, 6), new THREE.MeshStandardMaterial({ color: 0xfff1d0, emissive: color, emissiveIntensity: .5, transparent: true, opacity: .3, roughness: .15 })); cage.add(glass);
+  const flame = new THREE.Mesh(new THREE.SphereGeometry(.035, 10, 8), bulbMat); flame.scale.y = 1.7; flame.position.y = -.02; cage.add(flame);
+  root.userData.lightPos = new THREE.Vector3(0, -.14, .42);
+}
+function addCandelabra(group, x, z, h = 1.6, color = 0xffb066) {
+  const root = new THREE.Group(); root.position.set(x, 0, z); group.add(root);
+  const iron = v7mat(0x1b1c1b, .5, { metalness: .65 });
+  root.add(new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(.22, 0), new THREE.Vector2(.2, .04), new THREE.Vector2(.05, .12), new THREE.Vector2(.03, h * .5), new THREE.Vector2(.06, h * .55), new THREE.Vector2(.025, h * .95), new THREE.Vector2(.04, h)], 12), iron));
+  const wax = v7mat(0xe4dcc6, .7), fl = new THREE.MeshStandardMaterial({ color: 0x221a10, emissive: color, emissiveIntensity: 3 });
+  [-1, 0, 1].forEach(s => { const arm = new THREE.Mesh(new THREE.TorusGeometry(.18, .012, 5, 14, Math.PI), iron); if (s) { arm.position.set(s * .18, h - .02, 0); arm.rotation.z = s > 0 ? Math.PI : 0; arm.scale.set(.5, .7, 1); root.add(arm); } const cx = s * .32, cy = h + (s ? .05 : .16); const cup = new THREE.Mesh(new THREE.CylinderGeometry(.04, .03, .04, 10), iron); cup.position.set(cx, cy, 0); root.add(cup); const c = new THREE.Mesh(new THREE.CylinderGeometry(.022, .024, .22, 10), wax); c.position.set(cx, cy + .13, 0); root.add(c); const f = new THREE.Mesh(new THREE.SphereGeometry(.018, 8, 6), fl); f.scale.y = 2; f.position.set(cx, cy + .27, 0); root.add(f); });
+  const l = new THREE.PointLight(color, 3.2, 7, 1.8); l.position.set(0, h + .3, 0); root.add(l); lampFlickers.push({ light: l, base: 3.2, flicker: .14, bulb: fl, phase: Math.random() * 10 });
+  return root;
+}
+function addLightShaft(group, from, to, radius, color = 0xffd9a0, opacity = .06) {
+  const len = from.distanceTo(to);
+  const m = new THREE.Mesh(new THREE.ConeGeometry(radius, len, 24, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: true }));
+  m.position.copy(from).add(to).multiplyScalar(.5); m.lookAt(to); m.rotateX(-Math.PI / 2); group.add(m);
+  shafts.push({ m, base: opacity, ph: Math.random() * 6 }); return m;
+}
+const shafts = [];
+function buildLightingV8() {
+  const R = zones.road.group;
+  // The porch: the man under the lamp is the first frame of the game.
+  addLamp(R, 0, 2.95, -8.0, { style: 'gothic', color: 0xffb066, intensity: 5.5, distance: 11, flicker: .07, shadow: true, spot: { angle: .75, target: [-1.6, -3, 2.6] } });
+  addLightShaft(R, new THREE.Vector3(0, 2.75, -7.6), new THREE.Vector3(-1.7, 0, -5.6), 1.15, 0xffc690, .055);
+  // The church portal: two lanterns and a cold shaft from the rose window.
+  const cz = -25 + 7.5 + .45; [-1.75, 1.75].forEach(dx => addLamp(R, 37 + dx, 3.3, cz, { style: 'gothic', color: 0xffa860, intensity: 4.2, distance: 9, flicker: .09 }));
+  addLightShaft(R, new THREE.Vector3(37, 3.1, cz + .2), new THREE.Vector3(37, 0, cz + 3.5), 1.5, 0xffb47a, .045);
+  // The lane: one lantern where the road bends, so the eye travels up it.
+  addLamp(R, -3.4, 3.6, 12, { style: 'post', rotY: Math.PI / 2, color: 0xffa250, intensity: 7, distance: 13, flicker: .04 });
+  // The farmhouse.
+  const T = storyRef.tableSeats, H = zones.home.group;
+  if (T) {
+    const ch = new THREE.Group(); ch.position.set(T.top[0], 2.55, T.top[1]); H.add(ch);
+    const iron = v7mat(0x1b1c1b, .5, { metalness: .65 }); const ring = new THREE.Mesh(new THREE.TorusGeometry(.62, .018, 6, 36), iron); ring.rotation.x = Math.PI / 2; ch.add(ring);
+    for (let i = 0; i < 4; i++) tubeBetween(ch, [Math.cos(i * Math.PI / 2) * .62, 0, Math.sin(i * Math.PI / 2) * .62], [0, .55, 0], .006, iron, 4);
+    tubeBetween(ch, [0, .55, 0], [0, 1.2, 0], .01, iron, 4);
+    const wax = v7mat(0xe4dcc6, .7), fl = new THREE.MeshStandardMaterial({ color: 0x221a10, emissive: 0xffa860, emissiveIntensity: 3 });
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const c = new THREE.Mesh(new THREE.CylinderGeometry(.018, .02, .14, 8), wax); c.position.set(Math.cos(a) * .62, .08, Math.sin(a) * .62); ch.add(c); const f = new THREE.Mesh(new THREE.SphereGeometry(.014, 6, 5), fl); f.scale.y = 2; f.position.set(Math.cos(a) * .62, .17, Math.sin(a) * .62); ch.add(f); }
+    const cl = new THREE.PointLight(0xffa860, 7, 9, 1.6); cl.position.set(0, -.1, 0); ch.add(cl); lampFlickers.push({ light: cl, base: 7, flicker: .1, bulb: fl, phase: 1 });
+    addLightShaft(H, new THREE.Vector3(T.top[0], 2.5, T.top[1]), new THREE.Vector3(T.top[0], .8, T.top[1]), 1.1, 0xffc890, .035);
+  }
+  // A single sconce beside the cracked plaster: the eye goes to the wall that talks.
+  addLamp(H, -9.62, 2.0, -3.9, { style: 'gothic', rotY: Math.PI / 2, color: 0xff9a50, intensity: 2.4, distance: 5, flicker: .12 });
+  // The nave: candelabra at the altar and a shaft from above, framing the rood.
+  const C = zones.church.group; addCandelabra(C, -1.7, -13.2); addCandelabra(C, 1.7, -13.2);
+  addLightShaft(C, new THREE.Vector3(.4, 7.4, -14.5), new THREE.Vector3(0, 0, -11.6), 1.7, 0xdfe2e6, .05);
+  addLightShaft(C, new THREE.Vector3(0, 5.8, 11.5), new THREE.Vector3(0, 0, -2), 1.3, 0xe8e2d0, .028);
+  // The empty house: cold light through the broken window onto the newspapers.
+  addLightShaft(zones.ruin.group, new THREE.Vector3(-7.6, 3.4, 4.2), new THREE.Vector3(-3.2, 0, 2.2), 1.2, 0xc8d0d4, .06);
+}
+function updateShafts(t) { shafts.forEach(s => { s.m.material.opacity = s.base * (.82 + Math.sin(t * .0007 + s.ph) * .12 + (Math.random() < .01 ? -.2 : 0)); }); }
+
+// ---- v8 tick ----
+function v8Tick(dt, t) {
+  updateShafts(t); updateWelcome(dt);
+  if (gameStarted && !gameEnded && currentZone === 'road' && !storyScene && !dialogueOpen && crolloReady()) startCrollo();
+}
+function buildV8World() {
+  buildPorchV8(); buildHomeFirstV8(); buildGraveV8(); buildLightingV8();
+}
+
+buildV8World();
+if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);

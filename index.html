@@ -50,6 +50,7 @@
     <div class="bottom-left">
       <div class="tool-indicator"><span class="tool-icon">◉</span><span>FLASHLIGHT <b id="torch-state">ON</b> <em>[F]</em></span></div>
       <div class="tool-indicator"><span class="tool-icon">▤</span><span>INVENTORY <b id="inventory-count">0</b> <em>[TAB]</em></span></div>
+      <div class="tool-indicator"><span class="tool-icon">€</span><span>CASH <b id="cash-value">0</b></span></div>
     </div>
 
     <div class="bottom-right">
@@ -105,6 +106,15 @@
     </div>
   </section>
 
+  <section id="bench" class="screen panel-screen">
+    <div class="panel-frame bench-frame">
+      <div class="panel-head"><div><span class="eyebrow" id="bench-by">A JOB</span><h2 id="bench-title">The bench</h2></div></div>
+      <canvas id="bench-canvas" width="720" height="200"></canvas>
+      <p class="bench-tip" id="bench-tip"></p>
+      <div class="bench-actions" id="bench-actions"></div>
+      <div class="panel-foot"><span>LISTEN · REPAIR · REFUSE</span><span>THE HOUSE RECORDS WHOSE HANDS WERE IN IT</span></div>
+    </div>
+  </section>
   <section id="ending-screen" class="screen">
     <div class="ending-content">
       <div class="eyebrow">RECORDING CONCLUDED / TAPE 14</div>

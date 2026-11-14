@@ -123,3 +123,18 @@ body.hand-house .objective{border-left-color:var(--rust)}
 body.hand-own .objective #objective-text{font-family:var(--font-machine);font-size:12px;line-height:1.55;letter-spacing:.02em;color:var(--paper)}
 body.hand-own .objective{border-left-color:var(--oxide)}
 @media(max-width:700px){.journal-tabs{margin:10px 0 0;order:3;width:100%}.panel-head{flex-wrap:wrap}.dossier-pair{grid-template-columns:1fr}}
+
+/* v8 — the bench */
+#bench{z-index:28}
+.bench-frame{height:auto;max-width:780px;gap:14px}
+#bench-canvas{width:100%;height:auto;border:1px solid var(--line);background:#0f0d0b;margin-top:18px}
+.bench-tip{font-family:var(--font-voice);font-size:18px;line-height:1.5;color:var(--paper);min-height:54px;margin:4px 0}
+.bench-actions{display:flex;flex-wrap:wrap;gap:8px}
+.bench-actions input[type=range]{width:100%;accent-color:#b08752}
+.bench-row{width:100%;display:flex;justify-content:flex-end}
+.bench-btn{pointer-events:auto;flex:1 1 150px;border:1px solid var(--line-strong);background:transparent;color:var(--paper);padding:11px 12px;font:10px var(--font-machine);letter-spacing:.14em;cursor:pointer;text-align:left}
+.bench-btn small{display:block;font-family:var(--font-voice);font-size:13px;letter-spacing:0;color:var(--paper-dim);margin-top:6px}
+.bench-btn:hover{background:rgba(195,154,90,.08);border-color:var(--gold)}
+.bench-btn.sel{border-color:var(--gold);color:var(--bone)}
+.bench-btn.commit{flex:0 0 auto;border-color:var(--gold);color:var(--bone)}
+.bench-btn.refuse:hover{border-color:#c07a5f;background:rgba(142,63,37,.12)}
