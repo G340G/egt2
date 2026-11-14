@@ -44,6 +44,11 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 11 — fixes
+
+- **Il Professore vanishes into the doorway at once.** He opens the door while he is still walking, lines up with it, and is gone the moment he crosses the threshold, about two and a half seconds after he starts walking. He no longer waits on the step.
+- **The forest car is mandatory.** Once the dark room has been searched, the next time you enter the slaughterhouse he says “Not here. Come outside. The car is warm.” and takes you to the forest, whatever you answered him before. The objective tells you to go there, and then to walk back to the lamp in the clearing. The tea at 03:17 and the platter both wait until you have come back from the forest.
+
 ## Version 10 — a real doorway, one body for everyone, a softer lamp
 
 - **Il Professore no longer gets stuck in the door.** The farmhouse's wall boards used to run across the bottom of the doorway, and behind the door the house was an empty dark box, so he walked into planks and the knee-high stone base. The boards now stop at the frame. Behind the door there is a short, lit hallway with a coat stand, a picture and a bulb. He steps up onto the porch, the door swings inward, and he walks into the hall on his own feet. No teleport is needed; the failsafe is still there.

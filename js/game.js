@@ -2307,6 +2307,7 @@ function beginListening(){
   if(collected.size<clueCount){showToast('THE PLATTER IS EMPTY. COLLECT ALL EIGHT CLUES.');return;}
   if(!storyFlags.has('altar-lit')){showToast('THE ALTAR IS STILL DARK. LIGHT ALL THREE CANDLES FIRST.');return;}
   if(!storyFlags.has('darkroom-cleared')){showToast('THE DARK ROOM HAS NOT BEEN SEARCHED. FIND THE SIX RECORDS OF WHAT HAPPENED.');return;}
+  if(!storyFlags.has('escaped-forest')){showToast('YOU HAVE NOT BEEN TO THE FOREST. IL PROFESSORE IS WAITING WITH THE CAR AT THE SLAUGHTERHOUSE.');return;}
   if(!storyFlags.has('first-tea')){showToast('IL PROFESSORE IS STILL IN THE SLAUGHTERHOUSE. ASK HIM ABOUT THE EARPLUGS.');return;}
   if(!storyFlags.has('carcasses-decided')){showToast('THE BODIES ARE STILL WAITING. DECIDE WHAT TO DO WITH THE HOOKS FIRST.');return;}
   storyFlags.add('listened-to-white');
@@ -2898,6 +2899,7 @@ function currentMissionText(){
  if(currentZone==='abattoir'&&!storyFlags.has('carcasses-decided'))return 'DECIDE WHAT TO DO WITH THE HANGING BODIES.';
  if(currentZone==='darkroom'&&!storyFlags.has('darkroom-cleared'))return 'SEARCH THE DARK ROOM — '+darkroomFindCount()+' / 6. Keep the beam moving.';
  if(storyFlags.has('altar-lit')&&!storyFlags.has('darkroom-cleared'))return currentZone==='cellar'?'THE SIDE DOOR IS OPEN. SEARCH THE DARK ROOM FOR THE SIX RECORDS.':'RETURN TO THE CELLAR. THE SIDE DOOR HAS OPENED.';
+ if(storyFlags.has('darkroom-cleared')&&!storyFlags.has('escaped-forest'))return currentZone==='forest'?'WALK BACK TO THE LAMP IN THE CLEARING. DO NOT STOP.':'GO TO THE SLAUGHTERHOUSE. IL PROFESSORE IS WAITING WITH THE CAR. IT IS NOT A REQUEST.';
  if(storyFlags.has('darkroom-cleared')&&!storyFlags.has('first-tea'))return currentZone==='abattoir'?'SPEAK WITH IL PROFESSORE AGAIN. ASK HIM ABOUT THE SOUND HE REFUSED TO HEAR.':'RETURN TO THE SLAUGHTERHOUSE. IL PROFESSORE IS WAITING BESIDE THE HOOKS.';
   if(storyFlags.has('first-tea')&&!storyFlags.has('listened-to-white'))return currentZone==='cellar'?'RETURN TO THE BLANK PLATTER. THE ROOM HAS BEEN RECORDED.':'THE BLANK PLATTER IS WAITING IN THE CELLAR.';
  if(currentZone==='home'&&!storyFlags.has('talked-ines'))return 'Speak with Ines before examining the Seating List.';
@@ -2951,7 +2953,7 @@ function applyConsequences(npc, index) {
   if (key === 'the first' && npc.isOpeningPrimo) { storyFlags.add('met-primo'); storyFlags.add('primo-first-contact'); }
   else if (key === 'the first') { const d = primoDialogue(); d.actions?.[index]?.(); }
   applyChoiceEffect(key,index,npc);
-  if(key==='the first'&&npc===storyRef.first&&storyFlags.has('darkroom-cleared')&&!storyFlags.has('first-tea'))startFirstTeaScene(npc);
+  if(key==='the first'&&npc===storyRef.first&&storyFlags.has('darkroom-cleared')&&storyFlags.has('escaped-forest')&&!storyFlags.has('first-tea'))startFirstTeaScene(npc);
   if (storyFlags.has('primo-alerted')) placeStalker(currentZone);
   updateMissions();
 }
@@ -6238,20 +6240,27 @@ function updatePorchPrimo(dt = 1 / 60) {
     if (n.talkedOnce && porch.stage !== 'book') porch.stage = 'talk';
   }
   if (porch.stage === 'talk' && n.talkedOnce && !dialogueOpen) { porch.stage = 'walk'; porch.t = 0; porch.ember.visible = false; if (n.rig) n.rig.pose = 'stand'; n.rightArm.rotation.x = 0; n.rightForearm.rotation.x = 0; }
-  if (porch.stage === 'walk' && porch.t > 14 && !storyFlags.has('porch-primo-gone')) { n.object.position.set(0, .5, -10.6); porch.opened = true; porch.openT = 2; }
+  if (porch.stage === 'walk' && porch.t > 9 && !storyFlags.has('porch-primo-gone')) porchFirstGone(n, zones.road.interactables.find(i => i.destination === 'home'));
   if (porch.stage === 'walk') {
     porch.t += dt; n.porchOverride = true;
     { const z = n.object.position.z, gy = z > -7.15 ? 0 : z > -7.9 ? .56 : .5; n.object.position.y += (gy - n.object.position.y) * Math.min(1, dt * 10); }
-    if (porch.t > .6) {
-      if (!porch.wp1) porch.wp1 = walkNPC(n, -1.95, -6.75, 1.1, dt);
-      const reached = porch.wp1 && walkNPC(n, 0, -7.25, 1.1, dt);
-      if (reached && !porch.opened) { porch.opened = true; porch.openT = 0; audio?.doorCreak(); setTimeout(() => { laugh(); setTimeout(laugh, 380); }, 700); storyLine('IL PROFESSORE: Come in. They have been waiting longer than you have.'); }
-      if (porch.opened) {
-        porch.openT += dt; const k = Math.min(1, porch.openT / 1.2); if (door?.doorPivot) door.doorPivot.rotation.y = k * 1.45; porch.spill.intensity = k * 22; if (porch.hall) porch.hall.visible = true;
-        if (porch.openT > 1.3) { const inside = walkNPC(n, 0, -10.6, 1.0, dt); if (inside) { n.object.visible = false; n.walking = false; porch.stage = 'gone'; storyFlags.add('porch-primo-gone'); const ix = zones.road.interactables.indexOf(n); if (ix >= 0) zones.road.interactables.splice(ix, 1); if (door) { door.locked = false; door.openAngle = 1.45; door.prompt = '[ E ] GO IN — THE FARMHOUSE'; } showToast('GO IN.'); } }
-      }
+    if (porch.t > .3) {
+      // He opens the door while still walking, and is gone the moment he crosses the threshold.
+      const p0 = n.object.position, toDoor = Math.hypot(p0.x, p0.z + 7.25);
+      if (!porch.wp1) porch.wp1 = walkNPC(n, -1.95, -6.75, 1.25, dt);
+      else if (!porch.wp2) porch.wp2 = walkNPC(n, 0, -7.55, 1.25, dt);
+      else walkNPC(n, 0, -9.0, 1.25, dt);
+      if (!porch.opened && porch.wp1 && toDoor < 1.6) { porch.opened = true; porch.openT = 0; audio?.doorCreak(); setTimeout(() => { laugh(); setTimeout(laugh, 380); }, 300); storyLine('IL PROFESSORE: Come in. They have been waiting longer than you have.'); }
+      if (porch.opened) { porch.openT += dt; const k = Math.min(1, porch.openT / .6); if (door?.doorPivot) door.doorPivot.rotation.y = k * 1.45; porch.spill.intensity = k * 22; if (porch.hall) porch.hall.visible = true; }
+      if (porch.opened && p0.z < -8.15) porchFirstGone(n, door);
     }
   }
+}
+function porchFirstGone(n, door) {
+  n.object.visible = false; n.walking = false; porch.stage = 'gone'; storyFlags.add('porch-primo-gone');
+  const ix = zones.road.interactables.indexOf(n); if (ix >= 0) zones.road.interactables.splice(ix, 1);
+  if (door) { door.locked = false; door.openAngle = 1.45; if (door.doorPivot) door.doorPivot.rotation.y = 1.45; door.prompt = '[ E ] GO IN — THE FARMHOUSE'; }
+  showToast('GO IN.');
 }
 function startPorchScene(n) {
   porch.stage = 'book'; keys.clear();
@@ -6548,6 +6557,11 @@ function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object
 
 // ---- v8 tick ----
 function v8Tick(dt, t) {
+  // The forest car is not optional: once the dark room is searched, Il Professore takes you there
+  // the next time you enter the slaughterhouse, whatever you said to him.
+  if (gameStarted && !gameEnded && currentZone === 'abattoir' && storyFlags.has('darkroom-cleared') && !storyFlags.has('car-invited') && !storyFlags.has('car-called') && !storyScene && !dialogueOpen) {
+    storyFlags.add('car-called'); storyLine('IL PROFESSORE: Not here. Come outside. The car is warm.'); setTimeout(() => { if (!storyFlags.has('car-invited')) pendingCar = true; }, 3600);
+  }
   updateRigs(dt, t); updateShafts(t); updateWelcome(dt);
   if (gameStarted && !gameEnded && currentZone === 'road' && !storyScene && !dialogueOpen && crolloReady()) startCrollo();
 }
