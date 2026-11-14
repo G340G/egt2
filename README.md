@@ -44,6 +44,17 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 7 — the people
+
+- **Thirteen distinct bodies.** Every person now has their own build, height, stoop, skin, hair, wardrobe and objects, written in `js/people.js`: Ines's faded red cardigan and folded white cloth, Ottavio's gaunt stoop and round glasses, Anna's headscarf and long apron, Dario's black blazer and rosary, Sergio's heavy slouch and unlit cigarette, Marta's bleached crop and paint-flecked shirt, Pino's long greying hair and leather jacket, Gabri's track jacket with reflective piping, Walter's work jacket with half-removed reflective strips, Livia's long coat and throat scarf, Franco's white apron over a black T-shirt, Don Remo's cassock and keys on a shoelace, and il Professore's ink-scribble hair and the game's only orange object, a foam earplug.
+- **Habits you can watch.** Each person has a tell that plays while they wait: Ines folds cloth, Ottavio taps the table and waits for the reply through the wood, Franco wipes dry hands, Gabri keeps glancing at the refrigerator, Walter measures doorframes, Dario touches his throat where a collar would sit. They also look at Tobia differently: some eagerly, some at his hands, some away.
+- **Psychological layers.** Each person is written as a surface, a wound, a secret, a fear, a want and a contradiction. A **second conversation** opens once the house is quieter (after two clues or the wall). Its two answers reveal different layers in the journal's new **THE PEOPLE** tab.
+- **ACCORDO / RIFIUTO.** Two hidden values from the v10 script. Agreeing, accepting care and putting your hands in the record raise ACCORDO; refusing, naming things and keeping your own name raise RIFIUTO. They are never shown as numbers. They change who warns you about him, how much food heals, whose handwriting the objective and journal are written in, and the ledger at the end. *The tenth has no name. It is you.*
+- **Lived moments.** Six ordinary scenes between pairs (the scooter joke, the collar, the card game, the wall, the salt, the hidden road) play once when you linger nearby in the farmhouse. They are not clues.
+- **Consequences.** Telling Pino to go lets him leave alive. Taking the cleaver off the table changes Franco's ending line. Don Remo can name the man who wired the latch in 1977.
+- **Material world.** Newspapers laid on the ruin's floor, rust tears, a dead VU needle and a coiled cable on the cellar cabinet, leaf litter on the lane, a wandering film scratch in the grade, and an ink-scribble and rust-drip interface. Fonts are now loaded: IM Fell English, IBM Plex Mono, Reenie Beanie (the house's hand).
+- **Content notice** on the start screen, as the v10 script requires.
+
 ## Version 6 — what changed
 
 - **Stations.** Each follower's death is staged as a short cutscene in the way the treatment prescribes: Franco *seen whole* on the altar, Anna *heard, not seen* under the floor while you eat her soup, Marta under the heat lamp, Gabri in a car on the levee *with the sound removed*, Sergio's gentle death in real sunlight, Livia *as a silhouette* behind the confessional lattice, Walter's shed *seen from far away* with the sound arriving late, Dario's Mass *seen in part, from below*, and Don Remo's bell with the rope in your hands. Each ends with a short Pastorale. Press **Space** to skip any cutscene.
@@ -60,7 +71,7 @@ The four slaughterhouse forms are sculptural and stylised rather than anatomical
 ## Controls
 
 - **WASD / arrow keys:** move · **Shift:** run · **Mouse:** look (click the scene to lock the pointer, or drag)
-- **E:** interact, speak, examine · **F:** flashlight · **Q:** hold your breath
+- **E:** interact, speak, examine (speak again later for a second conversation) · **F:** flashlight · **Q:** hold your breath
 - **Tab:** journal · **P:** settings · **M:** mute · **Space:** skip a cutscene
 - **1 / 2 or click:** dialogue choices · **Esc:** close dialogue
 

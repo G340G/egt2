@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, personFor } from './people.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
 // ---- Player settings: volumes, mouse sensitivity and difficulty persist between visits. ----
@@ -64,6 +65,11 @@ const BaconShader = {
       float vig = smoothstep(0.92, 0.22, r);
       col *= mix(1.0, vig, grade * 0.48);
       col *= 0.985 + 0.015 * sin(time * 23.0);
+      // v7: worn print stock — a faint vertical scratch that wanders, and lifted ink in the blacks.
+      float sx = fract(sin(floor(time * 6.0) * 91.7) * 4375.5);
+      float scratch = smoothstep(0.0015, 0.0, abs(vUv.x - sx)) * step(0.55, fract(sin(floor(time * 6.0) * 13.1) * 917.3));
+      col = mix(col, vec3(0.86, 0.82, 0.72), scratch * 0.18 * grade);
+      col = max(col, vec3(0.022, 0.019, 0.015));
       gl_FragColor = vec4(col, 1.0);
     }`
 };
@@ -105,6 +111,8 @@ let cultFateActive = null;
 let cultFateClock = 0;
 let cultFateCooldown = 0;
 const storyFlags = new Set();
+// v7 — the hidden ledger of complicity (ACCORDO) and refusal (RIFIUTO). Never shown as numbers.
+const house = { accordo: 0, rifiuto: 0, moments: new Set(), words: new Set(), barkCd: 4, momentCd: 14, moment: null, journalTab: 'evidence', gazeT: new THREE.Vector3() };
 const windTrees = [];
 const cropPlants = [];
 const leafSpecks = [];
@@ -558,13 +566,14 @@ function makeNPC(group,x,z,name,coatColor=0x272725,variant=0){
  const photoKey=profile==='woman'?'woman':profile==='oldman'?'oldman':'man';
  const photoFace=new THREE.Mesh(new THREE.PlaneGeometry(.23,.285),photoMat);photoFace.position.set(first?-.055:0,1.91,.205);photoFace.visible=false;root.add(photoFace);
  const mask=new THREE.Mesh(new THREE.BoxGeometry(.25,.06,.025),trim);mask.position.set(first?-.055:0,1.91,.205);mask.visible=false;root.add(mask);
+ const sleeves=[],garnish=[];
  const leftArm=new THREE.Group();leftArm.position.set(first?-.39:-.31,1.43,0);root.add(leftArm);
  const rightArm=new THREE.Group();rightArm.position.set(first?.42:.31,1.43,0);root.add(rightArm);
  function makeArm(pivot,side){
   const upper=new THREE.Mesh(new THREE.CapsuleGeometry(.074,.34,5,9),cloth);upper.position.y=-.20;upper.rotation.z=side*-.035;pivot.add(upper);
   const elbow=new THREE.Mesh(new THREE.SphereGeometry(.071,8,7),skin);elbow.position.y=-.40;pivot.add(elbow);
   const forearm=new THREE.Group();forearm.position.y=-.40;pivot.add(forearm);
-  const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.063,.29,5,8),cloth);sleeve.position.y=-.18;forearm.add(sleeve);
+  const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.063,.29,5,8),cloth);sleeve.position.y=-.18;forearm.add(sleeve);sleeves.push(sleeve);
   const cuff=new THREE.Mesh(new THREE.CylinderGeometry(.066,.066,.06,8),trim);cuff.position.y=-.35;forearm.add(cuff);
   const palm=new THREE.Mesh(new THREE.SphereGeometry(.061,9,7),skin);palm.scale.set(.82,1.1,.72);palm.position.set(0,-.405,.025);forearm.add(palm);
   for(let i=0;i<4;i++){const finger=new THREE.Mesh(new THREE.CapsuleGeometry(.012,.07,3,5),skin);finger.position.set((i-1.5)*.025,-.48,.062);finger.rotation.z=(i-1.5)*.10;forearm.add(finger);}
@@ -582,10 +591,10 @@ function makeNPC(group,x,z,name,coatColor=0x272725,variant=0){
   const sole=new THREE.Mesh(new THREE.BoxGeometry(.19,.025,.32),M.black);sole.position.set(0,-.44,.075);calf.add(sole);
   legs.push(hip);lowerLegs.push(calf);shoes.push(shoe);
  }
- const collar=new THREE.Mesh(new THREE.CapsuleGeometry(.045,.31,3,6),trim);collar.position.set(0,1.56,.025);collar.rotation.z=Math.PI/2;root.add(collar);
- for(let i=0;i<4;i++){const button=new THREE.Mesh(new THREE.SphereGeometry(.017,6,5),M.gold);button.position.set(.035,1.34-i*.19,.235);root.add(button);}
- if(female){const shawl=new THREE.Mesh(new THREE.BoxGeometry(.45,.16,.07),mat(0x5a5146,.98));shawl.position.set(0,1.35,.20);shawl.rotation.z=-.07;root.add(shawl);if(lower.includes('anna')||lower.includes('mirella')){const apron=new THREE.Mesh(new THREE.BoxGeometry(.32,.48,.04),mat(0x4d3830,.99));apron.position.set(0,.94,.225);root.add(apron);}}
- else{const vest=new THREE.Mesh(new THREE.BoxGeometry(.20,.38,.045),trim);vest.position.set(0,1.37,.20);root.add(vest);if(elder){const glasses=mat(0x28251f,.52,{metalness:.35});for(const side of [-1,1]){const lens=new THREE.Mesh(new THREE.TorusGeometry(.048,.008,5,14),glasses);lens.position.set(side*.073,1.94,.192);root.add(lens);}const bridge=new THREE.Mesh(new THREE.BoxGeometry(.07,.01,.01),glasses);bridge.position.set(0,1.94,.19);root.add(bridge);}}
+ const collar=new THREE.Mesh(new THREE.CapsuleGeometry(.045,.31,3,6),trim);collar.position.set(0,1.56,.025);collar.rotation.z=Math.PI/2;root.add(collar);garnish.push(collar);
+ for(let i=0;i<4;i++){const button=new THREE.Mesh(new THREE.SphereGeometry(.017,6,5),M.gold);button.position.set(.035,1.34-i*.19,.235);root.add(button);garnish.push(button);}
+ if(female){const shawl=new THREE.Mesh(new THREE.BoxGeometry(.45,.16,.07),mat(0x5a5146,.98));shawl.position.set(0,1.35,.20);shawl.rotation.z=-.07;root.add(shawl);garnish.push(shawl);if(lower.includes('anna')||lower.includes('mirella')){const apron=new THREE.Mesh(new THREE.BoxGeometry(.32,.48,.04),mat(0x4d3830,.99));apron.position.set(0,.94,.225);root.add(apron);garnish.push(apron);}}
+ else{const vest=new THREE.Mesh(new THREE.BoxGeometry(.20,.38,.045),trim);vest.position.set(0,1.37,.20);root.add(vest);garnish.push(vest);if(elder){const glasses=mat(0x28251f,.52,{metalness:.35});for(const side of [-1,1]){const lens=new THREE.Mesh(new THREE.TorusGeometry(.048,.008,5,14),glasses);lens.position.set(side*.073,1.94,.192);root.add(lens);}const bridge=new THREE.Mesh(new THREE.BoxGeometry(.07,.01,.01),glasses);bridge.position.set(0,1.94,.19);root.add(bridge);}}
  if(first){
   leftArm.position.y+=.11;leftArm.rotation.z=-.24;rightArm.position.y-=.045;rightArm.rotation.z=.14;rightForearm.rotation.z=-.28;leftForearm.rotation.z=.10;
   const shoulder=new THREE.Mesh(new THREE.SphereGeometry(.20,10,8),trim);shoulder.position.set(-.35,1.49,.015);shoulder.scale.set(1.15,.58,.78);root.add(shoulder);
@@ -595,6 +604,7 @@ function makeNPC(group,x,z,name,coatColor=0x272725,variant=0){
  }
  const displayName=name==='The First'?'Il Professore':name;
  const npc={head,id:'npc_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_'),type:'npc',object:root,point:root.position,radius:3.4,prompt:'[ E ] SPEAK — '+displayName.toUpperCase(),name,displayName,phase:Math.random()*7,coat:cloth,leftArm,rightArm,photoFace,photoKey,leftForearm,rightForearm,legs,lowerLegs,shoes,eyes,lids,blinkTimer:1.8+Math.random()*4,blinkAmount:0,walking:false,cultist:false,fate:'present',profile,isFirst};
+ dressPersona(npc,{root,cloth,trim,hair,skin,boot,hx:first?-.055:0,sleeves,garnish,female});
  root.traverse(o=>{if(o.isMesh&&o!==photoFace){o.castShadow=true;o.receiveShadow=true;}});
  photoNPCs.push(npc);refreshPhotoNPC(npc);group.userData.interactables.push(npc);return npc;
 }
@@ -1121,7 +1131,7 @@ function triggerKillScene() {
       if('speechSynthesis'in window)window.speechSynthesis.cancel();$('subtitle-wrap').classList.remove('visible');dialogueOpen=false;
       stain.material.opacity=.82;victim.object.rotation.x=1.42;victim.object.position.y=-.45;victim.fate='dead';victim.object.visible=true;
       executioner.object.position.set(3.8,0,-3.7);executioner.object.rotation.y=Math.PI;executioner.fate='present';
-      storyFlags.add('dario-bell-death');storyFlags.add('bell-released');if(storyRef.churchBell)storyRef.churchBell.userData.ringing=false;
+      storyFlags.add('dario-bell-death');storyFlags.add('bell-released');nudgeHouse('accordo',1,true);if(storyRef.churchBell)storyRef.churchBell.userData.ringing=false;
       journal.push({id:'bell-rope',title:'The Rope in Your Hand',description:'You held the bell rope while Walter stood behind Dario. You did not choose the order, but you kept the bell moving. Your hand was steady. The sound reached the nave after Dario had fallen.',kind:'witness account',zone:'church'});updateJournalCount();
       flashFragment('collapse',175);setTimeout(()=>{audio?.mechanicalNoise(.24,620,.9,.13,0);audio?.mechanicalTone(93,36,1.1,'sawtooth',.075,0);},1080);
       queueCultFate('the nave',executioner,'vanish');scheduleCultSceneFates(1,'the bell','collapse');
@@ -1684,6 +1694,7 @@ function buildDarkroom(){
   return z;
 }
 buildRoad(); buildHome(); buildChurch(); buildRuin(); buildAbattoir(); buildCellar(); buildDarkroom(); buildStoryExtras();
+buildMaterialWorldV7();
 
 // The cellar is deliberately inaccessible until all eight traces have been read.
 const abattoirEntrance = zones.road.interactables.find(i => i.destination === 'abattoir');
@@ -2202,7 +2213,7 @@ function speakVoice(text, npcName = '') {
 }
 function openDialogue(npc) {
   if (dialogueOpen) return;
-  if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { showToast('THEY HAVE NOTHING MORE TO SAY.'); return; }
+  if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { openSecondDialogue(npc); return; }
   dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
   $('speaker').textContent = (npc.displayName||npc.name).toUpperCase(); $('subtitle').textContent = npc.dialogue?.line || 'No answer. Only the sound of clothes.'; speakVoice(npc.dialogue?.line || 'No answer.',npc.name);
   const options = $('dialogue-options'); options.innerHTML = '';
@@ -2214,13 +2225,13 @@ function openDialogue(npc) {
 }
 function chooseDialogue(npc, index) {
   if(!npc||(npc.talkedOnce&&!npc.isOpeningPrimo&&!/the first/i.test(npc.name||'')))return;
-  npc.talkedOnce=true;
+  npc.talkedOnce=true; meetPerson(npc);
   let reply = npc.dialogue?.replies?.[index] || 'The answer comes from a room that does not exist.';
   const lower=(npc.name||'').toLowerCase();
   if(lower==='ines'){storyFlags.add(index===0?'ines-trust':'ines-betrayed');storyFlags.add('talked-ines');}
   if(lower==='sergio'){storyFlags.add(index===0?'sergio-truth':'sergio-silence');}
-  if(lower==='dario'){storyFlags.add(index===0?'challenged-leader':'accepted-leader');}
-  if(lower==='the first'&&!npc.isOpeningPrimo){storyFlags.add(index===0?'challenged-leader':'accepted-leader');}
+  if(lower==='dario'){storyFlags.add(index===0?'challenged-leader':'accepted-leader');nudgeHouse(index===0?'rifiuto':'accordo',.5);}
+  if(lower==='the first'&&!npc.isOpeningPrimo){storyFlags.add(index===0?'challenged-leader':'accepted-leader');nudgeHouse(index===0?'rifiuto':'accordo',1);}
   if(lower==='father remo'||lower==='don remo'){storyFlags.add('talked-remo');if(index===1)showToast('DON REMO HAS EXPLAINED THE ALTAR. LIGHT ALL THREE CANDLES.');}
   if(lower==='the widow'||lower==='widow')storyFlags.add('talked-widow');
   if(lower==='ottavio'){storyFlags.add('talked-ottavio');if(index===1)storyFlags.add('ottavio-audio');}
@@ -2240,7 +2251,7 @@ function chooseDialogue(npc, index) {
 function closeDialogue(relock = true) { dialogueOpen = false; $('subtitle-wrap').classList.remove('visible'); if('speechSynthesis' in window)window.speechSynthesis.cancel(); if(relock)requestMouseLock(); }
 function openJournal() {
   if (!gameStarted || gameEnded || listeningPending || dialogueOpen) return;
-  journalOpen = true; controls.unlock(); $('journal').classList.add('active'); renderJournal();
+  journalOpen = true; controls.unlock(); $('journal').classList.add('active'); setJournalTab(house.journalTab);
 }
 function closeJournal() { journalOpen = false; $('journal').classList.remove('active'); if (gameStarted && !gameEnded) requestMouseLock(); }
 function renderJournal() {
@@ -2346,7 +2357,9 @@ function resolveEnding(choice) {
   if(choice==='expose' && storyFlags.has('complicit')) result.copy += ' You left the hooks untouched when you could have acted; the truth arrives, but it is not innocent.';
   if(storyFlags.has('pastorale-complete'))result.copy += ' The Mass did not return. Its grief moved into the water, the grain and the reeds. No funeral was held; the landscape learned the interval instead.';
   if(storyFlags.has('institution-survives'))result.copy += ' Ines remains at the house. The porch lamp is lit again. Someone is walking toward the door, and there is a place waiting for them.';
+  if(choice==='expose'&&storyFlags.has('remo-confessed'))result.copy+=' Don Remo’s confession goes beside the report: the north latch was wired from inside by the priest who led them.';
   $('ending-title').textContent=result.title;$('ending-copy').textContent=result.copy;$('ending-small').textContent=result.small;
+  writeEndingLedger(choice);
   $('ending-choices').classList.remove('visible');$('ending-result').classList.add('visible');
   storyFlags.add(`ending-${choice}`);speakVoice(result.voice,'RECORDING 14-B');
   $('event-flash').classList.add('active');setTimeout(()=>$('event-flash').classList.remove('active'),420);
@@ -2850,7 +2863,8 @@ function updatePresence(dt, t) {
   presence += (target - presence) * Math.min(1, dt * 1.6);
   if (presence > .5 && !nearFlag) { nearFlag = true; audio.stinger(1); glitchPulse = Math.max(glitchPulse, .8); }
   if (presence < .3) nearFlag = false;
-  if (dist < 2.9 && !presenceWarned) { presenceWarned = true; showToast('DO NOT TURN AROUND. HE IS NEAR. DO NOT WATCH HIM APPROACH.'); }
+  const lean = houseLean(), warnAt = lean > 1 ? 4.4 : lean < -1 ? 2.2 : 2.9;
+  if (dist < warnAt && !presenceWarned) { presenceWarned = true; showToast(lean > 1 ? 'SOMEONE WHISPERS FROM THE NEXT ROOM: HE IS NEAR. KEEP STILL. DO NOT WATCH HIM COME.' : lean < -1 ? 'NOBODY WARNS YOU. THE KNOCKING HAS STOPPED BEING POLITE.' : 'DO NOT TURN AROUND. HE IS NEAR. DO NOT WATCH HIM APPROACH.'); }
   if (presence > .3) { beatTimer -= dt; if (beatTimer <= 0) { audio.knock(); beatTimer = 1.1 - presence * .6; } }
 }
 // Missions: the first unfinished one whose prerequisites are met is shown in the objective panel.
@@ -2902,6 +2916,7 @@ function updateMissions() {
   for (const m of MISSIONS) if (!seenMissions.has(m.id) && m.done()) { seenMissions.add(m.id); showToast('OBJECTIVE COMPLETE'); }
   const el = $('objective-text'); const text = currentMissionText();
   if (text && el.textContent !== text) el.textContent = text;
+  applyHouseHand();
 }
 function triggerCemeteryAmbush(){
  if(gameEnded||storyFlags.has('cemetery-shot'))return;
@@ -4124,7 +4139,8 @@ function animateZone(t, dt) {
       if(!n.seated&&n.legs?.length===2){n.legs[0].rotation.x=stride*.52;n.legs[1].rotation.x=-stride*.52;n.shoes?.forEach((shoe,i)=>{shoe.rotation.x=i===0?stride*.52:-stride*.52;});}
       if(n.head){const lurch=n.walking?1+.4*Math.sin(t*.0031+n.phase*3):1;n.head.rotation.z=Math.sin(t*.0009+n.phase)*.12*lurch+(n.walking?Math.sin(t*.008+n.phase)*.07:0);n.head.rotation.x=n.walking?.16:-.05+Math.sin(t*.0007+n.phase)*.05;n.object.rotation.z=n.walking?Math.sin(t*.0045+n.phase)*.035:Math.sin(t*.0013+n.phase)*.012;}
       n.blinkTimer-=dt;if(n.blinkTimer<=0){n.blinkAmount=Math.min(1,n.blinkAmount+dt*15);if(n.blinkAmount>=1){n.blinkTimer=.12;n.blinkAmount=Math.max(0,n.blinkAmount-dt*15);}if(n.blinkAmount===0)n.blinkTimer=2.4+Math.random()*4.8;}
-      n.lids?.forEach(lid=>{lid.scale.y=.08+n.blinkAmount*.72;lid.position.y=1.955-n.blinkAmount*.012;});
+      n.lids?.forEach(lid=>{lid.scale.y=.08+n.blinkAmount*.72;lid.position.y=(lid.userData.baseY??1.955)-n.blinkAmount*.012;});
+      personaAnimate(n,t,dt);
       
     });
   }
@@ -4164,7 +4180,7 @@ function loop() {
   if (gameStarted && !gameEnded) {
     updatePlayer(dt); updateCemeteryTrap(); updateTargets(); animateZone(t, dt); updateCultSequence(dt,t);
     if(listeningPending && !cultFateActive && cultFateQueue.length===0) finishListening();
-    updateMissions(); updateDig(dt); updatePresence(dt, t);
+    updateMissions(); updateDig(dt); updatePresence(dt, t); updatePeople(dt, t);
     if(!gameEnded){updateHorror(dt,t);updateDayNight(dt,t);updateWeather(dt,t);updateCameraDirector(dt,t);updateHud(dt);}
     if (activeTarget?.id !== previousTargetId && activeTarget) audio.stinger(.07);
     previousTargetId = activeTarget?.id || '';
@@ -4926,7 +4942,7 @@ function endStation(s) {
   zones.pastorale.group.visible = false; storyRef.pastoraleSets && Object.values(storyRef.pastoraleSets).forEach(g => g.visible = false);
   viewZone(s.save.zone); playerAnchor.position.copy(s.save.pos); camera.position.set(0, 1.63, 0); camera.rotation.set(s.save.rx, s.save.ry, 0); resetLook();
   storyScene = null; setStationCard('hidden'); setCinema(false); $('subtitle-wrap').classList.remove('visible'); $('subtitle').classList.remove('muffled'); $('speaker').classList.remove('through-wall');
-  if (s.id === 'remo') { storyFlags.add('dario-bell-death'); storyFlags.add('bell-released'); }
+  if (s.id === 'remo') { if(!storyFlags.has('dario-bell-death'))nudgeHouse('accordo',1,true); storyFlags.add('dario-bell-death'); storyFlags.add('bell-released'); }
   if (s.id === 'walter') storyFlags.add('shed-gone');
   showToast(`STATION ${s.def.roman} — ${s.def.name}. INES WILL SET THE PLACE ANYWAY.`);
   updateMissions();
@@ -5574,7 +5590,372 @@ function v6Tick(dt, t) {
   }
   moveStalker(dt); moveChaser(dt);
 }
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame() };
+// =============================================================================
+// v7 — THE PEOPLE. Bodies, wardrobes, habits, second conversations, lived
+// moments, the hidden ledger of ACCORDO / RIFIUTO and the house's handwriting.
+// Data lives in js/people.js; these functions dress and animate it.
+// =============================================================================
+function personaKey(npc) { return (npc?.name || '').toLowerCase(); }
+function personaOf(npc) { return personFor(npc?.name); }
+function v7mat(color, rough = .95, opts = {}) { return new THREE.MeshStandardMaterial({ color, roughness: rough, ...opts }); }
+function inkCurveTube(points, radius, material) {
+  const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
+  return new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(12, points.length * 6), radius, 5, false), material);
+}
+function dressPersona(npc, parts) {
+  const P = personaOf(npc); if (!P) return;
+  const L = P.look, { root, cloth, trim, hair, skin, boot, hx, sleeves, garnish } = parts;
+  npc.persona = P;
+  // Colours: every person is their own palette, all inside the house's sepia range.
+  cloth.color.setHex(L.coat); trim.color.setHex(L.legs ?? L.coat); boot.color.setHex(L.shoes ?? 0x1c1a17);
+  skin.color.setHex(L.skin); hair.color.setHex(L.hairColor);
+  if (L.garment === 'leather') { cloth.roughness = .48; cloth.metalness = .08; }
+  garnish.forEach(m => { m.visible = false; });
+  // Head pivot: gaze and tics turn the whole face, not just the skull.
+  root.updateWorldMatrix(true, true);
+  const pivot = new THREE.Group(); pivot.position.set(hx, 1.72, 0); root.add(pivot); pivot.updateWorldMatrix(true, false);
+  const headParts = root.children.filter(c => c !== pivot && c.isMesh && c.position.y >= 1.66);
+  headParts.forEach(m => pivot.attach(m));
+  npc.lids?.forEach(l => { l.userData.baseY = l.position.y; });
+  npc.headPivot = pivot;
+  const hairMeshes = pivot.children.filter(m => m.material === hair);
+  const hy = .19, hz = .012; // head centre in pivot space
+  const add = (geo, material, x, y, z, sx = 1, sy = 1, sz = 1, parent = pivot) => { const m = new THREE.Mesh(geo, material); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m); return m; };
+  const hideHair = (keepCap = false) => hairMeshes.forEach(m => { const isBrowOrLid = m.geometry.type === 'CapsuleGeometry' && m.position.y > .2 && m.position.y < .27 && Math.abs(m.position.z - .174) < .02; const isLid = m.geometry.type === 'SphereGeometry' && Math.abs(m.position.z - .178) < .01; if (isBrowOrLid || isLid) return; if (keepCap && m.position.y > .28 && m.scale.y < .6) return; m.visible = false; });
+  const hairMat = hair;
+  // ---- Hair ----
+  switch (L.hair) {
+    case 'knot': hideHair(true); add(new THREE.SphereGeometry(.075, 10, 8), hairMat, 0, hy - .06, -.19); if (L.grey) add(new THREE.SphereGeometry(.12, 10, 7), v7mat(0xa49d92), .08, hy + .1, -.04, 1, .4, .9); break;
+    case 'bald': hideHair(); add(new THREE.TorusGeometry(.16, .035, 6, 18, Math.PI * 1.15), v7mat(L.hairColor), 0, hy + .02, -.03, 1, .75, 1).rotation.set(Math.PI / 2, 0, -Math.PI * .07 + Math.PI); break;
+    case 'scarf': { hideHair(); const sc = v7mat(0x4b3d33, 1); add(new THREE.SphereGeometry(.222, 16, 12, 0, Math.PI * 2, 0, Math.PI * .55), sc, 0, hy + .02, -.005, .9, 1.02, .98); const knot = add(new THREE.ConeGeometry(.07, .16, 6), sc, 0, hy - .2, -.15); knot.rotation.x = .4; break; }
+    case 'curls-short': hideHair(true); for (let i = 0; i < 11; i++) { const a = i / 11 * Math.PI * 2; add(new THREE.SphereGeometry(.055, 7, 6), hairMat, Math.cos(a) * .12, hy + .13 + Math.sin(i * 1.7) * .02, Math.sin(a) * .1 - .02); } break;
+    case 'receding': hairMeshes.forEach(m => { if (m.position.y > .28) { m.position.z -= .05; m.scale.y *= .8; } }); if (L.grey) hairMeshes.forEach(m => { if (m.position.y > .28) m.material = v7mat(0x8a857c); }); break;
+    case 'crop-bleached': hideHair(true); hairMeshes.forEach(m => { if (m.visible && m.position.y > .28) m.material = v7mat(L.roots ?? 0x2a2420); }); add(new THREE.SphereGeometry(.2, 14, 9, 0, Math.PI * 2, 0, Math.PI * .4), v7mat(L.hairColor, .9), .01, hy + .06, -.01, .96, .9, 1.02); add(new THREE.BoxGeometry(.2, .05, .06), v7mat(L.hairColor, .9), .04, hy + .1, .15).rotation.z = -.25; break;
+    case 'long': case 'long-curls': {
+      hideHair(true);
+      const back = add(new THREE.CapsuleGeometry(.15, .5, 5, 10), hairMat, 0, hy - .3, -.09, 1.15, 1, .6);
+      for (const sd of [-1, 1]) { const lock = add(new THREE.CapsuleGeometry(.05, .44, 4, 8), hairMat, sd * .16, hy - .24, .02); lock.rotation.z = sd * .08; }
+      if (L.hair === 'long-curls') for (let i = 0; i < 16; i++) add(new THREE.SphereGeometry(.05, 6, 5), hairMat, (Math.random() - .5) * .34, hy - .1 - Math.random() * .5, -.08 - Math.random() * .1);
+      if (L.grey) add(new THREE.CapsuleGeometry(.04, .38, 3, 6), v7mat(0xb3ab9c), -.1, hy - .2, -.1);
+      break;
+    }
+    case 'fringe-eye': hideHair(true); add(new THREE.CapsuleGeometry(.05, .2, 4, 8), hairMat, .06, hy + .02, .17, 1.2, 1, .6).rotation.z = 1.05; break;
+    case 'shaved': hairMeshes.forEach(m => { if (m.position.y > .28) { m.scale.y *= .62; m.position.y -= .02; } }); hairMeshes.forEach(m => { if (m.geometry.type === 'CapsuleGeometry' && m.position.y < .25 && m.position.y > .15 && Math.abs(m.position.x) > .15) m.visible = false; }); break;
+    case 'scribble': {
+      // Ink-scribble hair: the figure is half drawn, as if someone kept going over him with a pen.
+      hideHair(true); const ink = v7mat(0x070706, .7);
+      for (let k = 0; k < 9; k++) { const pts = []; let x = (Math.random() - .5) * .16, y = hy + .16, z = (Math.random() - .5) * .14; for (let i = 0; i < 9; i++) { x += (Math.random() - .5) * .07; y += Math.random() * .03 - .005; z += (Math.random() - .5) * .07; pts.push([x, y, z]); } pivot.add(inkCurveTube(pts, .0065, ink)); }
+      break;
+    }
+  }
+  // ---- Faces: beards, moustaches, glasses ----
+  const extras = new Set(L.extras || []);
+  if (extras.has('beard-full')) { add(new THREE.SphereGeometry(.15, 12, 9), hairMat, 0, hy - .16, .07, .9, .78, .82); add(new THREE.CapsuleGeometry(.04, .07, 3, 6), hairMat, 0, hy - .1, .18).rotation.z = Math.PI / 2; }
+  if (extras.has('moustache')) add(new THREE.CapsuleGeometry(.018, .08, 3, 6), v7mat(0x9a948a), 0, hy - .095, .2).rotation.z = Math.PI / 2;
+  if (extras.has('glasses-round')) { const g = v7mat(0x2b2620, .4, { metalness: .5 }); for (const sd of [-1, 1]) add(new THREE.TorusGeometry(.05, .006, 5, 16), g, sd * .073, hy + .025, .2); add(new THREE.BoxGeometry(.05, .008, .008), g, 0, hy + .03, .2); }
+  if (extras.has('sunglasses-up')) { const g = v7mat(0x0a0a0a, .2, { metalness: .4 }); for (const sd of [-1, 1]) add(new THREE.BoxGeometry(.09, .045, .015), g, sd * .06, hy + .17, .12).rotation.x = -.6; }
+  if (extras.has('earring')) add(new THREE.TorusGeometry(.014, .003, 5, 10), v7mat(0xc9c9c4, .25, { metalness: .9 }), .19, hy - .05, .01);
+  if (extras.has('cigarette')) add(new THREE.CylinderGeometry(.006, .006, .08, 6), v7mat(0xe8e2d4, .8), .2, hy + .03, -.01).rotation.x = Math.PI / 2;
+  // ---- Body: build, height, stoop ----
+  const heft = L.heft || 1, height = L.height || 1;
+  root.scale.set(heft * (root.scale.x || 1), height * (root.scale.y || 1), (.6 + heft * .4) * (root.scale.z || 1));
+  npc.stoop = L.stoop || 0; npc.gait = P.gait || 1;
+  // ---- Garments ----
+  const coatMat = cloth, under = v7mat(L.under ?? L.coat, .98);
+  const front = (w, h, y, mat, z = .232) => add(new THREE.BoxGeometry(w, h, .03), mat, 0, y, z, 1, 1, 1, root);
+  const edge = (sd, h, y, mat, rz = 0) => { const m = add(new THREE.BoxGeometry(.05, h, .035), mat, sd * .1, y, .238, 1, 1, 1, root); m.rotation.z = rz; return m; };
+  switch (L.garment) {
+    case 'cardigan': front(.16, .62, 1.18, under); edge(-1, .66, 1.17, v7mat(new THREE.Color(L.coat).multiplyScalar(.7).getHex())); edge(1, .66, 1.17, v7mat(new THREE.Color(L.coat).multiplyScalar(.7).getHex())); break;
+    case 'turtleneck': add(new THREE.CylinderGeometry(.095, .1, .16, 12), coatMat, 0, 1.63, 0, 1, 1, 1, root); break;
+    case 'dress': add(new THREE.CylinderGeometry(.24, .33, .62, 14, 1, true), coatMat, 0, .4, 0, 1, 1, .82, root); break;
+    case 'blazer': front(.13, .5, 1.26, under); for (const sd of [-1, 1]) edge(sd, .5, 1.28, v7mat(0x070707, .8), sd * -.28); break;
+    case 'shirt-oversized': root.children.forEach(c => { if (c.isMesh && c.material === cloth && c.position.y > .9 && c.position.y < 1.5) c.scale.x *= 1.12; }); sleeves.forEach(sl => { sl.scale.y = .62; sl.position.y = -.1; }); break;
+    case 'leather': front(.12, .58, 1.2, under); for (const sd of [-1, 1]) edge(sd, .42, 1.34, v7mat(0x050505, .4), sd * -.32); add(new THREE.BoxGeometry(.012, .6, .01), v7mat(0x8a8a86, .3, { metalness: .8 }), .05, 1.16, .25, 1, 1, 1, root); break;
+    case 'track': add(new THREE.BoxGeometry(.012, .62, .01), v7mat(0xc8c8c8, .3, { metalness: .7 }), 0, 1.17, .246, 1, 1, 1, root); break;
+    case 'workjacket': for (const sd of [-1, 1]) add(new THREE.BoxGeometry(.11, .11, .02), v7mat(new THREE.Color(L.coat).multiplyScalar(.75).getHex()), sd * .12, 1.0, .238, 1, 1, 1, root); front(.1, .3, 1.42, under); break;
+    case 'tee': sleeves.forEach(sl => { sl.material = skin; }); break;
+    case 'longcoat': add(new THREE.CylinderGeometry(.24, .3, .66, 14, 1, true), coatMat, 0, .42, 0, 1, 1, .8, root); front(.12, .3, 1.42, under); break;
+    case 'cassock': add(new THREE.CylinderGeometry(.24, .29, .74, 14, 1, true), coatMat, 0, .36, 0, 1, 1, .82, root); for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.011, 5, 4), v7mat(0x050505, .5), 0, 1.5 - i * .14, .245, 1, 1, 1, root); break;
+  }
+  if (extras.has('collar')) add(new THREE.BoxGeometry(.05, .035, .02), v7mat(0xf2efe6, .6), 0, 1.62, .1, 1, 1, 1, root);
+  if (extras.has('apron-white')) { const ap = add(new THREE.BoxGeometry(.4, .82, .025), v7mat(0xd8d3c6, .92), 0, 1.0, .238, 1, 1, 1, root); add(new THREE.BoxGeometry(.008, .4, .008), v7mat(0xd8d3c6), -.14, 1.55, .2, 1, 1, 1, root).rotation.z = .5; add(new THREE.BoxGeometry(.06, .03, .01), v7mat(0x6a2a1e, 1), .08, .82, .253, 1, 1, 1, root); ap.userData.stain = true; }
+  if (extras.has('apron-long')) add(new THREE.BoxGeometry(.36, .78, .03), v7mat(0x6a5f52, .98), 0, .78, .24, 1, 1, 1, root);
+  if (extras.has('reflective')) { const rf = v7mat(0xbdbcb0, .35, { metalness: .3, emissive: 0x1c1c18 }); add(new THREE.BoxGeometry(.56, .035, .02), rf, 0, 1.05, .23, 1, 1, .9, root); add(new THREE.BoxGeometry(.24, .035, .02), rf, -.14, 1.3, .235, 1, 1, .9, root); }
+  if (extras.has('piping')) sleeves.forEach(sl => { const pp = new THREE.Mesh(new THREE.BoxGeometry(.012, .3, .012), v7mat(0xdedbd2, .3, { emissive: 0x111111 })); pp.position.set(.06, 0, 0); sl.add(pp); });
+  if (extras.has('tape')) add(new THREE.BoxGeometry(.07, .07, .035), v7mat(0x9a7a1c, .55), .2, .74, .16, 1, 1, 1, root);
+  if (extras.has('scarf-throat')) add(new THREE.TorusGeometry(.1, .04, 8, 16), v7mat(0x5d4a3e, 1), 0, 1.6, 0, 1, 1, 1, root).rotation.x = Math.PI / 2;
+  if (extras.has('rosary')) { const bead = v7mat(0x1d1714, .5); for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.009, 5, 4), bead, Math.sin(i / 8 * Math.PI) * -.07 + .04, 1.52 - i * .03, .245, 1, 1, 1, root); }
+  if (extras.has('keys')) { const k = new THREE.Group(); k.position.set(.18, .72, .17); root.add(k); add(new THREE.TorusGeometry(.028, .004, 4, 12), v7mat(0x8c8270, .35, { metalness: .8 }), 0, 0, 0, 1, 1, 1, k); for (let i = 0; i < 4; i++) { const kk = add(new THREE.BoxGeometry(.012, .07, .004), v7mat(0x9c8f72, .35, { metalness: .8 }), (i - 1.5) * .012, -.05, 0, 1, 1, 1, k); kk.rotation.z = (i - 1.5) * .25; } npc.keys = k; }
+  if (extras.has('camera')) { add(new THREE.BoxGeometry(.13, .08, .05), v7mat(0x111111, .4, { metalness: .5 }), -.06, 1.12, .26, 1, 1, 1, root); add(new THREE.CylinderGeometry(.025, .025, .04, 10), v7mat(0x222222, .2, { metalness: .6 }), -.06, 1.12, .3, 1, 1, 1, root).rotation.x = Math.PI / 2; }
+  if (extras.has('paint-flecks')) for (let i = 0; i < 9; i++) add(new THREE.SphereGeometry(.012, 4, 3), v7mat([0x6e2e26, 0x8a8f86, 0x3b4a52][i % 3], .9), (Math.random() - .5) * .3, .8 + Math.random() * .6, .24, 1, 1, .4, root);
+  if (extras.has('ink-forearm')) [npc.leftForearm, npc.rightForearm].forEach(f => { const ink = new THREE.Mesh(new THREE.CylinderGeometry(.066, .066, .1, 8, 1, true), v7mat(0x26302f, 1, { transparent: true, opacity: .8 })); ink.position.y = -.2; f.add(ink); });
+  // Things held in the hand.
+  const inHand = (forearm, geo, material, rot = [0, 0, 0]) => { const m = new THREE.Mesh(geo, material); m.position.set(0, -.47, .07); m.rotation.set(...rot); forearm.add(m); return m; };
+  if (extras.has('cloth')) inHand(npc.leftForearm, new THREE.BoxGeometry(.12, .02, .1), v7mat(0xe4e0d4, 1));
+  if (extras.has('watch')) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.068, .068, .025, 10), v7mat(0x4a3a24, .5)); w.position.y = -.33; npc.leftForearm.add(w); }
+  if (extras.has('knife')) inHand(npc.rightForearm, new THREE.BoxGeometry(.012, .13, .03), v7mat(0x9a9a92, .25, { metalness: .9 }));
+  if (extras.has('earplug')) inHand(npc.rightForearm, new THREE.CylinderGeometry(.012, .012, .03, 8), v7mat(0xd9661c, .8, { emissive: 0x2a0d00 }));
+  // Archival photo faces are shared between people; vary how each one sits.
+  if (npc.photoFace) { const k = (npc.name || '').length; npc.photoFace.material.opacity = .58 + (k % 3) * .06; npc.photoFace.material.color = new THREE.Color(L.skin).lerp(new THREE.Color(0xffffff), .55); if (k % 2) npc.photoFace.scale.x = -1; if (extras.has('beard-full')) npc.photoFace.scale.y = .8; }
+}
+
+// ---- Habits, posture and gaze ---------------------------------------------
+function personaAnimate(n, t, dt) {
+  const P = n.persona; if (!P || n.fate === 'dead' || !n.headPivot) return;
+  const scripted = n.posed || (storyScene && storyScene.type !== 'hold');
+  const hp = n.headPivot, s = t * .001 + n.phase;
+  let yaw = 0, pitch = n.stoop * .9, roll = 0;
+  // Gaze: each person looks at Tobia in their own way.
+  if (!scripted && n.object.visible) {
+    n.object.getWorldPosition(house.gazeT); const p = currentPosition(); const dx = p.x - house.gazeT.x, dz = p.z - house.gazeT.z, d = Math.hypot(dx, dz);
+    const near = THREE.MathUtils.clamp(1 - (d - 1.2) / 4.2, 0, 1);
+    let rel = Math.atan2(dx, dz) - n.object.rotation.y; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+    const g = { warm: .8, eager: 1, steady: .7, record: 1, checking: .9, avoid: -.45, away: -.25, hands: .3, down: .2, surfaces: .35, door: .15, structure: .4 }[P.gaze] ?? .5;
+    yaw = THREE.MathUtils.clamp(rel, -1.0, 1.0) * g * near;
+    if (P.gaze === 'hands' || P.gaze === 'down') pitch += .28 * near;
+    if (P.gaze === 'checking') yaw += Math.sin(s * 1.7) * .25 * near;
+    if (house.moment?.speakers?.includes(n)) { const o = house.moment.speakers.find(x => x !== n); if (o) { o.object.getWorldPosition(house.gazeT); n.object.getWorldPosition(camDir2); let r2 = Math.atan2(house.gazeT.x - camDir2.x, house.gazeT.z - camDir2.z) - n.object.rotation.y; r2 = Math.atan2(Math.sin(r2), Math.cos(r2)); yaw = THREE.MathUtils.clamp(r2, -1.1, 1.1); } }
+  }
+  // Tics: small repeated actions, readable from across a room.
+  const cyc = (period, dur) => { const c = (s % period + period) % period; return c < dur ? Math.sin(c / dur * Math.PI) : 0; };
+  if (!scripted && !n.walking) {
+    switch (P.tic) {
+      case 'fold': n.leftForearm.rotation.x = -1.25 + Math.sin(s * 2.1) * .12; n.rightForearm.rotation.x = -1.2 + Math.cos(s * 2.1) * .12; n.leftArm.rotation.z = .1; n.rightArm.rotation.z = -.1; pitch += .12; break;
+      case 'tap': { const k = cyc(3.2, .5); n.rightForearm.rotation.x = -1.15 - Math.abs(Math.sin(s * 22)) * .18 * k; break; }
+      case 'stir': n.rightForearm.rotation.x = -1.1; n.rightForearm.rotation.y = Math.sin(s * 3) * .35; n.rightForearm.rotation.z = Math.cos(s * 3) * .25; pitch += .2; break;
+      case 'cross': { const k = cyc(9, 1.6); if (k) { n.rightArm.rotation.x = -.45 * k; n.rightForearm.rotation.x = -2.0 * k; n.rightForearm.rotation.z = .5 * k; pitch += .25 * k; } break; }
+      case 'lean': if (n.seated) { n.object.rotation.x = -.11 + Math.sin(s * .4) * .02; pitch -= .1; } break;
+      case 'carve': n.rightForearm.rotation.x = -1.0; n.leftForearm.rotation.x = -.95; n.rightForearm.rotation.z = Math.sin(s * 14) * .05 * cyc(4, 2.6); pitch += .22; break;
+      case 'keys': { const k = cyc(5, 1.2); n.rightForearm.rotation.x = -.5 * k; if (n.keys) n.keys.rotation.z = Math.sin(s * 8) * .3; break; }
+      case 'glance': { const k = cyc(5.5, 1.4); yaw = THREE.MathUtils.lerp(yaw, -.95, k); break; }
+      case 'measure': { const k = cyc(11, 2.2); if (k && !n.seated) { n.leftArm.rotation.z = -1.25 * k; n.rightArm.rotation.z = 1.25 * k; } else if (k) { n.rightForearm.rotation.x = -1.3; n.rightForearm.rotation.z = -.6 * k; } break; }
+      case 'hum': roll += Math.sin(s * 1.9) * .08; pitch += .08; break;
+      case 'wipe': { const k = cyc(6, 2.4); if (k) { n.leftForearm.rotation.x = -1.05 * k; n.rightForearm.rotation.x = -1.05 * k; n.rightForearm.rotation.y = Math.sin(s * 9) * .4 * k; n.leftForearm.rotation.y = -Math.sin(s * 9) * .4 * k; } break; }
+      case 'earplug': n.rightForearm.rotation.x = -1.35; n.rightForearm.rotation.y = Math.sin(s * 5) * .12; break;
+      case 'arms': n.leftForearm.rotation.x = -1.5; n.rightForearm.rotation.x = -1.45; n.leftArm.rotation.z = .22; n.rightArm.rotation.z = -.22; break;
+    }
+  }
+  hp.rotation.y += (yaw - hp.rotation.y) * Math.min(1, dt * (P.gaze === 'eager' ? 6 : 2.6));
+  hp.rotation.x += (pitch - hp.rotation.x) * Math.min(1, dt * 3);
+  hp.rotation.z += (roll - hp.rotation.z) * Math.min(1, dt * 3);
+}
+
+// ---- The hidden ledger -----------------------------------------------------
+function nudgeHouse(kind, amount = 1, quiet = false) {
+  if (kind === 'accordo') house.accordo += amount; else house.rifiuto += amount;
+  if (!quiet) setTimeout(() => showToast(kind === 'accordo' ? 'THE HOUSE IS A LITTLE WARMER TOWARD YOU.' : 'THE ROOM HAS NOTICED. NOBODY SAYS ANYTHING.'), 2600);
+  applyHouseHand();
+}
+function houseLean() { return house.accordo - house.rifiuto; }
+function applyHouseHand() {
+  const lean = houseLean(), houseHand = house.accordo >= 2 && lean >= 2, ownHand = house.rifiuto >= 2 && lean <= -2;
+  document.body.classList.toggle('hand-house', houseHand);
+  document.body.classList.toggle('hand-own', ownHand);
+  const label = document.querySelector('#objective .micro-label');
+  if (label) label.textContent = houseHand ? 'WHAT WE DO NEXT' : ownHand ? 'WHAT I WILL DO' : 'OBJECTIVE';
+}
+
+// ---- Meeting people: the journal keeps a page for each ----------------------
+function meetPerson(npc) {
+  const P = personaOf(npc); if (!P) return;
+  npc.met = true;
+  if (P.houseWord && HOUSE_WORDS[P.houseWord] && !house.words.has(P.houseWord)) house.words.add(P.houseWord);
+}
+function secondReady(npc) {
+  const k = personaKey(npc);
+  if (k === 'pino' && storyFlags.has('pino-sent')) return false;
+  return collected.size >= 2 || storyFlags.has('heard-dario-plan') || elapsed > 420;
+}
+function openSecondDialogue(npc) {
+  const P = personaOf(npc);
+  if (!P?.second || npc.talkedTwice) { const b = personaBark(npc); if (b) storyLine(`${(npc.displayName || npc.name).toUpperCase()}: ${b}`); else showToast('THEY HAVE NOTHING MORE TO SAY.'); return; }
+  if (!secondReady(npc)) { const b = personaBark(npc); storyLine(`${(npc.displayName || npc.name).toUpperCase()}: ${b || '(Not now.)'}`); setTimeout(() => showToast('THEY MAY SAY MORE WHEN THE HOUSE IS QUIETER.'), 1800); return; }
+  dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible'); $('subtitle-wrap').classList.add('second');
+  $('speaker').textContent = (npc.displayName || npc.name).toUpperCase() + ' · LATER';
+  $('subtitle').textContent = P.second.line; speakVoice(P.second.line, npc.name);
+  const options = $('dialogue-options'); options.innerHTML = '';
+  P.second.choices.forEach((choice, i) => { const b = document.createElement('button'); b.className = 'dialogue-option ' + (P.second.effect[i] === 'accordo' ? 'leans-house' : 'leans-own'); b.innerHTML = `<b>[${i + 1}]</b>${choice}`; b.addEventListener('click', () => chooseSecond(npc, i)); options.appendChild(b); });
+  activeTarget = null; $('prompt').classList.remove('visible');
+}
+function chooseSecond(npc, i) {
+  const P = personaOf(npc); if (!P?.second || npc.talkedTwice) return;
+  npc.talkedTwice = true; npc.secondChoice = P.second.effect[i];
+  const reply = P.second.replies[i];
+  $('subtitle').textContent = reply; speakVoice(reply, npc.name);
+  const flag = P.second.flag?.[i]; if (flag) storyFlags.add(flag);
+  const heal = (P.second.heal?.[i] || 0) * (houseLean() > 1 ? 1.4 : 1); if (heal) fear = Math.max(.04, fear - heal);
+  nudgeHouse(P.second.effect[i], 1);
+  if (personaKey(npc) === 'pino' && flag === 'pino-told-go') setTimeout(() => pinoLeaves(npc), 9000);
+  if (personaKey(npc) === 'livia' && i === 1) audio?.mechanicalTone(220, 207, 1.6, 'sine', .02);
+  $('dialogue-options').innerHTML = '<button class="dialogue-option" id="dialogue-end"><b>[↵]</b>Say nothing more.</button>';
+  $('dialogue-end').addEventListener('click', () => { $('subtitle-wrap').classList.remove('second'); closeDialogue(); });
+  glitchPulse = Math.max(glitchPulse, .22); audio?.stinger(.18);
+}
+function pinoLeaves(npc) {
+  if (npc.fate !== 'present' || storyFlags.has('pino-sent')) return;
+  storyFlags.add('pino-left-alive'); npc.fate = 'gone'; npc.object.visible = false;
+  for (const zn of Object.values(zones)) { const ix = zn.interactables.indexOf(npc); if (ix >= 0) zn.interactables.splice(ix, 1); }
+  removeQueuedCultist(npc);
+  if (currentZone === 'home' || currentZone === 'road') { audio?.mechanicalTone(90, 140, 2.8, 'sawtooth', .03, .6); showToast('AN ENGINE STARTS ON THE LANE. HEADLIGHTS, THEN NOTHING. PINO HAS GONE.'); }
+  journal.push({ id: 'pino-gone', title: 'An Empty Chair', description: 'Pino put his jacket on and went while the others were in the kitchen. Nobody said his house-name. Somebody moved his plate to the sideboard without comment. Somewhere a van radio is playing on a road out of the district.', kind: 'absence', zone: currentZone });
+  updateJournalCount();
+}
+function personaBark(npc) {
+  const P = personaOf(npc); if (!P) return null;
+  const someoneGone = cultRoster.some(c => c.fate !== 'present');
+  const pool = someoneGone && P.barksAfter?.length ? P.barksAfter.concat(P.barks.slice(0, 1)) : P.barks;
+  npc.barkIx = ((npc.barkIx ?? -1) + 1) % pool.length; return pool[npc.barkIx];
+}
+
+// ---- Lived moments and overheard lines ---------------------------------------
+function personNamed(key) { return [...cultRoster, ...(zones.home?.interactables || [])].find(n => personaKey(n) === key && n.type === 'npc'); }
+function updatePeople(dt, t) {
+  if (!gameStarted || gameEnded) return;
+  const busy = dialogueOpen || journalOpen || settingsOpen || storyScene || cultFateActive || listeningPending;
+  if (house.moment) {
+    const m = house.moment; m.t -= dt;
+    if (busy && !m.started) { house.moment = null; return; }
+    if (m.t <= 0 && !busy) {
+      if (m.ix < m.def.lines.length) { storyLine(m.def.lines[m.ix]); m.ix++; m.t = 3.4; m.started = true; }
+      else { house.moments.add(m.def.id); journal.push({ id: 'moment-' + m.def.id, title: 'Overheard — ' + m.def.a[0].toUpperCase() + m.def.a.slice(1) + ' & ' + m.def.b[0].toUpperCase() + m.def.b.slice(1), description: m.def.journal, kind: 'lived moment', zone: 'home' }); updateJournalCount(); house.moment = null; house.momentCd = 26; }
+    }
+    return;
+  }
+  if (busy || currentZone !== 'home') return;
+  house.momentCd -= dt; house.barkCd -= dt;
+  const p = currentPosition();
+  if (house.momentCd <= 0) {
+    for (const def of LIVED_MOMENTS) {
+      if (house.moments.has(def.id)) continue;
+      const a = personNamed(def.a), b = personNamed(def.b);
+      if (!a || !b || a.fate !== 'present' || b.fate !== 'present' || !a.object.visible || !b.object.visible) continue;
+      a.object.getWorldPosition(house.gazeT); const da = Math.hypot(p.x - house.gazeT.x, p.z - house.gazeT.z);
+      b.object.getWorldPosition(house.gazeT); const db = Math.hypot(p.x - house.gazeT.x, p.z - house.gazeT.z);
+      if (Math.min(da, db) < 5.2) { house.moment = { def, ix: 0, t: .4, speakers: [a, b], started: false }; return; }
+    }
+    house.momentCd = 6;
+  }
+  // Overheard lines: linger on someone without speaking and they say something ordinary.
+  if (activeTarget?.type === 'npc' && activeTarget.persona && house.barkCd <= 0 && !$('subtitle-wrap').classList.contains('visible')) {
+    house.lingerOn = house.lingerOn === activeTarget ? house.lingerOn : activeTarget; house.linger = (house.linger || 0) + dt;
+    if (house.linger > 1.6) { const b = personaBark(activeTarget); if (b) storyLine(`${(activeTarget.displayName || activeTarget.name).toUpperCase()}: ${b}`); house.barkCd = 11 + Math.random() * 8; house.linger = 0; if (personaKey(activeTarget) === 'livia') humFourNotes(); }
+  } else if (activeTarget?.type !== 'npc') house.linger = 0;
+}
+function humFourNotes() { if (!audio?.ctx) return; [196, 233, 220, 175].forEach((f, i) => setTimeout(() => audio.mechanicalTone(f * .944, f * .944, .7, 'sine', .018, -.2), i * 520)); }
+
+// ---- Journal: the people ---------------------------------------------------
+function renderPeoplePage() {
+  const list = $('journal-list'); list.innerHTML = '';
+  const met = [...new Set([...cultRoster, ...Object.values(zones).flatMap(z => z.interactables)])].filter(n => n.type === 'npc' && n.persona && n.met);
+  if (!met.length) { list.innerHTML = '<div class="empty-note">Nobody yet.<br><br>Speak to someone. Watch what their hands do while they answer.</div>'; $('journal-detail').innerHTML = '<div class="detail-stamp">EPISTASSI / THE PEOPLE</div><h3>A Table of Thirteen</h3><p>The names used here make the table easier to set. Write down what each of them does when nobody asks them anything.</p>'; return; }
+  met.forEach((n, i) => {
+    const P = n.persona, gone = n.fate !== 'present';
+    const b = document.createElement('button'); b.className = `journal-entry person${i === 0 ? ' active' : ''}${gone ? ' gone' : ''}`;
+    b.innerHTML = `<small>${String(P.age)} · ${P.role.toUpperCase()}</small><strong>${n.displayName || n.name}</strong>`;
+    b.addEventListener('click', () => {
+      list.querySelectorAll('.journal-entry').forEach(x => x.classList.remove('active')); b.classList.add('active');
+      const layer = (label, text, cls = '') => `<div class="dossier-layer ${cls}"><span>${label}</span><p>${text}</p></div>`;
+      const ties = Object.entries(P.ties || {}).filter(([k]) => personNamed(k)?.met).map(([k, v]) => `<li><b>${k[0].toUpperCase() + k.slice(1)}</b> — ${v}</li>`).join('');
+      let html = `<div class="detail-stamp">EPISTASSI / THE PEOPLE / ${(n.displayName || n.name).toUpperCase()}</div><h3>${n.displayName || n.name}${gone ? ' <em class="gone-mark">— no longer answers</em>' : ''}</h3>`;
+      html += layer('AT THE TABLE', P.surface) + layer('WATCH FOR', P.tell, 'tell');
+      if (n.talkedTwice) html += layer('LATER, WHEN THE HOUSE WAS QUIET', P.wound, 'wound');
+      if (n.talkedTwice && n.secondChoice === 'rifiuto') html += layer('WHAT THEY DID NOT SAY', P.secret, 'secret');
+      if (n.talkedTwice && n.secondChoice === 'accordo') html += layer('WHAT THE HOUSE UNDERSTANDS', P.contradiction, 'secret');
+      if (n.talkedTwice) html += `<div class="dossier-pair"><div><span>AFRAID OF</span>${P.fear}</div><div><span>WANTS</span>${P.want}</div></div>`;
+      if (ties) html += `<ul class="dossier-ties">${ties}</ul>`;
+      if (!n.talkedTwice && P.second) html += `<div class="handwritten small">Ask again, later. When the house is quieter.</div>`;
+      $('journal-detail').innerHTML = html;
+    });
+    list.appendChild(b);
+  });
+  if (house.words.size) { const w = document.createElement('div'); w.className = 'house-words'; w.innerHTML = '<small>WORDS THE HOUSE USES</small>' + [...house.words].map(k => `<p><b>“${k}”</b> ${HOUSE_WORDS[k]}</p>`).join(''); list.appendChild(w); }
+  list.querySelector('.journal-entry')?.click();
+}
+function setJournalTab(tab) {
+  house.journalTab = tab;
+  document.querySelectorAll('.journal-tabs button').forEach(b => b.classList.toggle('selected', b.dataset.tab === tab));
+  if (tab === 'people') renderPeoplePage(); else renderJournal();
+}
+document.querySelectorAll('.journal-tabs button').forEach(b => b.addEventListener('click', () => setJournalTab(b.dataset.tab)));
+
+// ---- The ledger written into the ending --------------------------------------
+function writeEndingLedger(choice) {
+  const lines = [], lean = houseLean();
+  if (lean >= 2) lines.push('Repaired by the fourteenth. His hands are in the record.');
+  else if (lean <= -2) lines.push('The fourteenth declined. He kept his name.');
+  else lines.push('The fourteenth hesitated. The house wrote that down too.');
+  if (storyFlags.has('pino-left-alive')) lines.push('You told a man to take the road. Somewhere a van radio is still playing.');
+  if (storyFlags.has('remo-confessed')) lines.push('The sacristan said the priest’s name aloud. Fifty years late.');
+  if (storyFlags.has('cleaver-refused')) lines.push('You took the cleaver off the table. They used the bread knife.');
+  if (house.moments.size) lines.push(`You watched them be ordinary ${house.moments.size === 1 ? 'once' : house.moments.size + ' times'}. It is the part you will remember.`);
+  let el = $('ending-ledger'); if (!el) { el = document.createElement('div'); el.id = 'ending-ledger'; el.className = 'ending-ledger'; $('ending-result').prepend(el); }
+  el.innerHTML = lines.map(l => `<p>${l}</p>`).join('') + '<div class="ending-card">THE TENTH HAS NO NAME. IT IS YOU.</div>';
+}
+
+// ---- The material world: paper on floors, leaves on the lane, the rusted box --
+function newspaperTexture(seed = 1) {
+  return canvasTex(512, 640, (ctx, w, h) => {
+    let r = seed * 9301; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+    ctx.fillStyle = '#cfc4a6'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#2a2620'; ctx.font = 'bold 42px serif'; ctx.textAlign = 'center'; ctx.fillText('IL CORRIERE DELLA BASSA', w / 2, 56);
+    ctx.font = '15px serif'; ctx.fillText('MERCOLEDÌ 9 FEBBRAIO 1977 · LIRE 150', w / 2, 82); ctx.fillRect(24, 92, w - 48, 3);
+    ctx.font = 'bold 30px serif'; ctx.fillText('TREDICI NELLA CHIESA', w / 2, 132);
+    for (let c = 0; c < 4; c++) for (let y = 160; y < h - 30; y += 11) { if (rnd() < .07) { y += 30; continue; } ctx.fillStyle = `rgba(40,36,30,${.35 + rnd() * .3})`; ctx.fillRect(28 + c * 120, y, 100 - rnd() * 22, 4); }
+    ctx.fillStyle = 'rgba(60,62,58,.55)'; ctx.fillRect(150, 190, 210, 150);
+    for (let i = 0; i < 26; i++) { ctx.fillStyle = `rgba(${90 + rnd() * 40},${70 + rnd() * 30},${40},${.08 + rnd() * .18})`; ctx.beginPath(); ctx.ellipse(rnd() * w, rnd() * h, 10 + rnd() * 60, 8 + rnd() * 40, rnd() * 3, 0, Math.PI * 2); ctx.fill(); }
+  });
+}
+function addNewspapers(group, x, z, count = 5, seed = 1, rot = 0) {
+  const g = new THREE.Group(); g.position.set(x, .006, z); g.rotation.y = rot; group.add(g);
+  for (let i = 0; i < count; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(.58, .78), new THREE.MeshStandardMaterial({ map: newspaperTexture(seed + i), roughness: 1 })); m.rotation.x = -Math.PI / 2; m.rotation.z = (i * 1.3 % 1) * .5 - .25; m.position.set((i % 3) * .55 - .55 + Math.sin(i * 3) * .1, i * .002, Math.floor(i / 3) * .76 - .3); m.receiveShadow = true; g.add(m); }
+  return g;
+}
+function addLeafLitter(group, cx, cz, w, d, count, seed = 3) {
+  const geo = new THREE.PlaneGeometry(.11, .08); const colors = [0x7a3f1d, 0x8c5a2b, 0x5e3a20, 0x9b6a35, 0x4a2c1a];
+  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, side: THREE.DoubleSide }), count);
+  let r = seed * 7919; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  const o = new THREE.Object3D(), c = new THREE.Color();
+  for (let i = 0; i < count; i++) { o.position.set(cx + (rnd() - .5) * w, .012 + rnd() * .01, cz + (rnd() - .5) * d); o.rotation.set(-Math.PI / 2 + (rnd() - .5) * .5, 0, rnd() * Math.PI * 2); const s = .7 + rnd() * .9; o.scale.set(s, s, s); o.updateMatrix(); mesh.setMatrixAt(i, o.matrix); mesh.setColorAt(i, c.setHex(colors[Math.floor(rnd() * colors.length)])); }
+  mesh.receiveShadow = true; group.add(mesh); return mesh;
+}
+function rustDripTexture() {
+  return canvasTex(256, 256, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    for (let i = 0; i < 22; i++) { const x = Math.random() * w, len = 20 + Math.random() * 150, wd = 2 + Math.random() * 6; const g = ctx.createLinearGradient(0, 0, 0, len); g.addColorStop(0, 'rgba(20,12,8,.95)'); g.addColorStop(.8, 'rgba(60,28,14,.7)'); g.addColorStop(1, 'rgba(60,28,14,0)'); ctx.fillStyle = g; ctx.fillRect(x, 0, wd, len); ctx.beginPath(); ctx.arc(x + wd / 2, len - 4, wd * .7, 0, Math.PI * 2); ctx.fillStyle = 'rgba(30,16,10,.6)'; ctx.fill(); }
+    for (let i = 0; i < 70; i++) { ctx.fillStyle = `rgba(${110 + Math.random() * 50},${50 + Math.random() * 20},20,${Math.random() * .5})`; ctx.beginPath(); ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 4, 0, Math.PI * 2); ctx.fill(); }
+  });
+}
+function vuDialTexture() {
+  return canvasTex(256, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#cbc3ae'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#2a241c'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w / 2, h + 20, 150, Math.PI * 1.18, Math.PI * 1.82); ctx.stroke();
+    for (let i = 0; i <= 14; i++) { const a = Math.PI * 1.18 + i / 14 * Math.PI * .64; ctx.beginPath(); ctx.moveTo(w / 2 + Math.cos(a) * 140, h + 20 + Math.sin(a) * 140); ctx.lineTo(w / 2 + Math.cos(a) * (i % 2 ? 128 : 120), h + 20 + Math.sin(a) * (i % 2 ? 128 : 120)); ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.fillStyle = '#6e2e26'; ctx.font = 'bold 14px monospace'; ctx.fillText('VU', w / 2 - 10, h - 30);
+    for (let i = 0; i < 40; i++) { ctx.fillStyle = `rgba(70,40,20,${Math.random() * .35})`; ctx.beginPath(); ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 7, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = '#120f0c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(w / 2, h + 10); ctx.lineTo(w / 2 - 70, 40); ctx.stroke();
+  });
+}
+function buildMaterialWorldV7() {
+  // The ruin: newspapers laid on the floor as a path, the way you lay paper for paint, or for a dog.
+  const rz = zones.ruin; if (rz) {
+    addNewspapers(rz.group, -3.2, 2.2, 6, 4, .3); addNewspapers(rz.group, -2.6, -.4, 2, 11, -.2);
+    addLook(rz.group, -3.0, .4, 2.3, 'Newspapers on the floor', 'Laid edge to edge like a path, the way you cover a floor before painting it. The same front page on every sheet: TREDICI NELLA CHIESA. Someone bought every copy in the district that week and brought them here.', 2.2);
+  }
+  // The cellar: rust drips and a dial on the turntable cabinet, a coiled cable feeding nothing.
+  const cz = zones.cellar; if (cz) {
+    const drips = new THREE.Mesh(new THREE.PlaneGeometry(2.1, .86), new THREE.MeshBasicMaterial({ map: rustDripTexture(), transparent: true, depthWrite: false })); drips.position.set(0, .9, -1.3); cz.group.add(drips);
+    const dial = new THREE.Mesh(new THREE.PlaneGeometry(.46, .29), new THREE.MeshStandardMaterial({ map: vuDialTexture(), roughness: .7 })); dial.position.set(-.55, .95, -1.295); cz.group.add(dial);
+    const grille = new THREE.Mesh(new THREE.CircleGeometry(.16, 24), new THREE.MeshStandardMaterial({ color: 0x1a1612, roughness: .6, metalness: .4, wireframe: true })); grille.position.set(.55, .98, -1.294); cz.group.add(grille);
+    const pts = []; for (let i = 0; i <= 140; i++) { const a = i / 140 * Math.PI * 2 * 9, y = 1.25 - i / 140 * 1.2; pts.push(new THREE.Vector3(1.18 + Math.cos(a) * .07 + i / 140 * .5, y, -2.2 + Math.sin(a) * .07 + i / 140 * .4)); }
+    const coil = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 400, .009, 5, false), v7mat(0x0b0b0a, .5)); cz.group.add(coil);
+    const loose = inkCurveTube([[1.68, .03, -1.8], [1.4, .02, -1.0], [.6, .02, -.7], [-.4, .02, -.9], [-1.3, .02, -.4], [-1.9, .02, .4]], .012, v7mat(0x0b0b0a, .5)); cz.group.add(loose);
+    addLook(cz.group, .9, .95, -1.1, 'The cabinet', 'Rust has run down the front of it in long black tears. A VU needle lies hard against the left stop. A coiled cable leaves the back, loops itself like a telephone cord, and is plugged into nothing.', 1.8);
+  }
+  // The lane: leaves gather where the poplars lean over the road.
+  const road = zones.road; if (road) { addLeafLitter(road.group, 0, 18, 12, 52, 1400, 5); addLeafLitter(road.group, 0, -4, 8, 10, 260, 9); }
+}
+
+if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);
