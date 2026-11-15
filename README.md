@@ -44,6 +44,25 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 12 — the Attendant, blood, vinyl, leather and the end of the world
+
+- **The Attendant replaces the stalker (v10 §5.7).** He is a person in an old quarry blasting hood with a blind visor, heavy gloves and borrowed work clothes. Wearing the hood is a turn somebody takes, not a monster.
+  - He waits at a real doorway and walks to the last disturbance through the room. He never teleports and never appears behind the camera.
+  - Running, the repair bench, digging and listening at the wall bring him.
+  - He has exactly two cues, each with a visible cause. Before he checks a place: three uneven gloved knocks, with dust falling from the wall at the same instant. When he leaves: the hood catch clicks and the nearest door latch trembles.
+  - His visor only sees forward, and furniture blocks it. Walk, don't run, and break his line of sight.
+  - Difficulty follows the script. At 0 he never catches you. At 1 a gloved hand walks you back to the door with progress kept. At 2 and 3 his touch is fatal.
+  - With ACCORDO high he sees less far and the table warns you earlier.
+- **Epistassi, the nosebleed.** When he is near, Tobia's nose bleeds. Drops fall where you walk and stay on the floor for about three and a half minutes, darkening as they dry. Blood draws him more than sound: he follows the freshest drops, about a third faster.
+- **The intro is one image.** A black record turns under a tonearm while the house's branch logo is cut into the lacquer. Two short lines of text, then the three-line poem, then the walk with only two spoken lines. Titles and cards use a blackletter face (Pirata One). The start screen shows the logo instead of typed letters.
+- **Il Professore on the porch.**
+  - **Jacket:** a fitted black leather jacket that reads from every side. It has a stand collar, asymmetric lapels, an off-centre zip, slanted pocket zips, a waistband with a buckle, epaulettes, a back yoke and seams, zipped cuffs, and the branch logo worn into the back.
+  - **Light:** two hard warm lights behind and above him make him the only lit thing on the lane, an outline against the dark house.
+  - **Smoking:** it follows measured smoking behaviour (a puff lasts about 1.2–2 s; real puffs are 19–28 s apart, shortened here). The hand rests low with a thin thread of smoke rising from the ember, lifts to the mouth, draws while the ember flares, lowers, and after a held breath a long plume is pushed forward and rises.
+- **The coda (v10 §9.7 and §10.7).** After the last door, Il Professore stands in the road chain-smoking and says the prophecy while it happens. The roofs fall inward and the lamps go out. Trees rise through the rooms and the road. The names come loose and drift upward. Dust rises without wind and the world turns the white of plaster dust. A pale interruption stands at the forest line for two and a half seconds. His smoke becomes the fog and the screen fades to white: *THE TENTH HAS NO NAME. IT IS YOU.*
+- **The underground the house came out of.** Back prints and hardware: the branch logo, a six-fold tree-sun, a spiked unreadable logo and a mask on an ankh across the backs of shirts and jackets, with enamel pins, a studded cuff and wallet chains. All motifs are invented; none is a real band's name or mark.
+- **Posters.** Eight posters in four original designs, drawn in the manner of the references: three in the farmhouse and its hall, two in the empty house, one in the cellar, one in the slaughterhouse. Each can be examined.
+
 ## Version 11 — fixes
 
 - **Il Professore vanishes into the doorway at once.** He opens the door while he is still walking, lines up with it, and is gone the moment he crosses the threshold, about two and a half seconds after he starts walking. He no longer waits on the step.

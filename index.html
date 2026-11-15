@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IM+Fell+English:ital@0;1&family=Reenie+Beanie&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IM+Fell+English:ital@0;1&family=Pirata+One&family=Reenie+Beanie&display=swap">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -66,11 +66,10 @@
     <div class="screen-grain"></div>
     <div class="start-content">
       <div class="eyebrow">SOUND ARCHIVE / DOCUMENT 14-B</div>
-      <h1>EPISTASSI</h1>
-      <div class="subtitle-title">THE WHITE WAS NOT HEARD</div>
+      <h1 class="logo-title"><img src="./assets/epi-logo.png" alt="EPISTASSI"></h1>
+      <div class="subtitle-title">EPISTASSI · THE WHITE WAS NOT HEARD</div>
       <div class="rule"></div>
-      <p class="start-copy">A piano tuner has been called to a farmhouse in the Po Valley.<br>Fog has closed the roads. Thirteen people are waiting to be emptied.</p>
-      <p class="start-quote">“I can hear when something stops being wrong.”</p>
+      <p class="start-copy">A man arrives to repair a guitar.<br>The house has already made room for him.</p>
       <div class="content-notice"><b>CONTENT NOTICE</b> Epistassi contains depictions of ritual killing, self-harm under coercion, suicide and religious imagery used blasphemously. It is a work of fiction. If any of this touches your own life, please reach out to a local support line before you play.</div>
       <div class="difficulty-pick" id="difficulty-pick" role="radiogroup" aria-label="Difficulty"></div>
       <div class="difficulty-text" id="difficulty-text"></div>
@@ -136,6 +135,8 @@
     <div class="ending-content death-content"><div class="eyebrow">DOCUMENT INTERRUPTED / TAPE 14-B</div><h2 id="death-title">The room has kept you.</h2><p id="death-copy">Someone kept counting after you stopped.</p><div class="ending-rule"></div><div class="ending-small">RECORDING UNRECOVERABLE</div><button id="retry-button" class="main-button">RESTART FROM THE BEGINNING <span>↺</span></button></div>
   </section>
   <div id="event-flash" aria-hidden="true"></div>
+  <div id="nosebleed" aria-hidden="true"></div>
+  <canvas id="intro-vinyl" aria-hidden="true"></canvas>
   <div id="chapter-card" aria-hidden="true"></div>
   <div id="station-card" aria-hidden="true"><small></small><b></b><em></em></div>
   <div id="skip-hint" aria-hidden="true">[ SPACE ] SKIP</div>
