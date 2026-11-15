@@ -377,3 +377,17 @@ export const JOBS = {
     target: .5, found: 'The beating slows and stops. His fingers settle on the soundboard.',
     well: 'In tune, a semitone below the world.', badly: 'Close. He feels the difference and says nothing.', refuse: 'You leave it.' }
 };
+
+// v12 — the underground the house came out of. Prints, back patches and hardware.
+// Every motif is invented (a mirrored tree-sun, a spiked unreadable logo, a line-drawn
+// mask on an ankh, the house's own branch logo); none is a real band's name or mark.
+export const SUBCULTURE = {
+  sergio: { back: 'roots', extras: ['chain'], note: 'The branch logo across the back of the shirt, cracked from forty years of washing. A wallet chain.' },
+  pino: { back: 'spike', extras: ['studs'], note: 'A spiked, unreadable logo on the back. A studded cuff on the wrist he drives with.' },
+  franco: { back: 'kaleido', extras: ['chain'], note: 'A mirrored tree-sun on the back, six-fold, like a window that looks at itself.' },
+  gabri: { back: 'kaleido', extras: ['pins'], note: 'The tree-sun printed across the back of the track jacket. Three enamel pins.' },
+  marta: { back: 'ankh', extras: ['pins'], note: 'A mask on an ankh, hand-painted in white house paint across the back of the shirt.' },
+  walter: { back: 'spike', extras: [], note: 'A spiked logo stencilled on the back of the field jacket.' },
+  livia: { back: null, extras: ['pins'], note: 'One pin on the coat: the branch logo, very small.' },
+  'the first': { back: 'roots', extras: [], note: 'The branch logo painted on the back of the leather, in bone white, half worn away.' }
+};
