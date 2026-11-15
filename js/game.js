@@ -2132,8 +2132,28 @@ window.addEventListener('keydown', unlockTitleMusic);
 // -----------------------------------------------------------------------------
 function showToast(text) {
   const el = $('toast'); el.textContent = text; el.classList.add('visible'); clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('visible'), 2600);
+  toastTimer = setTimeout(() => el.classList.remove('visible'), Math.max(3200, 1400 + String(text).length * 55));
 }
+// Every subtitle stays up long enough to read (about 20 characters a second, never under 3 s).
+// A line that arrives while the previous one is still being read waits its turn; scenes hold
+// their final frame until the queue is empty.
+const LINES = { queue: [], until: 0, timer: null };
+function readMs(text) { return Math.max(3000, 1500 + String(text).replace(/^[^:]+:\s*/, '').length * 50); }
+function presentLine(render, text) {
+  const now = performance.now();
+  if (now < LINES.until) { LINES.queue.push({ render, text, at: now }); return; }
+  render(); LINES.until = now + readMs(text);
+  clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, readMs(text));
+}
+function pumpLines() {
+  LINES.until = 0;
+  while (LINES.queue.length && performance.now() - LINES.queue[0].at > 20000) LINES.queue.shift();
+  const next = LINES.queue.shift();
+  if (next) presentLine(next.render, next.text);
+  else if (!dialogueOpen && (!storyScene || storyScene.type === 'hold')) $('subtitle-wrap').classList.remove('visible');
+}
+function clearLines() { LINES.queue.length = 0; LINES.until = 0; clearTimeout(LINES.timer); }
+function linesPending() { return LINES.queue.length > 0 || performance.now() < LINES.until - 400; }
 function addLoreProp(z,id,title,description,flag,object,point,prompt){
   const entry={id,type:'story',object,point:point.clone?point:object.position.clone(),radius:2.8,prompt,title,run:()=>{
     if(storyFlags.has(flag)){showToast('THE OBJECT HAS ALREADY BEEN RECORDED.');return;}
@@ -2219,7 +2239,7 @@ function openDialogue(npc) {
   if (dialogueOpen) return;
   if (npc.isHomeFirst) { const j = jobFor(npc); if (j) offerJob(npc, j); else storyLine('IL PROFESSORE: ' + (primoAside() || 'Sit wherever the room puts you. You will know which chair.')); return; }
   if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { const j = jobFor(npc); if (j) { offerJob(npc, j); return; } openSecondDialogue(npc); return; }
-  dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
+  clearLines(); dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
   $('speaker').textContent = (npc.displayName||npc.name).toUpperCase(); $('subtitle').textContent = npc.dialogue?.line || 'No answer. Only the sound of clothes.'; speakVoice(npc.dialogue?.line || 'No answer.',npc.name);
   const options = $('dialogue-options'); options.innerHTML = '';
   (npc.dialogue?.choices || ['Listen.', 'Go away.']).forEach((choice, i) => {
@@ -2307,6 +2327,7 @@ function beginListening(){
   if(collected.size<clueCount){showToast('THE PLATTER IS EMPTY. COLLECT ALL EIGHT CLUES.');return;}
   if(!storyFlags.has('altar-lit')){showToast('THE ALTAR IS STILL DARK. LIGHT ALL THREE CANDLES FIRST.');return;}
   if(!storyFlags.has('darkroom-cleared')){showToast('THE DARK ROOM HAS NOT BEEN SEARCHED. FIND THE SIX RECORDS OF WHAT HAPPENED.');return;}
+  if(!storyFlags.has('church-collapsed')){showToast('THE CHURCH IS STILL STANDING. GO OUT TO THE ROAD AND WATCH IT.');return;}
   if(!storyFlags.has('escaped-forest')){showToast('YOU HAVE NOT BEEN TO THE FOREST. IL PROFESSORE IS WAITING WITH THE CAR AT THE SLAUGHTERHOUSE.');return;}
   if(!storyFlags.has('first-tea')){showToast('IL PROFESSORE IS STILL IN THE SLAUGHTERHOUSE. ASK HIM ABOUT THE EARPLUGS.');return;}
   if(!storyFlags.has('carcasses-decided')){showToast('THE BODIES ARE STILL WAITING. DECIDE WHAT TO DO WITH THE HOOKS FIRST.');return;}
@@ -2893,6 +2914,7 @@ const MISSIONS=[
   {id:'carcasses',text:'Inspect the suspended carcasses. Decide whether to release them or leave them hanging.',when:()=>currentZone==='abattoir',done:()=>storyFlags.has('carcasses-decided')}
 ];
 function currentMissionText(){
+ if(storyFlags.has('altar-lit')&&collected.size>=7&&!storyFlags.has('church-collapsed'))return currentZone==='road'?'STAND IN THE ROAD AND LOOK AT THE CHURCH.':'GO OUT TO THE ROAD. SOMETHING IS GOING TO HAPPEN TO THE CHURCH, AND YOU HAVE TO SEE IT.';
  if(storyFlags.has('escaped-forest')&&!storyFlags.has('pastorale-complete')&&currentZone==='road')return 'FOLLOW THE WATERLINE. FIND THE THREE PASTORAL INTERVALS — '+['water','grain','reeds'].filter(k=>storyFlags.has('pastorale-'+k)).length+' / 3.';
  if(storyFlags.has('pino-sent')&&!storyFlags.has('pino-collapsed')&&currentZone==='road')return 'PINO WENT TOWARD THE WHEAT FIELD. FOLLOW THE ENGINE.';
   if(currentZone==='church'&&storyFlags.has('station-dario')&&storyFlags.has('talked-remo')&&!storyFlags.has('dario-bell-death'))return 'THE BELL ROPE HANGS BY THE LEFT WALL OF THE NAVE. IL PROFESSORE SAYS YOUR HANDS ARE STEADY.';
@@ -3330,15 +3352,14 @@ function endFirstTeaScene(){
   storyScene=null;dialogueOpen=false;$('subtitle-wrap').classList.remove('visible');camera.position.set(0,1.63,0);camera.rotation.set(0,s.savedRot?.[1]||0,0);resetLook();
   showToast('IL PROFESSORE IS GONE.');
 }
-function storyLine(text) {
+function storyLine(text) { presentLine(() => storyLineNow(text), text); }
+function storyLineNow(text) {
   const m = /^\(/.test(text) ? null : /^([^:]+):\s*/.exec(text);
   if (!dialogueOpen) $('dialogue-options').innerHTML = '';
   $('speaker').textContent = m ? m[1].toUpperCase() : '';
   $('subtitle').textContent = text.replace(/^[^:]+:\s*/, '');
   $('subtitle-wrap').classList.add('visible');
   speakVoice(text, m ? m[1] : '');
-  clearTimeout(storyLine.timer);
-  storyLine.timer = setTimeout(() => { if (!dialogueOpen && !storyScene) $('subtitle-wrap').classList.remove('visible'); }, 4200);
 }
 function addPastoraleStation(zone,id,title,description,x,z,kind){
   const root=new THREE.Group();root.position.set(x,0,z);zone.group.add(root);
@@ -3478,6 +3499,7 @@ function beginForestCar() {
 }
 function updateStoryScene(dt, t) {
   const s = storyScene; s.t += dt;
+  if (s.dur && s.t >= s.dur - .1 && linesPending() && !s.skipped) s.t = s.dur - .1;
   if (s.type === 'v8') { while (s.i < s.lines.length && s.t >= s.lines[s.i][0]) { storyLine(s.lines[s.i][1]); s.i++; } s.update(s, dt); return; }
   if (['pino-combine','first-tea','confession','car'].includes(s.type) && !s.savedAnchor) { s.savedAnchor = playerAnchor.position.clone(); s.savedRot = [camera.rotation.x, camera.rotation.y]; playerAnchor.position.set(0, 0, 0); setCinema(true); }
   while (s.i < s.lines.length && s.t >= s.lines[s.i][0]) { storyLine(s.lines[s.i][1]); s.i++; }
@@ -4920,6 +4942,7 @@ function updateStation(s, dt) {
     if (def.fogDensity) scene.fog.density = def.fogDensity;
     STATION_UPDATE[s.id]?.(s.ctx, Math.max(0, local), dt);
     while (s.li < def.lines.length && local >= def.lines[s.li][0]) { stationLine(def.lines[s.li][1]); s.li++; }
+    if (s.t >= s.P0 - .1 && linesPending() && !s.skipped) s.t = s.P0 - .1;
     if (s.t >= s.P0) { finishStationScene(s); s.phase = 3; setStationCard('black', 'PASTORALE', '', ''); }
   }
   if (s.phase === 3 && s.t >= s.P0 + .9) { s.phase = 4; $('subtitle-wrap').classList.remove('visible'); showPastorale(def.pastorale[0]); }
@@ -4928,7 +4951,8 @@ function updateStation(s, dt) {
   if (s.phase === 5 && s.t >= s.P2) { s.phase = 6; setStationCard('black', '', '', ''); }
   if (s.phase === 6 && s.t >= s.P2 + .9) endStation(s);
 }
-function stationLine(text) {
+function stationLine(text) { presentLine(() => stationLineNow(text), text); }
+function stationLineNow(text) {
   const m = /^\(/.test(text) ? null : /^([^:]+):\s*/.exec(text);
   $('speaker').textContent = m ? m[1].toUpperCase() : '';
   $('speaker').classList.toggle('through-wall', /below|through|wall/i.test(m?.[1] || ''));
@@ -4961,7 +4985,7 @@ function endStation(s) {
   updateMissions();
 }
 function skipStoryScene() {
-  const s = storyScene; if (!s) return;
+  const s = storyScene; if (!s) return; clearLines(); s.skipped = true;
   if (s.type === 'v8') { s.skip?.(s); return; }
   if (s.type === 'station') {
     if (s.phase <= 2) { s.t = Math.max(s.t, s.P0); if (s.phase === 0) { updateStation(s, 0); } }
@@ -5529,7 +5553,7 @@ function moveStalkerOld(dt) {
 function moveChaser(dt) {
   if (noEnemies() || currentZone !== 'forest' || !chaseState || !storyRef.chaser?.visible) return;
   const ch = storyRef.chaser, p = playerAnchor.position, dx = p.x - ch.position.x, dz = p.z - ch.position.z, d = Math.hypot(dx, dz) || .001;
-  const step = enemySpeed() * 1.7 * dt; ch.position.x += dx / d * step; ch.position.z += dz / d * step; ch.rotation.y = Math.atan2(dx, dz);
+  chaseState.rampT = (chaseState.rampT || 0) + dt; const step = enemySpeed() * 1.7 * THREE.MathUtils.lerp(.3, 1.35, THREE.MathUtils.smoothstep(chaseState.rampT, 0, 30)) * dt; ch.position.x += dx / d * step; ch.position.z += dz / d * step; ch.rotation.y = Math.atan2(dx, dz);
 }
 
 // =============================================================================
@@ -5918,7 +5942,7 @@ function writeEndingLedger(choice) {
   if (storyFlags.has('grave-body-seen')) lines.push('A body with your scar is still under the willow. Nobody has asked whose.');
   if (storyFlags.has('church-collapsed')) lines.push('The church came down inward. The sound arrived four seconds after the image.');
   let el = $('ending-ledger'); if (!el) { el = document.createElement('div'); el.id = 'ending-ledger'; el.className = 'ending-ledger'; $('ending-result').prepend(el); }
-  el.innerHTML = lines.map(l => `<p>${l}</p>`).join('') + '<div class="ending-card">THE TENTH HAS NO NAME. IT IS YOU.</div>';
+  el.innerHTML = lines.map(l => `<p>${l}</p>`).join('');
 }
 
 // ---- The material world: paper on floors, leaves on the lane, the rusted box --
@@ -6356,7 +6380,7 @@ function endGraveScene(save) {
 
 // ---- The church comes down: Crollo (v10 §8.12) --------------------------------
 const crollo = { pieces: [], dust: [], extras: [], done: false };
-function crolloReady() { return !crollo.done && storyRef.churchExt && storyFlags.has('station-walter') && storyFlags.has('dario-bell-death') && storyFlags.has('altar-lit'); }
+function crolloReady() { return !crollo.done && storyRef.churchExt && storyFlags.has('altar-lit') && (storyFlags.has('station-walter') || collected.size >= 7); }
 function prepareCollapse() {
   const g = storyRef.churchExt; g.updateMatrixWorld(true); crollo.pieces = [];
   const add = (m, center) => {
@@ -6559,7 +6583,7 @@ function v8Tick(dt, t) {
     storyFlags.add('car-called'); storyLine('IL PROFESSORE: Not here. Come outside. The car is warm.'); setTimeout(() => { if (!storyFlags.has('car-invited')) pendingCar = true; }, 3600);
   }
   updateRigs(dt, t); updateShafts(t); updateWelcome(dt);
-  if (gameStarted && !gameEnded && currentZone === 'road' && !storyScene && !dialogueOpen && crolloReady()) startCrollo();
+  if (gameStarted && !gameEnded && currentZone === 'road' && (!storyScene || storyScene.type === 'hold') && !dialogueOpen && !bench && crolloReady()) { cancelHold(); startCrollo(); }
 }
 // An old hurricane oil lantern on an iron hook beside the door: a soft halo, a wide
 // penumbra, light that falls off instead of ending in a cone.
@@ -6705,7 +6729,7 @@ function placeStalker(name) {
   doors.sort((p, q) => Math.hypot(q.x - sp.x, q.z - sp.z) - Math.hypot(p.x - sp.x, p.z - sp.z));
   const d0 = doors[0]; const inward = new THREE.Vector3((b.minX + b.maxX) / 2 - d0.x, 0, (b.minZ + b.maxZ) / 2 - d0.z).normalize();
   att.post = new THREE.Vector3(d0.x + inward.x * 1.1, 0, d0.z + inward.z * 1.1); g.position.copy(att.post); g.rotation.y = Math.atan2(inward.x, inward.z);
-  g.visible = true; stalkerZone = name; att.zone = name; att.state = 'post'; att.target = null; att.knockCd = 6 + Math.random() * 6; presenceWarned = false; presence = 0;
+  g.visible = true; stalkerZone = name; att.zone = name; att.state = 'post'; att.appearT = 0; att.target = null; att.knockCd = 6 + Math.random() * 6; presenceWarned = false; presence = 0;
 }
 function noEnemiesAttendant() { return false; } // at PASTORALE he is visible and audible, and never catches you
 function attBlocked(x, z) { return zone.solids.some(o => x + .28 > o.minX && x - .28 < o.maxX && z + .28 > o.minZ && z - .28 < o.maxZ); }
@@ -6740,7 +6764,9 @@ function updatePresence(dt, t) {
   const active = g.visible && att.zone === currentZone && gameStarted && !gameEnded && !listeningPending && !cultFateActive && !journalOpen && (!storyScene || storyScene.type === 'hold');
   if (!active) { presence = Math.max(0, presence - dt * .8); att.P.extWalk.on = false; return; }
   const P = att.P, p = playerAnchor.position, dx = p.x - g.position.x, dz = p.z - g.position.z, dist = Math.hypot(dx, dz) || .001;
-  att.cooldown = Math.max(0, att.cooldown - dt);
+  att.cooldown = Math.max(0, att.cooldown - dt); att.appearT = (att.appearT || 0) + dt;
+  // Each appearance starts slow and becomes quite fast: 35% of full pace, rising to 140% over ~45 s.
+  const ramp = THREE.MathUtils.lerp(.35, 1.4, THREE.MathUtils.smoothstep(att.appearT, 0, 45));
   // Disturbances: running, the bench, digging.
   const running = (keys.has('ShiftLeft') || keys.has('ShiftRight')) && velocity.lengthSq() > 1.5;
   att.noiseT = (att.noiseT || 0) - dt;
@@ -6755,7 +6781,7 @@ function updatePresence(dt, t) {
     const tgt = att.state === 'return' ? att.post : att.target; const tx = tgt.x - g.position.x, tz = tgt.z - g.position.z, td = Math.hypot(tx, tz);
     const stopAt = att.state === 'chase' ? (SETTINGS.difficulty === 0 ? 2.2 : .9) : .7;
     if (td > stopAt) {
-      const sp = ([.95, 1.15, 1.5, 1.85][SETTINGS.difficulty] || 1.15) * (att.onBlood ? 1.3 : 1) * (att.state === 'return' ? .8 : 1), step = sp * dt;
+      const sp = ([.95, 1.15, 1.5, 1.85][SETTINGS.difficulty] || 1.15) * ramp * (att.onBlood ? 1.3 : 1) * (att.state === 'return' ? .8 : 1), step = sp * dt;
       const nx = g.position.x + tx / td * step, nz = g.position.z + tz / td * step;
       let moved = false; if (!attBlocked(nx, g.position.z)) { g.position.x = nx; moved = true; } if (!attBlocked(g.position.x, nz)) { g.position.z = nz; moved = true; }
       if (!moved) { const side = (att.sideT = (att.sideT || 0) + dt) % 3 < 1.5 ? 1 : -1; const sx = g.position.x - tz / td * step * side, sz = g.position.z + tx / td * step * side; if (!attBlocked(sx, sz)) { g.position.x = sx; g.position.z = sz; } }
@@ -6879,8 +6905,7 @@ function startApocalypse(choice) {
 function endApocalypse(s, choice, restore) {
   storyScene = null; setCinema(false); setFov(72); restore?.(); $('subtitle-wrap').classList.remove('visible');
   const wf = $('finale-white'); if (wf) wf.style.opacity = '1';
-  setStationCard('black', '', '', 'THE TENTH HAS NO NAME.\nIT IS YOU.'); $('station-card').classList.add('on-white');
-  setTimeout(() => { setStationCard('hidden'); $('station-card').classList.remove('on-white'); resolveEnding(choice); $('ending-screen').classList.add('active'); if (wf) wf.style.opacity = '0'; }, 4200);
+  setTimeout(() => { resolveEnding(choice); $('ending-screen').classList.add('active'); if (wf) wf.style.opacity = '0'; }, 4200);
 }
 
 // ---- Posters: invented, in the manner of the house's record shelf ----------------
@@ -6916,7 +6941,7 @@ function buildPostersV12() {
 
 function smokerArm(S) { const A = S.npc.rig.arms[1], lift = S.lift || 0; A.sh.rotation.x = THREE.MathUtils.lerp(.06, -.22, lift); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, -.36, lift); A.el.rotation.x = THREE.MathUtils.lerp(-.12, -2.22, lift); A.wr.rotation.x = THREE.MathUtils.lerp(0, -.35, lift); }
 buildV8World(); buildPostersV12();
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);

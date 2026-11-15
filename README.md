@@ -44,6 +44,13 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 13 — fixes
+
+- **The church collapse plays reliably and is required.** It used to wait for Walter's death scene and was blocked whenever Il Professore was speaking one of his background monologues, so many runs never saw it. It now starts the next time you are on the road once the altar candles are lit and you have seven clues (or Walter's scene has happened), and it interrupts a monologue. The objective sends you to the road to watch it, and the platter refuses to play until you have.
+- **“The tenth has no name. It is you.” is gone** from the end card and the ledger. The coda now fades to white and goes straight to the result.
+- **The enemy ramps up.** Each time the Attendant appears he starts at about a third of his pace and over the next 45 seconds becomes faster than before (140%). The forest pursuer does the same over 30 seconds.
+- **Every line can be read.** Subtitles now stay on screen in proportion to their length: about 20 characters a second, never under three seconds. Lines that arrive early wait their turn. Cutscenes, death scenes and the coda hold their last frame until the queued lines have been shown. Pressing Space still skips everything. Toasts also stay up longer for longer messages.
+
 ## Version 12 — the Attendant, blood, vinyl, leather and the end of the world
 
 - **The Attendant replaces the stalker (v10 §5.7).** He is a person in an old quarry blasting hood with a blind visor, heavy gloves and borrowed work clothes. Wearing the hood is a turn somebody takes, not a monster.
