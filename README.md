@@ -44,6 +44,12 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 15 — Saturn and the white logo
+
+- **The vinyl is Saturn seen from its pole.** The record's grooves run through Saturn's rings: the dusky C ring, the bright B ring, the black Cassini division, the A ring with the Encke gap, and the thin F ring. The planet's shadow falls across the rings. At the centre is the planet itself, in soft ochre and cream bands with small storms drifting at different speeds. In the middle sits the hexagon: a six-sided jet stream that turns slowly around a dark polar vortex with spiral arms. The night side is shaded. The label text now runs around the C ring, and the spindle hole is the only sign that it is a record. The logo is cut in as the needle crosses, now in pure white over a soft dark shadow so it stands out on every band.
+- **One logo everywhere.** `assets/epi-logo.png` (your branch logo) is now pure white with stronger strokes. It appears on the vinyl, on the start screen, in the top bar in place of the typed name, and on the ending screen.
+- **The soundtrack is 15% louder** (track level 0.92 → 1.06; at default settings the music plays at 0.81 instead of 0.70).
+
 ## Version 14 — the soundtrack
 
 - **geatd is the outdoor and intro soundtrack.** It plays on the title screen, through the vinyl intro, and whenever you are on the road or in the forest. It fades out when you go indoors and back in when you come out. The old, missing `mysterious.m4a` is no longer referenced.
