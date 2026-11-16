@@ -1736,7 +1736,8 @@ class AmbientSound {
     this.ctx = null; this.master = null; this.noiseGain = null; this.droneGain = null;
     this.nodes = []; this.ready = false; this.zoneGain=null; this.pulseGain=null; this.currentZone='road';
     this.musicTracks = {
-      mysterious: this.createMusicTrack('mysterious', './assets/mysterious.m4a', .82),
+      // Outdoors and the intro: geatd, baked with a 10 s dissolve of its end into its start, looped gaplessly.
+      mysterious: this.createLoopTrack('mysterious', { ogg: './assets/geatd-loop.ogg', mp3: './assets/geatd-loop.mp3' }, .92, { loopStart: 10, loopEnd: 215.4866 }),
       fort: this.createMusicTrack('fort', './assets/fort.mp3', .78),
       dot: this.createMusicTrack('dot', './assets/dot.mp3', .76),
       zero: this.createMusicTrack('zero', './assets/zero.mp3', .76)
@@ -1752,6 +1753,43 @@ class AmbientSound {
     Object.values(this.musicTracks).forEach(track => { if (track.active) this.fadeMusicTrack(track, this.musicLevel(track), .25, false); });
   }
   setDuck(v, seconds = 1.2) { this.duck = v; this.applyVolumesSoon = true; Object.values(this.musicTracks).forEach(track => { if (track.active) this.fadeMusicTrack(track, this.musicLevel(track), seconds, false); }); }
+  // A gapless looping music track on the Web Audio clock. It presents the same small interface as an
+  // <audio> element (volume, play, pause, paused...), so fades, ducking, muffling and mute all still work.
+  ensureCtx() {
+    if (this.ctx) return this.ctx;
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    this.ctx = new AC(); return this.ctx;
+  }
+  createLoopTrack(name, srcs, targetVolume, { loopStart = 0, loopEnd = 0 } = {}) {
+    const self = this; let vol = 0, node = null, gain = null, buffer = null, loading = null;
+    const track = { name, targetVolume, active: false, loop: true, fadeAtEnd: false, fadeToken: 0 };
+    const load = () => loading || (loading = (async () => {
+      const ctx = self.ensureCtx(); if (!ctx) return null;
+      const ogg = (document.createElement('audio').canPlayType('audio/ogg; codecs="vorbis"') || '') !== '';
+      const url = ogg ? srcs.ogg : srcs.mp3;
+      try { buffer = await ctx.decodeAudioData(await (await fetch(url)).arrayBuffer()); } catch (e) { console.warn('Music file could not be loaded:', url, e); loading = null; }
+      return buffer;
+    })());
+    load();
+    track.element = {
+      get volume() { return vol; }, set volume(v) { vol = v; if (gain && self.ctx) gain.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), self.ctx.currentTime, .04); },
+      get paused() { return !node; }, get ended() { return false; }, get duration() { return NaN; }, currentTime: 0,
+      addEventListener() {},
+      play() {
+        if (node) return Promise.resolve();
+        return load().then(buf => {
+          const ctx = self.ctx; if (!buf || !ctx || node) return;
+          gain = ctx.createGain(); gain.gain.value = vol; gain.connect(ctx.destination);
+          node = ctx.createBufferSource(); node.buffer = buf; node.loop = true;
+          node.loopStart = loopStart; node.loopEnd = Math.min(loopEnd || buf.duration, buf.duration);
+          node.connect(gain); node.start(0);
+          if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        });
+      },
+      pause() { try { node?.stop(); node?.disconnect(); gain?.disconnect(); } catch (_) {} node = null; gain = null; }
+    };
+    return track;
+  }
   createMusicTrack(name, src, targetVolume) {
     const element = new Audio(src);
     element.preload = 'auto';
@@ -1869,8 +1907,8 @@ class AmbientSound {
   }
   async start() {
     if (this.ready) return;
-    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-    this.ctx = new AC(); if (this.ctx.state === 'suspended') await this.ctx.resume();
+    if (!this.ensureCtx()) return;
+    if (this.ctx.state === 'suspended') await this.ctx.resume();
     this.master = this.ctx.createGain(); this.master.gain.value = this.effectsLevel();
     const low = this.ctx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 130; low.gain.value = 9;
     const comp = this.ctx.createDynamicsCompressor(); comp.threshold.value = -24; comp.ratio.value = 3.2; comp.attack.value = .02; comp.release.value = .3;
@@ -6941,7 +6979,7 @@ function buildPostersV12() {
 
 function smokerArm(S) { const A = S.npc.rig.arms[1], lift = S.lift || 0; A.sh.rotation.x = THREE.MathUtils.lerp(.06, -.22, lift); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, -.36, lift); A.el.rotation.x = THREE.MathUtils.lerp(-.12, -2.22, lift); A.wr.rotation.x = THREE.MathUtils.lerp(0, -.35, lift); }
 buildV8World(); buildPostersV12();
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);
