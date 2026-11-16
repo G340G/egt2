@@ -1737,7 +1737,7 @@ class AmbientSound {
     this.nodes = []; this.ready = false; this.zoneGain=null; this.pulseGain=null; this.currentZone='road';
     this.musicTracks = {
       // Outdoors and the intro: geatd, baked with a 10 s dissolve of its end into its start, looped gaplessly.
-      mysterious: this.createLoopTrack('mysterious', { ogg: './assets/geatd-loop.ogg', mp3: './assets/geatd-loop.mp3' }, .92, { loopStart: 10, loopEnd: 215.4866 }),
+      mysterious: this.createLoopTrack('mysterious', { ogg: './assets/geatd-loop.ogg', mp3: './assets/geatd-loop.mp3' }, 1.06, { loopStart: 10, loopEnd: 215.4866 }),
       fort: this.createMusicTrack('fort', './assets/fort.mp3', .78),
       dot: this.createMusicTrack('dot', './assets/dot.mp3', .76),
       zero: this.createMusicTrack('zero', './assets/zero.mp3', .76)
@@ -6677,14 +6677,36 @@ function buildV8World() {
 // =============================================================================
 
 // ---- The house's logo, tintable -------------------------------------------------
-function epiLogo() { if (!epiLogo.img) { const i = new Image(); i.src = './assets/epi-logo.png'; i.addEventListener('load', () => (epiLogo.cbs || []).forEach(f => f())); epiLogo.img = i; epiLogo.cbs = []; } return epiLogo.img; }
-function whenLogo(fn) { const i = epiLogo(); if (i.complete && i.naturalWidth) fn(); else epiLogo.cbs.push(fn); }
-function drawLogo(ctx, x, y, w, h, color = '#d9cfb8', alpha = 1) {
-  const i = epiLogo(); if (!(i.complete && i.naturalWidth)) return false;
-  const c = drawLogo.c || (drawLogo.c = document.createElement('canvas')); c.width = Math.max(2, Math.round(w)); c.height = Math.max(2, Math.round(h));
-  const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over'; g.drawImage(i, 0, 0, c.width, c.height); g.globalCompositeOperation = 'source-in'; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
-  ctx.save(); ctx.globalAlpha *= alpha; ctx.drawImage(c, x, y); ctx.restore(); return true;
+// The house's logo: assets/epi logo.png. On load it is trimmed to its strokes and turned pure
+// white, and every <img data-logo> on the page is given that white, trimmed version.
+function epiLogo() {
+  if (epiLogo.img) return epiLogo.img;
+  const i = new Image(); epiLogo.img = i; epiLogo.cbs = [];
+  i.addEventListener('load', () => {
+    try {
+      const W = i.naturalWidth, H = i.naturalHeight, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.drawImage(i, 0, 0);
+      const d = g.getImageData(0, 0, W, H).data; let x0 = W, y0 = H, x1 = 0, y1 = 0;
+      for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) if (d[(y * W + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      const pad = Math.round(Math.max(W, H) * .01); x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+      const tw = x1 - x0 + 1, th = y1 - y0 + 1, wc = document.createElement('canvas'); wc.width = tw; wc.height = th; const wg = wc.getContext('2d');
+      wg.drawImage(i, x0, y0, tw, th, 0, 0, tw, th); wg.globalCompositeOperation = 'source-in'; wg.fillStyle = '#ffffff'; wg.fillRect(0, 0, tw, th);
+      epiLogo.white = wc; epiLogo.aspect = th / tw;
+      const url = wc.toDataURL('image/png'); document.querySelectorAll('img[data-logo]').forEach(im => { im.src = url; im.classList.add('ready'); });
+    } catch (e) { console.warn('Logo could not be prepared:', e); }
+    epiLogo.cbs.forEach(f => f());
+  });
+  i.src = './assets/epi%20logo.png'; return i;
 }
+function whenLogo(fn) { epiLogo(); if (epiLogo.white) fn(); else epiLogo.cbs.push(fn); }
+// Draw the logo tinted, fitted inside the box (x, y, w, h) without distortion.
+function drawLogo(ctx, x, y, w, h, color = '#ffffff', alpha = 1) {
+  epiLogo(); const src = epiLogo.white; if (!src) return false;
+  const a = epiLogo.aspect, fw = Math.min(w, h / a), fh = fw * a, ox = x + (w - fw) / 2, oy = y + (h - fh) / 2;
+  const c = drawLogo.c || (drawLogo.c = document.createElement('canvas')); c.width = Math.max(2, Math.round(fw)); c.height = Math.max(2, Math.round(fh));
+  const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over'; g.drawImage(src, 0, 0, c.width, c.height); g.globalCompositeOperation = 'source-in'; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.drawImage(c, ox, oy); ctx.restore(); return true;
+}
+epiLogo();
 // Invented motifs, drawn centred at the origin, about 100 units across.
 function drawMotif(ctx, kind, ink = '#b9b2a2') {
   ctx.save(); ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 3; ctx.lineCap = 'round';
@@ -6867,25 +6889,65 @@ function updateBlood(dt) {
 // ---- The vinyl intro ---------------------------------------------------------------
 function drawVinyl(t) {
   const c = $('intro-vinyl'); if (!c) return; if (c.width !== innerWidth || c.height !== innerHeight) { c.width = innerWidth; c.height = innerHeight; }
-  const g = c.getContext('2d'), w = c.width, h = c.height, R = Math.min(w, h) * .4, cx = w / 2, cy = h * .47;
+  const g = c.getContext('2d'), w = c.width, h = c.height, R = Math.min(w, h) * .42, cx = w / 2, cy = h * .47;
   const fade = THREE.MathUtils.smoothstep(t, .2, 1.6) * (1 - THREE.MathUtils.smoothstep(t, 8.2, 9.6)); c.style.opacity = String(fade);
-  g.fillStyle = '#050505'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#030303'; g.fillRect(0, 0, w, h);
+  // a few stars, very faint
+  if (!drawVinyl.stars) drawVinyl.stars = Array.from({ length: 140 }, () => [Math.random(), Math.random(), Math.random()]);
+  drawVinyl.stars.forEach(([x, y, b]) => { g.fillStyle = `rgba(230,225,210,${.08 + b * .25})`; g.fillRect(x * w, y * h, 1, 1); });
+  const spin = t * 3.45, Rp = R * .43;
   g.save(); g.translate(cx, cy);
-  g.fillStyle = '#0b0b0a'; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill();
-  for (let i = 0; i < 64; i++) { const r = R * (.36 + i / 64 * .62); g.strokeStyle = `rgba(217,207,184,${i % 5 === 0 ? .09 : .035})`; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); }
-  // turning light on the grooves
-  const spin = t * 3.45; for (const off of [0, Math.PI]) { const gr = g.createConicGradient ? g.createConicGradient(spin + off, 0, 0) : null; if (gr) { gr.addColorStop(0, 'rgba(236,228,208,.16)'); gr.addColorStop(.06, 'rgba(236,228,208,0)'); gr.addColorStop(.94, 'rgba(236,228,208,0)'); gr.addColorStop(1, 'rgba(236,228,208,.16)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.arc(0, 0, R * .34, 0, Math.PI * 2, true); g.fill(); } }
-  // the logo, cut into the lacquer as the needle crosses it
-  const cut = THREE.MathUtils.smoothstep(t, 2.2, 6.6), lw = R * 1.02, lh = lw * 1168 / 931 * .9;
-  g.save(); g.rotate(-.05 + t * .012); g.beginPath(); g.rect(-lw / 2, -lh / 2, lw * cut, lh); g.clip(); drawLogo(g, -lw / 2, -lh / 2 - R * .02, lw, lh, '#ece4d0', .92); g.restore();
-  g.fillStyle = '#5a2614'; g.beginPath(); g.arc(0, 0, R * .2, 0, Math.PI * 2); g.fill(); g.fillStyle = '#050505'; g.beginPath(); g.arc(0, 0, R * .018, 0, Math.PI * 2); g.fill();
-  g.save(); g.rotate(spin); g.fillStyle = 'rgba(236,228,208,.55)'; g.font = `${Math.max(8, R * .032)}px "IBM Plex Mono", monospace`; g.textAlign = 'center'; const label = 'EPISTASSI · 14-B · 33⅓ · LATO A · '; for (let i = 0; i < label.length; i++) { g.save(); g.rotate(i / label.length * Math.PI * 2); g.fillText(label[i], 0, -R * .145); g.restore(); } g.restore();
-  // tonearm: lowers, then tracks inward
-  const down = THREE.MathUtils.smoothstep(t, 1.0, 2.0), nx = THREE.MathUtils.lerp(R * .98, R * .42, cut) * Math.cos(-.5), ny = THREE.MathUtils.lerp(R * .98, R * .42, cut) * Math.sin(-.5) - (1 - down) * R * .12;
-  g.strokeStyle = '#8a8478'; g.lineWidth = Math.max(2, R * .012); g.beginPath(); g.moveTo(R * 1.18, -R * .95); g.lineTo(nx, ny); g.stroke(); g.fillStyle = '#d9cfb8'; g.fillRect(nx - R * .03, ny - R * .012, R * .06, R * .03);
+  // ---- the rings, seen from above, are the record: C, B, the Cassini division, A with the Encke gap, F
+  const ring = (r0, r1, col, a) => { g.fillStyle = col; g.globalAlpha = a; g.beginPath(); g.arc(0, 0, r1, 0, Math.PI * 2); g.arc(0, 0, r0, 0, Math.PI * 2, true); g.fill(); g.globalAlpha = 1; };
+  ring(R * .52, R * .6, '#6f6553', .45);   // C ring, dusky
+  ring(R * .6, R * .78, '#d6c8a6', .82);   // B ring, bright
+  ring(R * .78, R * .805, '#050505', 1);   // Cassini division
+  ring(R * .805, R * .96, '#b9ab8c', .7);  // A ring
+  ring(R * .9, R * .905, '#050505', 1);    // Encke gap
+  ring(R * .985, R * .99, '#cfc3a6', .55); // F ring
+  // grooves: fine concentric lines through the rings, the lacquer of the record
+  for (let i = 0; i < 90; i++) { const r = R * (.52 + i / 90 * .47); g.strokeStyle = `rgba(0,0,0,${i % 4 === 0 ? .32 : .14})`; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); }
+  // light turning on the grooves as the record spins
+  if (g.createConicGradient) for (const off of [0, Math.PI]) { const gr = g.createConicGradient(spin + off, 0, 0); gr.addColorStop(0, 'rgba(255,250,235,.22)'); gr.addColorStop(.05, 'rgba(255,250,235,0)'); gr.addColorStop(.95, 'rgba(255,250,235,0)'); gr.addColorStop(1, 'rgba(255,250,235,.22)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.arc(0, 0, R * .52, 0, Math.PI * 2, true); g.fill(); }
+  // the planet's shadow falling across the rings, away from the sun
+  g.save(); g.beginPath(); g.arc(0, 0, R * .995, 0, Math.PI * 2); g.arc(0, 0, Rp, 0, Math.PI * 2, true); g.clip(); g.rotate(.62); const sh = g.createLinearGradient(0, -Rp, 0, Rp); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(.08, 'rgba(0,0,0,.7)'); sh.addColorStop(.92, 'rgba(0,0,0,.7)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.fillRect(0, -Rp, R, Rp * 2); g.restore();
+  // ---- the planet from the pole: latitude bands, rotating at different speeds
+  const bands = ['#cdb98c', '#b39a68', '#d8c79e', '#a88d5c', '#c4ad7c', '#8f7a52', '#bba373', '#7d6d4e', '#a99366'];
+  { const pg = g.createRadialGradient(0, 0, 0, 0, 0, Rp); const stops = [[0, '#6f705f'], [.3, '#8a8466'], [.4, '#c2b07e'], [.48, '#ad9564'], [.56, '#d3c296'], [.63, '#b59d6a'], [.7, '#cbb684'], [.77, '#a68e60'], [.84, '#d5c59b'], [.91, '#bba476'], [.97, '#9a8458'], [1, '#6e5e40']]; stops.forEach(([o, c]) => pg.addColorStop(o, c)); g.fillStyle = pg; g.beginPath(); g.arc(0, 0, Rp, 0, Math.PI * 2); g.fill(); }
+  // turbulence: small storms riding each band
+  if (!drawVinyl.storms) drawVinyl.storms = Array.from({ length: 34 }, (_, i) => ({ r: .45 + Math.random() * .52, a: Math.random() * 6.28, s: (Math.random() - .5) * .5 + (i % 2 ? .25 : -.2), w: .02 + Math.random() * .05 }));
+  drawVinyl.storms.forEach(st => { const a = st.a + t * st.s, rr = Rp * st.r; g.save(); g.rotate(a); g.fillStyle = 'rgba(240,226,190,.22)'; g.beginPath(); g.ellipse(rr, 0, Rp * st.w * .5, Rp * st.w * 1.6, 0, 0, Math.PI * 2); g.fill(); g.restore(); });
+  // the hexagon: a six-sided jet stream around the pole, turning slowly
+  const hexR = Rp * .4, hexA = t * .08;
+  const hex = (r, rot) => { g.beginPath(); for (let k = 0; k <= 6; k++) { const a = rot + k * Math.PI / 3; k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); };
+  g.save(); g.lineJoin = 'round';
+  hex(hexR * 1.12, hexA); g.fillStyle = '#6c6450'; g.fill();
+  hex(hexR, hexA); g.fillStyle = '#4c5250'; g.fill();
+  g.strokeStyle = 'rgba(214,200,160,.55)'; g.lineWidth = Math.max(1.5, R * .008); hex(hexR * 1.06, hexA); g.stroke();
+  g.strokeStyle = 'rgba(30,34,34,.8)'; g.lineWidth = Math.max(1, R * .004); hex(hexR * .9, hexA); g.stroke();
+  // the polar vortex: a dark eye, spiral arms wound into it
+  for (let k = 0; k < 5; k++) { g.strokeStyle = `rgba(150,140,110,${.35 - k * .05})`; g.lineWidth = Math.max(1, R * .006); g.beginPath(); for (let q = 0; q < 60; q++) { const u = q / 60, a = t * .9 + k * 1.256 + u * 5.2, r = hexR * .82 * (1 - u); q ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); } g.stroke(); }
+  const eye = g.createRadialGradient(0, 0, 0, 0, 0, hexR * .3); eye.addColorStop(0, '#0d0f0f'); eye.addColorStop(1, 'rgba(13,15,15,0)'); g.fillStyle = eye; g.beginPath(); g.arc(0, 0, hexR * .3, 0, Math.PI * 2); g.fill();
   g.restore();
-  g.textAlign = 'center'; g.fillStyle = 'rgba(217,207,184,.75)'; g.font = `${Math.max(10, Math.min(13, w * .011))}px "IBM Plex Mono", monospace`;
-  const line = t < 4.6 ? 'P O   V A L L E Y  ·  W I N T E R   1 9 7 7' : 'THIRTEEN WENT IN.  THE REEL IS STILL TURNING.'; g.globalAlpha = THREE.MathUtils.smoothstep(t, 1.2, 2.2) * (1 - THREE.MathUtils.smoothstep(t, 4.2, 4.6)) + THREE.MathUtils.smoothstep(t, 4.6, 5.2); g.fillText(line, cx, cy + R + Math.max(30, h * .06)); g.globalAlpha = 1;
+  // terminator: the night side of the planet
+  const night = g.createLinearGradient(-Rp, 0, Rp, 0); night.addColorStop(0, 'rgba(0,0,0,0)'); night.addColorStop(.55, 'rgba(0,0,0,.05)'); night.addColorStop(1, 'rgba(0,0,0,.62)');
+  g.save(); g.rotate(.62); g.fillStyle = night; g.beginPath(); g.arc(0, 0, Rp, 0, Math.PI * 2); g.fill(); g.restore();
+  // the spindle hole, the record's only reminder that it is a record
+  g.fillStyle = '#020202'; g.beginPath(); g.arc(0, 0, R * .012, 0, Math.PI * 2); g.fill();
+  // ---- the logo, cut in white as the needle crosses it
+  const cut = THREE.MathUtils.smoothstep(t, 2.2, 6.6), lw = R * 1.5, lh = lw * (epiLogo.aspect || .45);
+  g.save(); g.rotate(-.05 + t * .012); g.beginPath(); g.rect(-lw / 2, -lh / 2 - R * .03, lw * cut, lh); g.clip();
+  g.filter = `blur(${Math.max(2, R * .012)}px)`; drawLogo(g, -lw / 2, -lh / 2 - R * .03, lw, lh, '#000000', .85); g.filter = 'none';
+  drawLogo(g, -lw / 2, -lh / 2 - R * .03, lw, lh, '#ffffff', 1);
+  g.restore();
+  // the label text, run along the C ring
+  g.save(); g.rotate(spin * .5); g.fillStyle = 'rgba(236,228,208,.6)'; g.font = `${Math.max(8, R * .028)}px "IBM Plex Mono", monospace`; g.textAlign = 'center'; const label = 'EPISTASSI · 14-B · 33⅓ · LATO A · IL BIANCO · '; for (let i = 0; i < label.length; i++) { g.save(); g.rotate(i / label.length * Math.PI * 2); g.fillText(label[i], 0, -R * .555); g.restore(); } g.restore();
+  // tonearm: lowers, then tracks inward across the rings
+  const down = THREE.MathUtils.smoothstep(t, 1.0, 2.0), rr = THREE.MathUtils.lerp(R * .97, R * .55, cut), nx = rr * Math.cos(-.5), ny = rr * Math.sin(-.5) - (1 - down) * R * .12;
+  g.strokeStyle = '#8a8478'; g.lineWidth = Math.max(2, R * .012); g.beginPath(); g.moveTo(R * 1.18, -R * .95); g.lineTo(nx, ny); g.stroke(); g.fillStyle = '#ece4d0'; g.fillRect(nx - R * .03, ny - R * .012, R * .06, R * .03);
+  g.restore();
+  g.textAlign = 'center'; g.fillStyle = 'rgba(236,228,208,.8)'; g.font = `${Math.max(10, Math.min(13, w * .011))}px "IBM Plex Mono", monospace`;
+  const line = t < 4.6 ? 'P O   V A L L E Y  ·  W I N T E R   1 9 7 7' : 'THIRTEEN WENT IN.  THE REEL IS STILL TURNING.'; g.globalAlpha = THREE.MathUtils.smoothstep(t, 1.2, 2.2) * (1 - THREE.MathUtils.smoothstep(t, 4.2, 4.6)) + THREE.MathUtils.smoothstep(t, 4.6, 5.2); g.fillText(line, cx, Math.min(h - 18, cy + R + Math.max(30, h * .05))); g.globalAlpha = 1;
   if (audio?.ctx && Math.random() < .09) audio.mechanicalNoise(.03 + Math.random() * .04, 3000 + Math.random() * 4000, 1, .012 + Math.random() * .02, Math.random() - .5);
 }
 
