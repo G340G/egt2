@@ -44,6 +44,13 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 14 — the soundtrack
+
+- **geatd is the outdoor and intro soundtrack.** It plays on the title screen, through the vinyl intro, and whenever you are on the road or in the forest. It fades out when you go indoors and back in when you come out. The old, missing `mysterious.m4a` is no longer referenced.
+- **A dissolve loop.** The last 10 seconds of the track dissolve into the first 10 (an equal-power crossfade baked into the file), so it loops forever with no seam. It plays once from the start, then loops from 0:10. It runs on the Web Audio clock for a gapless loop. I checked the seam in both formats: the largest sample-to-sample jump there is no bigger than elsewhere in the music.
+- **Default volume.** The track is normalised to about −18 LUFS (the original was −16.9 LUFS with a 12 LU dynamic range). At the default master and music settings it plays at about −21 LUFS, loud enough to carry over the wind and room tone without covering dialogue. The music slider in Settings (**P**) and the mute key (**M**) work on it as before.
+- **Files.** `assets/geatd-loop.ogg` and `assets/geatd-loop.mp3` (the browser picks one); the original `assets/geatd.aiff` is the source. AIFF does not play in Chrome or Firefox, which is why it is not used directly. The deploy script copies `assets/` whole, so the 19 MB source also ships unless you exclude it.
+
 ## Version 13 — fixes
 
 - **The church collapse plays reliably and is required.** It used to wait for Walter's death scene and was blocked whenever Il Professore was speaking one of his background monologues, so many runs never saw it. It now starts the next time you are on the road once the altar candles are lit and you have seven clues (or Walter's scene has happened), and it interrupts a monologue. The objective sends you to the road to watch it, and the platter refuses to play until you have.
