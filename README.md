@@ -44,6 +44,11 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 16 — the new logo
+
+- **Merged `main`.** Your new `assets/epi logo.png` is in, and the old `epi-logo.png` is deleted as you did on `main`. The merge conflict (the old file deleted on `main` but edited on this branch) is resolved in favour of the deletion.
+- **The game reads `assets/epi logo.png` directly.** When it loads, the logo is trimmed to its strokes and turned pure white for contrast. It appears on the start screen, in the top bar, on the ending screen and cut into the Saturn record. Prints and posters that carry the logo use it too, fitted without stretching. Replacing that file is enough to change the logo everywhere.
+
 ## Version 15 — Saturn and the white logo
 
 - **The vinyl is Saturn seen from its pole.** The record's grooves run through Saturn's rings: the dusky C ring, the bright B ring, the black Cassini division, the A ring with the Encke gap, and the thin F ring. The planet's shadow falls across the rings. At the centre is the planet itself, in soft ochre and cream bands with small storms drifting at different speeds. In the middle sits the hexagon: a six-sided jet stream that turns slowly around a dark polar vortex with spiral arms. The night side is shaded. The label text now runs around the C ring, and the spindle hole is the only sign that it is a record. The logo is cut in as the needle crosses, now in pure white over a soft dark shadow so it stands out on every band.

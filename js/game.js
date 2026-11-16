@@ -6677,14 +6677,36 @@ function buildV8World() {
 // =============================================================================
 
 // ---- The house's logo, tintable -------------------------------------------------
-function epiLogo() { if (!epiLogo.img) { const i = new Image(); i.src = './assets/epi-logo.png'; i.addEventListener('load', () => (epiLogo.cbs || []).forEach(f => f())); epiLogo.img = i; epiLogo.cbs = []; } return epiLogo.img; }
-function whenLogo(fn) { const i = epiLogo(); if (i.complete && i.naturalWidth) fn(); else epiLogo.cbs.push(fn); }
-function drawLogo(ctx, x, y, w, h, color = '#d9cfb8', alpha = 1) {
-  const i = epiLogo(); if (!(i.complete && i.naturalWidth)) return false;
-  const c = drawLogo.c || (drawLogo.c = document.createElement('canvas')); c.width = Math.max(2, Math.round(w)); c.height = Math.max(2, Math.round(h));
-  const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over'; g.drawImage(i, 0, 0, c.width, c.height); g.globalCompositeOperation = 'source-in'; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
-  ctx.save(); ctx.globalAlpha *= alpha; ctx.drawImage(c, x, y); ctx.restore(); return true;
+// The house's logo: assets/epi logo.png. On load it is trimmed to its strokes and turned pure
+// white, and every <img data-logo> on the page is given that white, trimmed version.
+function epiLogo() {
+  if (epiLogo.img) return epiLogo.img;
+  const i = new Image(); epiLogo.img = i; epiLogo.cbs = [];
+  i.addEventListener('load', () => {
+    try {
+      const W = i.naturalWidth, H = i.naturalHeight, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.drawImage(i, 0, 0);
+      const d = g.getImageData(0, 0, W, H).data; let x0 = W, y0 = H, x1 = 0, y1 = 0;
+      for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) if (d[(y * W + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      const pad = Math.round(Math.max(W, H) * .01); x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+      const tw = x1 - x0 + 1, th = y1 - y0 + 1, wc = document.createElement('canvas'); wc.width = tw; wc.height = th; const wg = wc.getContext('2d');
+      wg.drawImage(i, x0, y0, tw, th, 0, 0, tw, th); wg.globalCompositeOperation = 'source-in'; wg.fillStyle = '#ffffff'; wg.fillRect(0, 0, tw, th);
+      epiLogo.white = wc; epiLogo.aspect = th / tw;
+      const url = wc.toDataURL('image/png'); document.querySelectorAll('img[data-logo]').forEach(im => { im.src = url; im.classList.add('ready'); });
+    } catch (e) { console.warn('Logo could not be prepared:', e); }
+    epiLogo.cbs.forEach(f => f());
+  });
+  i.src = './assets/epi%20logo.png'; return i;
 }
+function whenLogo(fn) { epiLogo(); if (epiLogo.white) fn(); else epiLogo.cbs.push(fn); }
+// Draw the logo tinted, fitted inside the box (x, y, w, h) without distortion.
+function drawLogo(ctx, x, y, w, h, color = '#ffffff', alpha = 1) {
+  epiLogo(); const src = epiLogo.white; if (!src) return false;
+  const a = epiLogo.aspect, fw = Math.min(w, h / a), fh = fw * a, ox = x + (w - fw) / 2, oy = y + (h - fh) / 2;
+  const c = drawLogo.c || (drawLogo.c = document.createElement('canvas')); c.width = Math.max(2, Math.round(fw)); c.height = Math.max(2, Math.round(fh));
+  const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over'; g.drawImage(src, 0, 0, c.width, c.height); g.globalCompositeOperation = 'source-in'; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.drawImage(c, ox, oy); ctx.restore(); return true;
+}
+epiLogo();
 // Invented motifs, drawn centred at the origin, about 100 units across.
 function drawMotif(ctx, kind, ink = '#b9b2a2') {
   ctx.save(); ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 3; ctx.lineCap = 'round';
@@ -6913,7 +6935,7 @@ function drawVinyl(t) {
   // the spindle hole, the record's only reminder that it is a record
   g.fillStyle = '#020202'; g.beginPath(); g.arc(0, 0, R * .012, 0, Math.PI * 2); g.fill();
   // ---- the logo, cut in white as the needle crosses it
-  const cut = THREE.MathUtils.smoothstep(t, 2.2, 6.6), lw = R * 1.0, lh = lw * 1168 / 931 * .9;
+  const cut = THREE.MathUtils.smoothstep(t, 2.2, 6.6), lw = R * 1.5, lh = lw * (epiLogo.aspect || .45);
   g.save(); g.rotate(-.05 + t * .012); g.beginPath(); g.rect(-lw / 2, -lh / 2 - R * .03, lw * cut, lh); g.clip();
   g.filter = `blur(${Math.max(2, R * .012)}px)`; drawLogo(g, -lw / 2, -lh / 2 - R * .03, lw, lh, '#000000', .85); g.filter = 'none';
   drawLogo(g, -lw / 2, -lh / 2 - R * .03, lw, lh, '#ffffff', 1);
