@@ -44,6 +44,17 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 19 — heads with skulls, and swearing out loud
+
+- **Profanity is spoken, not written.** The biro on the beer labels and the words carved into the table are gone. Instead, people swear when they talk, the way they would: Franco (*porca puttana*, *cazzo*, *porco Dio*), Sergio (*Madonna*, *testa di cazzo*), Pino (*porca miseria*), Walter (*merda*), Gabri (*vaffanculo*).
+- **Anatomical heads.**
+  - *Skull:* a fuller cranium and a broad crown.
+  - *Face:* it narrows below the cheekbones to the angle of the jaw and then the chin, with a jawline underneath instead of a dome, a hollow under the cheekbone, a brow ridge and temples. Every adjustment blends smoothly, so there are no creases.
+  - *Neck:* shorter and thicker, set behind the face, with a sloped trapezius into the shoulders, so the head no longer sits on a pole.
+- **Women and men.** Men have a wider jaw, a squarer chin, a heavier brow, thicker brows, a thicker neck and an Adam's apple. Women have a narrower jaw, a softer chin, slightly larger eyes, thin arched brows and fuller lips.
+- **Hair by sex.** Women's long hair frames the face, falling on both sides and behind; men's hangs behind. Marta has a bleached chin-length bob, Ines a fuller knot. Franco's beard now starts below the lip.
+- **Clean faces.** The dark streaks across faces came from the hair cap poking through the face below the hairline. The cap now stops above the face and tucks under the skin. Facial features and hair no longer cast blocky shadows onto the face.
+
 ## Version 18 — clearer faces, a real smoke, beer on the table
 
 - **Faces.** Each head is now one sculpted surface instead of about fifteen stuck-on spheres. The jaw tapers, the chin comes forward, the face is a flat plane with cheekbones and a brow ridge, and the eye sockets and lips are shaded into the skin. On that surface sit small eyes with lids that blink, a soft nose, thin brows, a mouth line and flat ears. Gabri's dark spot is gone: the rot marks (eye rings, head bruises, the nose crust) are now in the skin colour, with only a faint bruise at the throat for Gabri and Dario. Smeared faces only start later in the night and at high fear.
@@ -51,7 +62,7 @@ The four slaughterhouse forms are sculptural and stylised rather than anatomical
 - **Il Professore's cigarette reaches his mouth.** The arm lifts forward and turns inward so the hand meets the lips, then lowers back to the hip. I checked it from the front and from the side.
 - **Straight to the poem.** The Saturn record is gone; the game opens on the three lines of the poem, held for about six seconds, then the walk.
 - **The farmhouse has its own soundtrack:** `creeps`, with the same 8-second dissolve loop as `geatd` and matched to its loudness. It fades in when you enter the farmhouse and gives way to `geatd` outside.
-- **Beer on the table.** Birra del Po, an invented Cremona lager: bionda, double malt, 66 cl, red caps, stained labels. Some bottles are full, some empty, two knocked over in their own spill. Caps everywhere, wet rings, a flat half-drunk glass, an ashtray of butts. *Bevi e taci* and *porco dio* in biro on the labels; *PORCO DIO*, *merda a chi legge* and a cut-deep *77* gouged into the table top.
+- **Beer on the table.** Birra del Po, an invented Cremona lager: bionda, double malt, 66 cl, red caps, stained labels. Some bottles are full, some empty, two knocked over in their own spill. Caps everywhere, wet rings, a flat half-drunk glass, an ashtray of butts. 
 - **Posters on the floor.** Five posters lie face up, curled at the corners: one in the farmhouse, the empty house, the cellar, by the slaughterhouse drain and among the chairs in the dark room. The front prints on shirts are fainter so they read as worn ink, not a panel.
 
 ## Version 17 — from the inspiration folder
