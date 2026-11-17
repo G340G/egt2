@@ -6617,7 +6617,7 @@ function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object
 
 // ---- v8 tick ----
 function v8Tick(dt, t) {
-  updateSmears(t); updateTension(dt); updateSkyFace(dt);
+  updateSmears(t); updateTension(dt);
   // The forest car is not optional: once the dark room is searched, Il Professore takes you there
   // the next time you enter the slaughterhouse, whatever you said to him.
   if (gameStarted && !gameEnded && currentZone === 'abattoir' && storyFlags.has('darkroom-cleared') && !storyFlags.has('car-invited') && !storyFlags.has('car-called') && !storyScene && !dialogueOpen) {
@@ -7183,31 +7183,6 @@ function updateTension(dt) {
 }
 function resetTensionFor(name) { tension.items.forEach(it => { if (it.zone === zones[name]?.group) it.used = false; }); }
 
-// ---- A face over the house ----------------------------------------------------------
-// When fear runs high outside, a vast smeared grin forms in the cloud above the farmhouse,
-// black running from one eye, and dissolves again. It is never explained.
-function skyFaceTexture() {
-  return canvasTex(512, 512, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    const fog = g.createRadialGradient(256, 250, 30, 256, 250, 250); fog.addColorStop(0, 'rgba(196,190,178,.95)'); fog.addColorStop(.55, 'rgba(140,134,124,.6)'); fog.addColorStop(1, 'rgba(90,86,80,0)'); g.fillStyle = fog; g.fillRect(0, 0, w, h);
-    g.strokeStyle = 'rgba(12,10,9,1)'; g.lineWidth = 9; g.lineCap = 'round';
-    for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(256 + sd * 62, 210, 32, 18, sd * .1, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.ellipse(256 + sd * 62, 212, 10, 8, 0, 0, Math.PI * 2); g.fillStyle = 'rgba(20,18,16,.85)'; g.fill(); }
-    g.fillStyle = 'rgba(16,14,12,.85)'; for (let i = 0; i < 3; i++) { g.fillRect(256 + 52 + i * 6, 222, 5, 70 + i * 30); }
-    g.beginPath(); g.moveTo(150, 300); g.quadraticCurveTo(256, 410, 362, 300); g.quadraticCurveTo(256, 360, 150, 300); g.fillStyle = 'rgba(14,12,10,.9)'; g.fill();
-    g.strokeStyle = 'rgba(235,232,224,.85)'; g.lineWidth = 4; for (let i = 0; i < 11; i++) { const x = 170 + i * 17; g.beginPath(); g.moveTo(x, 310 + Math.sin(i) * 4); g.lineTo(x, 334 + (i % 2) * 8); g.stroke(); }
-    g.strokeStyle = 'rgba(40,36,32,.55)'; g.lineWidth = 3; g.beginPath(); for (let i = 0; i < 9; i++) g.lineTo(170 + i * 22, 120 + (i % 2 ? -14 : 8)); g.stroke();
-    g.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * .4})`; g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 10 + Math.random() * 40, 0, Math.PI * 2); g.fill(); }
-  });
-}
-const skyFace = { sprite: null, t: -1, cd: 70 };
-function updateSkyFace(dt) {
-  const s = skyFace.sprite; if (!s) return;
-  if (currentZone !== 'road' || !gameStarted || gameEnded) { s.material.opacity = 0; skyFace.t = -1; return; }
-  skyFace.cd -= dt;
-  if (skyFace.t < 0 && skyFace.cd <= 0 && fear > .5 && (!storyScene || storyScene.type === 'hold')) { skyFace.t = 0; skyFace.cd = 110 + Math.random() * 80; audio?.mechanicalTone(48, 31, 7, 'sine', .05); }
-  if (skyFace.t >= 0) { skyFace.t += dt; const k = THREE.MathUtils.smoothstep(skyFace.t, 0, 3) * (1 - THREE.MathUtils.smoothstep(skyFace.t, 6, 9.5)); s.material.opacity = k * .9; s.material.rotation = Math.sin(skyFace.t * .3) * .04; if (skyFace.t > 9.5) { skyFace.t = -1; s.material.opacity = 0; } if (skyFace.t > 2.5 && skyFace.t - dt <= 2.5) fear = Math.min(1, fear + .08); }
-}
-
 // ---- Places -----------------------------------------------------------------------
 function buildPlacesV17() {
   const R = zones.road.group;
@@ -7266,16 +7241,6 @@ function buildPlacesV17() {
   const rag = new THREE.Mesh(new THREE.PlaneGeometry(.38, 1.05, 4, 8), new THREE.MeshStandardMaterial({ color: 0x2a2620, roughness: 1, side: THREE.DoubleSide })); const ra = rag.geometry.attributes.position; for (let i = 0; i < ra.count; i++) { const y = ra.getY(i); ra.setX(i, ra.getX(i) * (1 - (.5 - y) * .4) + Math.sin(y * 9) * .03); ra.setZ(i, Math.sin(y * 6 + ra.getX(i) * 5) * .05); } rag.geometry.computeVertexNormals(); rag.position.set(-.45, 2.0, .08); cross.add(rag); storyRef.crossRag = rag;
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xe8dcc0, transparent: true, opacity: .38, depthWrite: false })); glow.scale.set(7, 5, 1); glow.position.set(-1.2, 2.2, -2.2); cross.add(glow);
   addLook(R, -9.5, 1.6, -3.0, 'A cross by the lane', 'Two planks and a rag nailed to the arm, black with damp. No name, no date. The fog behind it is lit from somewhere you cannot see.', 3);
-  // the lane comes in under an old railway bridge, its brick sweating, its arch scrawled on
-  const B = new THREE.Group(); B.position.set(.8, 0, 38); R.add(B);
-  const brick = new THREE.MeshStandardMaterial({ map: TEX.brick, color: 0x6a5a48, roughness: 1 }), moss = v7mat(0x3a4a2a, 1);
-  for (const sd of [-1, 1]) { addBox(B, sd * 4.6, 2.3, 0, 2.2, 4.6, 4.2, brick); addBox(B, sd * 4.6, .6, 0, 2.3, 1.2, 4.3, moss); }
-  { const sh = new THREE.Shape(); sh.moveTo(-3.6, 0); sh.lineTo(-3.6, 4.0); sh.lineTo(3.6, 4.0); sh.lineTo(3.6, 0); sh.absarc(0, 0, 3.4, 0, Math.PI, false); sh.closePath();
-    const ext = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 4.2, bevelEnabled: false, curveSegments: 28 }), new THREE.MeshStandardMaterial({ map: TEX.brick, color: 0x5a4c3c, roughness: 1 })); ext.position.set(0, 1.0, -2.1); B.add(ext);
-    const soffit = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 4.2, 28, 1, true, -Math.PI / 2, Math.PI), new THREE.MeshStandardMaterial({ color: 0x2a241c, roughness: 1, side: THREE.BackSide })); soffit.rotation.x = Math.PI / 2; soffit.position.y = 1.0; B.add(soffit); }
-  addBox(B, 0, 5.3, 0, 11.4, 1.0, 4.4, brick); addBox(B, 0, 5.95, -2.0, 11.4, .5, .12, v7mat(0x1b1c1b, .5, { metalness: .6 })); addBox(B, 0, 5.95, 2.0, 11.4, .5, .12, v7mat(0x1b1c1b, .5, { metalness: .6 }));
-  const scrawl = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.6), new THREE.MeshBasicMaterial({ map: canvasTex(512, 136, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(230,226,214,.7)'; g.lineWidth = 3; for (let i = 0; i < 9; i++) { const x = 30 + i * 52; g.beginPath(); g.moveTo(x, 30 + Math.random() * 30); for (let k = 0; k < 4; k++) g.lineTo(x + Math.random() * 40, 20 + Math.random() * 90); g.stroke(); } g.font = '30px "Pirata One", serif'; g.fillStyle = 'rgba(230,226,214,.55)'; g.fillText('HODIE MIHI', 300, 110); }), transparent: true, depthWrite: false })); scrawl.position.set(0, 5.1, 2.22); B.add(scrawl);
-  zones.road.solids.push({ minX: .8 - 5.7, maxX: .8 - 3.5, minZ: 35.9, maxZ: 40.1 }, { minX: .8 + 3.5, maxX: .8 + 5.7, minZ: 35.9, maxZ: 40.1 });
   // the empty house: a body laid out on the mattress under a sheet, dark flowers on it,
   // a calendar on the wall stopped at the 17th
   const RU = zones.ruin.group, bed = new THREE.Group(); bed.position.set(4.6, .2, 4.6); bed.rotation.y = -.2; RU.add(bed);
@@ -7301,15 +7266,13 @@ function buildPlacesV17() {
   addTensionItem(zones.cellar.group, 8.8, 1.6, -2.4, -Math.PI / 2, .3, .4, 'A photograph in the cellar', 'Pinned to the beam with a nail through the forehead.');
   addTensionItem(zones.church.group, -8.75, 1.7, 4.2, Math.PI / 2, .34, .44, 'A memorial card', 'A dead man’s card, the kind handed out at funerals. The face has been rubbed with a thumb until it is white.');
   addTensionItem(D, -9.8, 1.5, 6.5, Math.PI / 2, .3, .38, 'A photograph in the dark', 'You only see it when the beam crosses it.');
-  // the face over the house
-  const sf = new THREE.Sprite(new THREE.SpriteMaterial({ map: skyFaceTexture(), transparent: true, opacity: 0, depthWrite: false, fog: false })); sf.scale.set(30, 30, 1); sf.position.set(-3, 25, -46); R.add(sf); skyFace.sprite = sf;
   // two more tape-cover posters for the walls, in red and in ink
   addPoster(H, 'redmaw', 9.62, 1.95, -2.2, -Math.PI / 2, 'A red poster', 'A tree with a mouth, printed red on black, the ink bleeding into the fibres. SEPOLCRO, it says, and under it in smaller letters: discesa nel caos.');
   addPoster(RU, 'inkbeast', -7.72, 1.85, 2.6, Math.PI / 2, 'A photocopied poster', 'Black ink on white: a hooded thing with its mouth open. The lettering is all thorns. Underneath: VOMITO DI LUCE.');
 }
 
 buildV8World(); buildPostersV12(); buildPlacesV17();
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), skyFace, tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);

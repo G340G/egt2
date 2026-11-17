@@ -56,8 +56,7 @@ Drawn from the images in `assets/inspiration/`, as mood rather than copies.
 - **The farmhouse table is lit by one oil lamp**, low over the table, with a green-brown room around it. On the table: eggs in cups nobody has cracked, a sheet of flatbread, butter with the knife still in it. In the refrigerator, a glass bowl of raw meat in its own pale water.
 - **The lesson.** In the slaughterhouse, a body under a sheet with one forearm opened to show the tendons, worn benches in tiers facing it, and one higher chair at the head.
 - **An image under things.** Six objects hide a white face with black holes for eyes and mouth: photographs, the scratched portrait, the dead television, a memorial card, and pictures in the cellar and the dark room. Stare at one for under a second and the face shows through. It does this once per visit and costs nerve.
-- **A face over the house.** When fear runs high outside, a vast grin forms in the fog above the farmhouse, black running from one eye, then dissolves.
-- **Places.** A cross by the lane with a rag nailed to it and fog lit from behind. A brick railway bridge the lane comes in under. In the empty house, a body laid out under a clean sheet, dark flowers dropped on it, and a calendar stopped at the 17th. In the dark room, a bird as tall as the ceiling made of coats.
+- **Places.** A cross by the lane with a rag nailed to it and fog lit from behind. In the empty house, a body laid out under a clean sheet, dark flowers dropped on it, and a calendar stopped at the 17th. In the dark room, a bird as tall as the ceiling made of coats.
 - **Clues use your `clue.png`** paper (the old path pointed at a missing file). Two more posters: a red tree-mouth on black, and a hooded beast in black ink. The band names are invented.
 
 ## Version 16 — the new logo
