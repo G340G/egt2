@@ -5,7 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, personFor } from './people.js';
+import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, personFor } from './people.js';
 import { makePerson, updatePerson, personalize, leatherJacket } from './rig.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
@@ -377,7 +377,7 @@ const M = {
   warmLight: mat(0x332112, .35, { emissive: 0xffb65c, emissiveIntensity: 2.4 }),
   clue: mat(0x9e8152, .65, { emissive: 0x6e4c27, emissiveIntensity: .48 })
 };
-const CLUE_TEXTURE = new THREE.TextureLoader().load('./assets/clue.png', texture => {
+const CLUE_TEXTURE = new THREE.TextureLoader().load('./assets/inspiration/clue.png', texture => {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 }, undefined, error => console.warn('Could not load clue artwork:', error));
@@ -1723,7 +1723,7 @@ function enterZone(name, spawn) {
   $('location').textContent = ({ road: 'FOG ROAD', home: 'THE HOUSE / THIRTEEN PLACES', church: 'THE DECONSECRATED CHURCH', ruin: 'THE EMPTY HOUSE', cellar: 'THE CELLAR / 14-B', darkroom: 'THE DARK ROOM / 14-B', abattoir: 'THE SLAUGHTERHOUSE / THE VOID ROOM', forest: 'THE CANAL FOREST' })[name];
   glitchPulse = Math.max(glitchPulse, .42); audio?.stinger(.32); audio?.setZone(name); if(name==='abattoir'){fear=Math.min(1,fear+.19);audio?.mechanicalEvent('hoist');} if(name==='church' && collected.size>=2 && !scenePlayed) showToast('THE BELL ROPE IS WET.'); if(name==='cellar'||name==='darkroom'){fear=Math.min(1,fear+.18);} if(name==='darkroom'){darkroomHunt.active=!noEnemies()&&!storyFlags.has('darkroom-cleared');if(noEnemies()&&storyRef.darkroomHunter?.object)storyRef.darkroomHunter.object.visible=false;if(!storyFlags.has('darkroom-entered')){storyFlags.add('darkroom-entered');darkroomHunt.elapsed=0;darkroomHunt.reappear=3.2;startMonologue(['Il Professore: The lamp is not a weapon. It is a question you can only ask in one direction.','Voice: The room is full. You cannot see what it contains.','Il Professore: Find what the tape cannot carry. Do not mistake being watched for being seen.'],13);}}
   showToast(({ road: 'THE ROAD IS NOT WHERE YOU LEFT IT', home: 'NO ONE ASKED YOUR NAME', church: 'THE NAVE IS LONGER FROM THE INSIDE', ruin: 'SOMEONE IS WAITING BY THE TELEPHONE', cellar: 'THE ROOM HAS KEPT ITS HEAT', darkroom: 'THE DARK HAS BEEN ARRANGED BY HAND', forest: 'THE FOREST KEEPS YOUR POSITION', abattoir: 'HERE THE FLESH HAS A LONG MEMORY' })[name]);
-  placeStalker(name); showChapterCard(name);
+  placeStalker(name); showChapterCard(name); resetTensionFor(name);
 }
 function currentPosition() { return playerAnchor.position; }
 function playerInputEnabled() { return gameStarted && !gameEnded && !listeningPending && !doorTransitioning && !cultFateActive && !dialogueOpen && !journalOpen && !settingsOpen && (!storyScene || storyScene.type === 'hold'); }
@@ -6562,9 +6562,11 @@ function attachRig(npc) {
   const P = first ? makePerson('first') : makePerson(personaKey(npc).replace(/\s+/g, '_'), rigSpec(npc)), root = npc.object;
   const sub = SUBCULTURE[personaKey(npc)] || {}, base = first ? { extras: [] } : npc.persona.look;
   const X = { ...base, back: sub.back ?? base.back, extras: [...(base.extras || []), ...(sub.extras || [])] };
-  if (first) leatherJacket(P);
-  personalize(P, X, { fabric: first ? null : fabricTexture, print: printTexture, tattoo: tattooTexture });
-  if (first) { const pm = P.leather.clone(); pm.map = printTexture(null, 0x0b0b0b, 'roots'); P.chestMesh.material = pm; }
+  const leather = first || sub.leather; if (leather) leatherJacket(P);
+  personalize(P, X, { fabric: leather ? null : fabricTexture, print: printTexture, tattoo: tattooTexture });
+  if (leather) { const pm = P.leather.clone(); pm.map = printTexture(null, 0x0b0b0b, first ? 'roots' : 'spike'); P.chestMesh.material = pm; }
+  if (leather && !first && P.legs[0].th.children[0]?.material) { const lm = P.legs[0].th.children[0].material; lm.map = fabricTexture('denim', 0x15161a); lm.color.setHex(0xffffff); lm.needsUpdate = true; }
+  applyCorruption(npc, P);
   root.children.forEach(c => { c.visible = false; });
   P.root.scale.set(1.06 / (root.scale.x || 1), 1.06 / (root.scale.y || 1), 1.06 / (root.scale.z || 1));
   root.add(P.root); P.look = 'cam'; P.lookW = 0; npc.rig = P; npc.radius = Math.max(npc.radius || 0, 3.2); (attachRig.list || (attachRig.list = [])).push(npc);
@@ -6615,6 +6617,7 @@ function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object
 
 // ---- v8 tick ----
 function v8Tick(dt, t) {
+  updateSmears(t); updateTension(dt); updateSkyFace(dt);
   // The forest car is not optional: once the dark room is searched, Il Professore takes you there
   // the next time you enter the slaughterhouse, whatever you said to him.
   if (gameStarted && !gameEnded && currentZone === 'abattoir' && storyFlags.has('darkroom-cleared') && !storyFlags.has('car-invited') && !storyFlags.has('car-called') && !storyScene && !dialogueOpen) {
@@ -7015,6 +7018,21 @@ function posterTexture(kind) {
     if (kind === 'kaleido') { g.fillStyle = '#c9541a'; g.fillRect(0, 0, w, h); const gr = g.createRadialGradient(w / 2, h * .46, 20, w / 2, h * .46, 300); gr.addColorStop(0, '#e8a12a'); gr.addColorStop(1, '#8a1c0c'); g.fillStyle = gr; g.fillRect(0, 0, w, h); g.save(); g.translate(w / 2, h * .46); g.scale(3.3, 3.3); drawMotif(g, 'kaleido'); g.restore(); g.fillStyle = '#f4e7c8'; g.font = '22px "IBM Plex Mono", monospace'; g.textAlign = 'right'; g.fillText('il bianco', w - 20, 34); g.fillStyle = '#f6c56a'; g.font = '15px "IBM Plex Mono", monospace'; g.fillText('lato a', w - 20, 54); }
     else if (kind === 'spike') { g.fillStyle = '#1b2530'; g.fillRect(0, 0, w, h); for (let y = 0; y < h * .6; y += 18) for (let x = (y / 18 % 2) * 20; x < w; x += 40) { g.fillStyle = `rgba(110,70,40,${.25 + Math.random() * .2})`; g.fillRect(x, y + 60, 38, 16); } g.save(); g.translate(w / 2, 110); g.scale(3.2, 2.6); drawMotif(g, 'spike'); g.restore(); g.strokeStyle = '#6a4a2a'; g.lineWidth = 5; g.beginPath(); g.moveTo(20, 190); g.lineTo(w - 20, 200); g.stroke(); for (let i = 0; i < 5; i++) { const x = 60 + i * 66; g.strokeStyle = '#3a3a38'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 196); g.lineTo(x, 250 + (i % 2) * 20); g.stroke(); g.fillStyle = '#8a6a3a'; g.beginPath(); g.moveTo(x - 22, 300 + (i % 2) * 20); g.quadraticCurveTo(x, 230 + (i % 2) * 20, x + 22, 300 + (i % 2) * 20); g.closePath(); g.fill(); g.fillStyle = '#2a1a10'; g.fillRect(x - 3, 296 + (i % 2) * 20, 6, 12); } g.fillStyle = '#b02a1a'; g.font = '30px "Pirata One", serif'; g.textAlign = 'center'; g.fillText('Dopo la Messa', w / 2, h - 40); }
     else if (kind === 'ankh') { g.fillStyle = '#060606'; g.fillRect(0, 0, w, h); g.save(); g.translate(w / 2, h * .46); g.scale(3.4, 3.4); drawMotif(g, 'ankh'); g.restore(); g.fillStyle = '#ece4d0'; g.font = 'bold 34px "IBM Plex Mono", monospace'; g.textAlign = 'center'; g.fillText('TREDICI VOCI', w / 2, 46); g.font = '26px "Pirata One", serif'; g.fillText('Live at the Chiesa', w / 2, h - 48); g.font = '13px "IBM Plex Mono", monospace'; g.fillText('STEREO · 1977 · 14-B', w / 2, h - 24); }
+    else if (kind === 'redmaw') { g.fillStyle = '#0c0606'; g.fillRect(0, 0, w, h); g.strokeStyle = '#d0281c'; g.fillStyle = '#d0281c'; g.lineWidth = 7; g.lineCap = 'round';
+      for (let i = 0; i < 7; i++) { const x = 40 + i * 50; g.beginPath(); g.moveTo(w / 2, 300); g.bezierCurveTo(x, 220, x + (i % 2 ? 40 : -40), 160, x, 80 + (i % 3) * 12); g.stroke(); }
+      g.beginPath(); g.ellipse(w / 2, 290, 120, 140, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#0c0606'; g.beginPath(); g.ellipse(w / 2, 330, 70, 82, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#d0281c'; for (let i = 0; i < 9; i++) { const x = w / 2 - 60 + i * 15; g.beginPath(); g.moveTo(x, 252); g.lineTo(x + 7, 300 + (i % 2) * 18); g.lineTo(x + 14, 252); g.fill(); g.beginPath(); g.moveTo(x, 410); g.lineTo(x + 7, 368 - (i % 2) * 14); g.lineTo(x + 14, 410); g.fill(); }
+      for (const sd of [-1, 1]) { g.fillStyle = '#0c0606'; g.beginPath(); g.ellipse(w / 2 + sd * 52, 222, 22, 14, sd * .4, 0, Math.PI * 2); g.fill(); g.fillStyle = '#d0281c'; g.beginPath(); g.arc(w / 2 + sd * 52, 222, 6, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = '#d0281c'; g.font = '46px "Pirata One", serif'; g.textAlign = 'center'; g.fillText('sepolcro', w / 2, 58); g.font = '20px "Pirata One", serif'; g.fillText('discesa nel caos', w / 2, h - 30);
+      g.save(); g.translate(26, h / 2); g.rotate(-Math.PI / 2); g.font = '22px "Pirata One", serif'; g.fillText('SEPOLCRO', 0, 0); g.restore();
+      const d = g.getImageData(0, 0, w, h); for (let i = 0; i < d.data.length; i += 4) if (Math.random() < .18) { d.data[i] *= .5; d.data[i + 1] *= .5; d.data[i + 2] *= .5; } g.putImageData(d, 0, 0); }
+    else if (kind === 'inkbeast') { g.fillStyle = '#ece6d6'; g.fillRect(0, 0, w, h); g.fillStyle = '#0c0b0a';
+      g.font = '40px "Pirata One", serif'; g.textAlign = 'center'; g.fillText('vomito di luce', w / 2, 62); for (let i = 0; i < 26; i++) { const x = 60 + Math.random() * (w - 120); g.beginPath(); g.moveTo(x, 66); g.lineTo(x + (Math.random() - .5) * 20, 30 + Math.random() * 20); g.lineWidth = 2; g.strokeStyle = '#0c0b0a'; g.stroke(); }
+      g.beginPath(); g.moveTo(80, 470); g.quadraticCurveTo(70, 250, 192, 140); g.quadraticCurveTo(314, 250, 304, 470); g.closePath(); g.fill();
+      g.strokeStyle = '#ece6d6'; g.lineWidth = 1.4; for (let i = 0; i < 70; i++) { const x = 90 + Math.random() * 200, y = 180 + Math.random() * 280; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - .5) * 18, y + 14 + Math.random() * 30); g.stroke(); }
+      g.fillStyle = '#ece6d6'; g.beginPath(); g.ellipse(192, 236, 34, 40, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#0c0b0a'; g.beginPath(); g.ellipse(192, 254, 22, 20, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#ece6d6'; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(174 + i * 7, 238); g.lineTo(177 + i * 7, 254); g.lineTo(180 + i * 7, 238); g.fill(); } for (const sd of [-1, 1]) { g.beginPath(); g.arc(192 + sd * 15, 222, 4, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = '#0c0b0a'; g.font = 'bold 20px "IBM Plex Mono", monospace'; g.fillText('VOMITO DI LUCE', w / 2, h - 18); }
     else { g.fillStyle = '#12100d'; g.fillRect(0, 0, w, h); const gr = g.createRadialGradient(w * .58, h * .55, 10, w * .58, h * .55, 230); gr.addColorStop(0, 'rgba(190,176,150,.5)'); gr.addColorStop(1, 'rgba(18,16,13,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); g.fillStyle = '#6f6656'; g.beginPath(); g.moveTo(190, 230); g.quadraticCurveTo(150, 420, 170, 470); g.lineTo(250, 470); g.quadraticCurveTo(250, 320, 236, 232); g.fill(); g.fillStyle = '#b8ac94'; g.beginPath(); g.moveTo(236, 236); g.quadraticCurveTo(300, 380, 290, 470); g.lineTo(232, 470); g.quadraticCurveTo(240, 330, 226, 240); g.fill(); g.fillStyle = '#d8d0bc'; g.beginPath(); g.moveTo(186, 150); g.lineTo(212, 132); g.lineTo(240, 150); g.lineTo(232, 226); g.lineTo(190, 222); g.closePath(); g.fill(); g.strokeStyle = '#3a342a'; for (let i = 0; i < 8; i++) { g.beginPath(); g.moveTo(196 + i * 5, 156); g.lineTo(194 + i * 5, 218); g.stroke(); } g.strokeStyle = '#050505'; g.lineWidth = 3; for (let i = 0; i < 40; i++) { g.beginPath(); g.moveTo(236 + Math.random() * 30, 176 + Math.random() * 46); g.lineTo(236 + Math.random() * 30, 176 + Math.random() * 46); g.stroke(); } drawLogo(g, 18, 14, 96, 120, '#b9ae92', .85); }
     for (let i = 0; i < 2600; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,.07)' : 'rgba(255,240,210,.04)'; g.fillRect(Math.random() * w, Math.random() * h, 2, 1); }
     g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2 + 2); g.moveTo(w / 2, 0); g.lineTo(w / 2 - 1, h); g.stroke();
@@ -7040,8 +7058,258 @@ function buildPostersV12() {
 }
 
 function smokerArm(S) { const A = S.npc.rig.arms[1], lift = S.lift || 0; A.sh.rotation.x = THREE.MathUtils.lerp(.06, -.22, lift); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, -.36, lift); A.el.rotation.x = THREE.MathUtils.lerp(-.12, -2.22, lift); A.wr.rotation.x = THREE.MathUtils.lerp(0, -.35, lift); }
-buildV8World(); buildPostersV12();
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+// =============================================================================
+// v17 — from the inspiration folder: voided people (dirty outside or rotten inside),
+// faces that come apart as the night goes on, an image that surfaces on objects,
+// a face over the house, the oil lamp over the table, and a few places.
+// =============================================================================
+
+// ---- Dirt on cloth: the weave, then what the person has been doing in it --------
+function grimeTexture(baseTex, kind, seed = 1) {
+  const src = baseTex.image, c = document.createElement('canvas'); c.width = 256; c.height = 256; const g = c.getContext('2d');
+  g.drawImage(src, 0, 0, 256, 256);
+  let r = seed * 7919; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  const col = { blood: [90, 18, 10], soot: [20, 18, 15], oil: [14, 12, 8], mortar: [150, 146, 132], ash: [110, 104, 92], wax: [210, 200, 170] }[kind] || [40, 30, 20];
+  const n = kind === 'blood' ? 22 : 34;
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * 256, y = kind === 'mortar' || kind === 'oil' ? 140 + rnd() * 116 : rnd() * 256, rr = 4 + rnd() * (kind === 'blood' ? 26 : 18);
+    const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${.35 + rnd() * .4})`); gr.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
+    g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, rr, rr * (.5 + rnd()), rnd() * 3, 0, Math.PI * 2); g.fill();
+    if (kind === 'blood' && rnd() < .5) { g.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},.55)`; g.fillRect(x, y, 1.5 + rnd() * 2, 10 + rnd() * 40); }
+  }
+  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${rnd() * .12})`; g.fillRect(rnd() * 256, rnd() * 256, 1 + rnd() * 2, 1); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.copy(baseTex.repeat || new THREE.Vector2(1, 1)); return t;
+}
+// A face coming apart: dark and flesh-pink strokes dragged across it, in the manner of a
+// smeared portrait. It sits just in front of the face and grows with the night.
+function smearTexture(seed) {
+  return canvasTex(128, 160, (g, w, h) => {
+    g.clearRect(0, 0, w, h); let r = seed * 7919; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+    for (let i = 0; i < 26; i++) {
+      const x = 20 + rnd() * 88, y = 30 + rnd() * 110, len = 14 + rnd() * 46, a = -0.6 + rnd() * 1.2;
+      g.strokeStyle = rnd() < .55 ? `rgba(${20 + rnd() * 30},${14 + rnd() * 20},${16 + rnd() * 20},${.35 + rnd() * .45})` : `rgba(${150 + rnd() * 60},${80 + rnd() * 40},${80 + rnd() * 40},${.25 + rnd() * .35})`;
+      g.lineWidth = 3 + rnd() * 9; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len * .6); g.stroke();
+    }
+    g.globalCompositeOperation = 'destination-in'; const m = g.createRadialGradient(64, 85, 10, 64, 85, 70); m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = m; g.fillRect(0, 0, w, h);
+  });
+}
+function applyCorruption(npc, P) {
+  const C = CORRUPTION[personaKey(npc)]; if (!C) return; npc.corruption = C;
+  const head = P.head, skinMat = head.children[0]?.material;
+  if (C.kind === 'external') {
+    const tm = P.chestMesh.material; if (tm.map) { tm.map = grimeTexture(tm.map, C.stain, personaKey(npc).length); tm.needsUpdate = true; }
+    const lm = P.legs[0].th.children[0]?.material; if (lm?.map) { lm.map = grimeTexture(lm.map, C.stain === 'blood' ? 'soot' : C.stain, 3); lm.needsUpdate = true; }
+    // the hands carry it most: a separate material so the face stays clean
+    const hm = (skinMat || new THREE.MeshStandardMaterial()).clone(); hm.color.lerp(new THREE.Color(C.hands), .55);
+    P.arms.forEach(a => a.wr.children.forEach(m => { if (m.isMesh) m.material = hm; }));
+    if (C.stain === 'blood') { const am = P.hips.children.find(c => c.isMesh && c.geometry.type === 'CylinderGeometry' && c.material.map); if (am) { am.material = am.material.clone(); am.material.map = grimeTexture(am.material.map, 'blood', 9); } }
+  } else {
+    if (C.skin && skinMat) skinMat.color.lerp(new THREE.Color(C.skin), .45);
+    // rings under the eyes, darkened lips
+    if (C.rings) for (const sd of [-1, 1]) { const ring = new THREE.Mesh(new THREE.SphereGeometry(.022, 10, 8), new THREE.MeshStandardMaterial({ color: 0x3a2a2c, roughness: 1, transparent: true, opacity: .45 * C.rings, depthWrite: false })); ring.scale.set(1.3, .75, .4); ring.position.set(sd * .036, .118, .09); head.add(ring); }
+    if (C.lips && P.mouth) P.mouth.material = new THREE.MeshStandardMaterial({ color: C.lips, roughness: .6 });
+    if (C.bruise) { const bm = new THREE.MeshStandardMaterial({ color: 0x4a3448, roughness: 1, transparent: true, opacity: .55, depthWrite: false }); const b1 = new THREE.Mesh(new THREE.SphereGeometry(.03, 8, 6), bm); b1.scale.set(1.4, .8, .5); b1.position.set(.04, .02, .045); P.neck.add(b1); const b2 = b1.clone(); b2.position.set(-.06, .085, .07); b2.scale.set(.8, .6, .4); head.add(b2); }
+    if (C.nose) { const crust = new THREE.Mesh(new THREE.BoxGeometry(.006, .02, .004), new THREE.MeshStandardMaterial({ color: 0x4a0e08, roughness: .7 })); crust.position.set(.006, .078, .104); head.add(crust); }
+    if (C.cuts) (P.forearms || []).forEach(fa => { for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(.03, .003, .004), new THREE.MeshStandardMaterial({ color: 0x6a2018, roughness: .8 })); c.position.set(0, -.04 + i * .025, .046 * P.spec.w); fa.add(c); } });
+  }
+  // every face can come apart; the internal ones start further gone
+  const sm = new THREE.Mesh(new THREE.PlaneGeometry(.2, .25), new THREE.MeshBasicMaterial({ map: smearTexture(personaKey(npc).length * 13 + 5), transparent: true, opacity: 0, depthWrite: false }));
+  sm.position.set(0, .1, .108); head.add(sm); npc.smear = sm; npc.smearBase = C.smear || 0;
+}
+function updateSmears(t) {
+  const stations = ['franco', 'anna', 'marta', 'gabri', 'sergio', 'livia', 'walter', 'dario', 'remo'].filter(id => storyFlags.has('station-' + id)).length;
+  const night = stations / 9, cam = updateSmears.v || (updateSmears.v = new THREE.Vector3()); camera.getWorldPosition(cam);
+  (attachRig.list || []).forEach(n => {
+    if (!n.smear || !n.object.visible) return;
+    const wp = updateSmears.w || (updateSmears.w = new THREE.Vector3()); n.smear.getWorldPosition(wp); const d = wp.distanceTo(cam);
+    // closer and later, worse; it breathes rather than sitting still
+    const k = Math.min(1, n.smearBase + night * .55 + fear * .25) * THREE.MathUtils.clamp(1.4 - d / 5, 0, 1);
+    n.smear.material.opacity = k * (.75 + Math.sin(t * .0013 + n.phase * 3) * .25);
+    n.smear.rotation.z = Math.sin(t * .0007 + n.phase) * .08;
+  });
+}
+
+// ---- The image that surfaces on objects ---------------------------------------
+// A white face with black holes for eyes, nose and mouth. It lives under certain objects:
+// a photograph, a television, a mirror, a calendar. Stare at one and it shows through for
+// a moment. Each object does it once per visit, and each time it costs nerve.
+function tensionFaceTexture() {
+  if (tensionFaceTexture.t) return tensionFaceTexture.t;
+  const t = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#efece4'; g.beginPath(); g.ellipse(128, 118, 74, 92, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#000'; for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(128 + sd * 30, 100, 20, 14, sd * .15, 0, Math.PI * 2); g.fill(); }
+    g.beginPath(); g.ellipse(120, 146, 6, 5, 0, 0, Math.PI * 2); g.fill(); g.beginPath(); g.ellipse(136, 146, 6, 5, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(128, 178, 34, 10, 0, 0, Math.PI * 2); g.fill(); g.fillRect(70, 186, 116, 90);
+    // threshold grain: the image is a photocopy of a photocopy
+    const d = g.getImageData(0, 0, w, h); for (let i = 0; i < d.data.length; i += 4) { const v = d.data[i] + (Math.random() - .5) * 90 > 128 ? 236 : 0; d.data[i] = d.data[i + 1] = v; d.data[i + 2] = v * .96; } g.putImageData(d, 0, 0);
+  });
+  tensionFaceTexture.t = t; return t;
+}
+function dimPhotoTexture(seed) {
+  return canvasTex(128, 160, (g, w, h) => {
+    let r = seed * 7919; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+    g.fillStyle = '#3a342a'; g.fillRect(0, 0, w, h); const gr = g.createRadialGradient(64, 70, 5, 64, 70, 70); gr.addColorStop(0, 'rgba(160,146,120,.7)'); gr.addColorStop(1, 'rgba(40,34,26,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(30,26,20,.7)'; g.beginPath(); g.ellipse(64, 66, 22, 28, 0, 0, Math.PI * 2); g.fill(); g.fillRect(36, 96, 56, 64);
+    for (let i = 0; i < 500; i++) { g.fillStyle = `rgba(0,0,0,${rnd() * .2})`; g.fillRect(rnd() * w, rnd() * h, 2, 1); }
+  });
+}
+const tension = { items: [], cd: 0 };
+function addTensionItem(group, x, y, z, rotY, w, h, title, text, frame = true) {
+  const mat = new THREE.MeshStandardMaterial({ map: dimPhotoTexture(tension.items.length + 3), roughness: .8 });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.y = rotY; group.add(m);
+  if (frame) { const fm = v7mat(0x2a2016, .7); for (const [dx, dy, fw, fh] of [[0, h / 2, w + .04, .03], [0, -h / 2, w + .04, .03], [w / 2, 0, .03, h], [-w / 2, 0, .03, h]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(fw, fh, .02), fm); b.position.set(dx, dy, -.005); m.add(b); } }
+  const item = { mesh: m, base: mat.map, zone: group, stare: 0, used: false, flashT: 0 }; tension.items.push(item);
+  const off = new THREE.Vector3(Math.sin(rotY), 0, Math.cos(rotY)).multiplyScalar(.6);
+  addLook(group, x + off.x, y, z + off.z, title, text, 2.2);
+  return item;
+}
+function updateTension(dt) {
+  if (!gameStarted || gameEnded || !zone) return;
+  const cam = updateTension.c || (updateTension.c = new THREE.Vector3()), dir = updateTension.d || (updateTension.d = new THREE.Vector3()), to = updateTension.o || (updateTension.o = new THREE.Vector3());
+  camera.getWorldPosition(cam); camera.getWorldDirection(dir);
+  tension.items.forEach(it => {
+    if (it.flashT > 0) { it.flashT -= dt; if (it.flashT <= 0) { it.mesh.material.map = it.base; it.mesh.material.emissive?.setHex(0x000000); it.mesh.material.needsUpdate = true; } return; }
+    if (it.zone !== zone.group || it.used) { it.stare = 0; return; }
+    it.mesh.getWorldPosition(to); const d = to.distanceTo(cam); to.sub(cam).normalize();
+    const looking = d < 4.2 && dir.dot(to) > .97 && (!storyScene || storyScene.type === 'hold');
+    it.stare = looking ? it.stare + dt : Math.max(0, it.stare - dt * 2);
+    if (it.stare > .7) {
+      it.used = true; it.stare = 0; it.flashT = .16 + Math.random() * .08;
+      it.mesh.material.map = tensionFaceTexture(); it.mesh.material.emissive = new THREE.Color(0x777770); it.mesh.material.emissiveMap = tensionFaceTexture(); it.mesh.material.needsUpdate = true;
+      audio?.stinger(.55); fear = Math.min(1, fear + .07); glitchPulse = Math.max(glitchPulse, .7);
+    }
+  });
+}
+function resetTensionFor(name) { tension.items.forEach(it => { if (it.zone === zones[name]?.group) it.used = false; }); }
+
+// ---- A face over the house ----------------------------------------------------------
+// When fear runs high outside, a vast smeared grin forms in the cloud above the farmhouse,
+// black running from one eye, and dissolves again. It is never explained.
+function skyFaceTexture() {
+  return canvasTex(512, 512, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    const fog = g.createRadialGradient(256, 250, 30, 256, 250, 250); fog.addColorStop(0, 'rgba(196,190,178,.95)'); fog.addColorStop(.55, 'rgba(140,134,124,.6)'); fog.addColorStop(1, 'rgba(90,86,80,0)'); g.fillStyle = fog; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(12,10,9,1)'; g.lineWidth = 9; g.lineCap = 'round';
+    for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(256 + sd * 62, 210, 32, 18, sd * .1, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.ellipse(256 + sd * 62, 212, 10, 8, 0, 0, Math.PI * 2); g.fillStyle = 'rgba(20,18,16,.85)'; g.fill(); }
+    g.fillStyle = 'rgba(16,14,12,.85)'; for (let i = 0; i < 3; i++) { g.fillRect(256 + 52 + i * 6, 222, 5, 70 + i * 30); }
+    g.beginPath(); g.moveTo(150, 300); g.quadraticCurveTo(256, 410, 362, 300); g.quadraticCurveTo(256, 360, 150, 300); g.fillStyle = 'rgba(14,12,10,.9)'; g.fill();
+    g.strokeStyle = 'rgba(235,232,224,.85)'; g.lineWidth = 4; for (let i = 0; i < 11; i++) { const x = 170 + i * 17; g.beginPath(); g.moveTo(x, 310 + Math.sin(i) * 4); g.lineTo(x, 334 + (i % 2) * 8); g.stroke(); }
+    g.strokeStyle = 'rgba(40,36,32,.55)'; g.lineWidth = 3; g.beginPath(); for (let i = 0; i < 9; i++) g.lineTo(170 + i * 22, 120 + (i % 2 ? -14 : 8)); g.stroke();
+    g.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * .4})`; g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 10 + Math.random() * 40, 0, Math.PI * 2); g.fill(); }
+  });
+}
+const skyFace = { sprite: null, t: -1, cd: 70 };
+function updateSkyFace(dt) {
+  const s = skyFace.sprite; if (!s) return;
+  if (currentZone !== 'road' || !gameStarted || gameEnded) { s.material.opacity = 0; skyFace.t = -1; return; }
+  skyFace.cd -= dt;
+  if (skyFace.t < 0 && skyFace.cd <= 0 && fear > .5 && (!storyScene || storyScene.type === 'hold')) { skyFace.t = 0; skyFace.cd = 110 + Math.random() * 80; audio?.mechanicalTone(48, 31, 7, 'sine', .05); }
+  if (skyFace.t >= 0) { skyFace.t += dt; const k = THREE.MathUtils.smoothstep(skyFace.t, 0, 3) * (1 - THREE.MathUtils.smoothstep(skyFace.t, 6, 9.5)); s.material.opacity = k * .9; s.material.rotation = Math.sin(skyFace.t * .3) * .04; if (skyFace.t > 9.5) { skyFace.t = -1; s.material.opacity = 0; } if (skyFace.t > 2.5 && skyFace.t - dt <= 2.5) fear = Math.min(1, fear + .08); }
+}
+
+// ---- Places -----------------------------------------------------------------------
+function buildPlacesV17() {
+  const R = zones.road.group;
+  // The farmhouse table: one oil lamp, low, in place of the ring of candles. Green-brown
+  // around it, faces lit from above, the rest of the room falling away.
+  const H = zones.home.group, T = storyRef.tableSeats;
+  if (T) {
+    H.children.filter(c => c.isGroup && Math.abs(c.position.x - T.top[0]) < .01 && Math.abs(c.position.z - T.top[1]) < .01 && Math.abs(c.position.y - 2.55) < .01).forEach(c => c.parent.remove(c));
+    const L = new THREE.Group(); L.position.set(T.top[0], 2.15, T.top[1]); H.add(L);
+    const iron = v7mat(0x1b1c1b, .5, { metalness: .6 }), tin = v7mat(0x2f3226, .5, { metalness: .4 });
+    tubeBetween(L, [0, .2, 0], [0, 1.1, 0], .006, iron, 4);
+    const shade = new THREE.Mesh(new THREE.CylinderGeometry(.08, .34, .14, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x2f3226, roughness: .5, metalness: .4, side: THREE.DoubleSide })); shade.position.y = .14; L.add(shade);
+    const inside = new THREE.Mesh(new THREE.CylinderGeometry(.079, .335, .135, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0xe8dcc0, emissive: 0x6a5030, emissiveIntensity: .6, side: THREE.BackSide })); inside.position.y = .14; L.add(inside);
+    const chimney = new THREE.Mesh(new THREE.CylinderGeometry(.03, .045, .16, 14), new THREE.MeshStandardMaterial({ color: 0xfff0d0, emissive: 0xffa850, emissiveIntensity: .7, transparent: true, opacity: .5 })); chimney.position.y = .02; L.add(chimney);
+    const font = new THREE.Mesh(new THREE.SphereGeometry(.06, 14, 10), tin); font.scale.y = .6; font.position.y = -.08; L.add(font);
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(.014, 8, 6), new THREE.MeshStandardMaterial({ color: 0x221a10, emissive: 0xffb860, emissiveIntensity: 4 })); flame.scale.y = 2.4; flame.position.y = .02; L.add(flame);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xffb466, transparent: true, opacity: .4, blending: THREE.AdditiveBlending, depthWrite: false })); halo.scale.set(1.1, 1.1, 1); L.add(halo);
+    const lamp = new THREE.PointLight(0xffa04a, 28, 9, 1.6); lamp.position.y = -.05; lamp.castShadow = !lowFx; if (lamp.castShadow) { lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.bias = -.002; lamp.shadow.radius = 4; } L.add(lamp);
+    lampFlickers.push({ light: lamp, base: 28, flicker: .08, bulb: flame.material, phase: 5 });
+    const z = zones.home; z.ambient.color.setHex(0x6f6a48); z.ambient.groundColor?.setHex(0x1a1810); z.ambient.intensity = .26; z.moon.intensity = .2;
+    // what is on the table: eggs in cups, a sheet of flatbread, a block of butter with a knife in it
+    const tx = T.top[0], ty = T.topY, tz = T.top[1] - 1.6, white = v7mat(0xe8e2d2, .5), china = v7mat(0xdcd6c6, .35);
+    for (let i = 0; i < 3; i++) { const cup = new THREE.Mesh(new THREE.CylinderGeometry(.025, .018, .035, 12), china); cup.position.set(tx - .3 + i * .28, ty + .018, tz + (i % 2) * .5); H.add(cup); const egg = new THREE.Mesh(new THREE.SphereGeometry(.024, 12, 10), white); egg.scale.y = 1.3; egg.position.set(cup.position.x, ty + .055, cup.position.z); H.add(egg); }
+    const bread = new THREE.Mesh(new THREE.PlaneGeometry(.26, .22), new THREE.MeshStandardMaterial({ map: canvasTex(128, 112, (g, w, h) => { g.fillStyle = '#d8c69a'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(90,60,30,.55)'; for (let y = 8; y < h; y += 9) for (let x = 6 + (y % 2) * 4; x < w; x += 9) g.fillRect(x, y, 3, 2); }), roughness: 1 })); bread.rotation.x = -Math.PI / 2; bread.position.set(tx + .1, ty + .006, tz + .25); H.add(bread);
+    const butter = new THREE.Mesh(new THREE.BoxGeometry(.1, .04, .06), v7mat(0xe8d89a, .6)); butter.position.set(tx - .35, ty + .02, tz + .3); H.add(butter);
+    const knife = new THREE.Mesh(new THREE.BoxGeometry(.012, .003, .16), v7mat(0x9a9a92, .25, { metalness: .9 })); knife.position.set(tx - .35, ty + .045, tz + .33); knife.rotation.set(.5, .3, 0); H.add(knife);
+    addLook(H, tx, ty + .2, tz + .2, 'The table, close', 'Eggs in their cups, nobody has cracked one. A sheet of flatbread, a block of butter with the knife still in it. Hands come into the lamplight and go out again. Nobody is eating; everybody is being fed.', 1.6);
+    // the fridge: a glass bowl of raw meat on the middle shelf, lit from inside
+    const F = storyRef.fridge; if (F) {
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(.13, .1, .09, 22, 1, true), new THREE.MeshStandardMaterial({ color: 0xdfe8e4, roughness: .05, transparent: true, opacity: .35, side: THREE.DoubleSide })); bowl.position.set(.02, .875, .02); F.add(bowl);
+      const flesh = new THREE.MeshStandardMaterial({ color: 0xc88a84, roughness: .35, emissive: 0x2a0806, emissiveIntensity: .3 });
+      for (let i = 0; i < 9; i++) { const lump = new THREE.Mesh(new THREE.SphereGeometry(.04 + Math.random() * .025, 10, 8), flesh); lump.scale.set(1.3, .6, 1); lump.position.set(.02 + (Math.random() - .5) * .14, .86 + Math.random() * .04, .02 + (Math.random() - .5) * .12); lump.rotation.set(Math.random(), Math.random(), Math.random()); F.add(lump); }
+      const juice = new THREE.Mesh(new THREE.CircleGeometry(.1, 18), new THREE.MeshStandardMaterial({ color: 0x8a3a30, roughness: .1, transparent: true, opacity: .6 })); juice.rotation.x = -Math.PI / 2; juice.position.set(.02, .833, .02); F.add(juice);
+      addLook(H, -6.0, 1.0, -7.7, 'The refrigerator', 'Milk, a jar of something red, and on the middle shelf a glass bowl of raw meat in its own pale water. Franco says it is pork. Nobody has bought pork this week.', 1.6);
+    }
+  }
+  // the lesson: in the slaughterhouse a sheet-covered body on a table, one forearm opened
+  // to show the tendons, and benches in tiers around it, all facing the one chair.
+  const A = zones.abattoir.group, ax = -7.6, az = 5.2;
+  addWoodTable(A, ax, az, 2.0, .8, .78, 91);
+  const sheet = new THREE.Mesh(new THREE.CapsuleGeometry(.2, 1.3, 6, 12), new THREE.MeshStandardMaterial({ map: fabricTexture('apron', 0xd8d2c2), roughness: 1 })); sheet.rotation.z = Math.PI / 2; sheet.scale.set(1, 1, .6); sheet.position.set(ax, .92, az); A.add(sheet);
+  const pale = v7mat(0xc9b8a2, .8), red = new THREE.MeshStandardMaterial({ color: 0x7a1e14, roughness: .35, emissive: 0x1a0402 });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.11, 14, 10), pale); head.position.set(ax - .95, .93, az); A.add(head);
+  const arm = new THREE.Group(); arm.position.set(ax - .1, .9, az + .3); A.add(arm);
+  const fore = new THREE.Mesh(new THREE.CapsuleGeometry(.04, .36, 4, 8), pale); fore.rotation.z = Math.PI / 2; arm.add(fore);
+  for (let i = 0; i < 6; i++) { const ten = new THREE.Mesh(new THREE.CylinderGeometry(.005, .007, .3, 5), red); ten.rotation.z = Math.PI / 2; ten.position.set(0, .03, -.025 + i * .01); arm.add(ten); }
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(.03, .004, 4, 10, Math.PI), v7mat(0x9a9a92, .2, { metalness: .9 })); hook.position.set(.1, .06, 0); arm.add(hook);
+  for (let row = 0; row < 3; row++) for (let k = -2; k <= 2; k++) { const a = k * .32, r = 2.0 + row * .7; const bx = ax + Math.sin(a) * r * .6 + 1.4, bz = az + Math.cos(a) * r - .6; addBench(A, bx, bz, a + Math.PI); }
+  addWoodChair(A, ax - .2, az - 1.0, 0, 1.08);
+  addLamp(A, ax, 2.6, az, { style: 'pendant', color: 0xfff0d0, intensity: 5, distance: 6, flicker: .05, shadow: true });
+  addLook(A, ax, 1.2, az, 'The lesson', 'A body under a sheet. One forearm has been opened along its length and pinned back, so the cords that close the hand can be seen. Benches in tiers face it, worn smooth. One chair at the head, higher than the rest. Someone taught here, and everyone else watched.', 2.4);
+  // a cross by the lane, a rag nailed to it, fog lit from behind
+  const cross = new THREE.Group(); cross.position.set(-9.5, 0, -3.8); R.add(cross); const wood = v7mat(0x1a1410, 1);
+  const mound = new THREE.Mesh(new THREE.SphereGeometry(.8, 10, 6), v7mat(0x1a1612, 1)); mound.scale.y = .25; cross.add(mound);
+  addBox(cross, 0, 1.7, 0, .14, 3.4, .14, wood); addBox(cross, 0, 2.55, 0, 1.5, .12, .12, wood, { rotation: [0, 0, -.06] });
+  const rag = new THREE.Mesh(new THREE.PlaneGeometry(.38, 1.05, 4, 8), new THREE.MeshStandardMaterial({ color: 0x2a2620, roughness: 1, side: THREE.DoubleSide })); const ra = rag.geometry.attributes.position; for (let i = 0; i < ra.count; i++) { const y = ra.getY(i); ra.setX(i, ra.getX(i) * (1 - (.5 - y) * .4) + Math.sin(y * 9) * .03); ra.setZ(i, Math.sin(y * 6 + ra.getX(i) * 5) * .05); } rag.geometry.computeVertexNormals(); rag.position.set(-.45, 2.0, .08); cross.add(rag); storyRef.crossRag = rag;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xe8dcc0, transparent: true, opacity: .38, depthWrite: false })); glow.scale.set(7, 5, 1); glow.position.set(-1.2, 2.2, -2.2); cross.add(glow);
+  addLook(R, -9.5, 1.6, -3.0, 'A cross by the lane', 'Two planks and a rag nailed to the arm, black with damp. No name, no date. The fog behind it is lit from somewhere you cannot see.', 3);
+  // the lane comes in under an old railway bridge, its brick sweating, its arch scrawled on
+  const B = new THREE.Group(); B.position.set(.8, 0, 38); R.add(B);
+  const brick = new THREE.MeshStandardMaterial({ map: TEX.brick, color: 0x6a5a48, roughness: 1 }), moss = v7mat(0x3a4a2a, 1);
+  for (const sd of [-1, 1]) { addBox(B, sd * 4.6, 2.3, 0, 2.2, 4.6, 4.2, brick); addBox(B, sd * 4.6, .6, 0, 2.3, 1.2, 4.3, moss); }
+  { const sh = new THREE.Shape(); sh.moveTo(-3.6, 0); sh.lineTo(-3.6, 4.0); sh.lineTo(3.6, 4.0); sh.lineTo(3.6, 0); sh.absarc(0, 0, 3.4, 0, Math.PI, false); sh.closePath();
+    const ext = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 4.2, bevelEnabled: false, curveSegments: 28 }), new THREE.MeshStandardMaterial({ map: TEX.brick, color: 0x5a4c3c, roughness: 1 })); ext.position.set(0, 1.0, -2.1); B.add(ext);
+    const soffit = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 4.2, 28, 1, true, -Math.PI / 2, Math.PI), new THREE.MeshStandardMaterial({ color: 0x2a241c, roughness: 1, side: THREE.BackSide })); soffit.rotation.x = Math.PI / 2; soffit.position.y = 1.0; B.add(soffit); }
+  addBox(B, 0, 5.3, 0, 11.4, 1.0, 4.4, brick); addBox(B, 0, 5.95, -2.0, 11.4, .5, .12, v7mat(0x1b1c1b, .5, { metalness: .6 })); addBox(B, 0, 5.95, 2.0, 11.4, .5, .12, v7mat(0x1b1c1b, .5, { metalness: .6 }));
+  const scrawl = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.6), new THREE.MeshBasicMaterial({ map: canvasTex(512, 136, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(230,226,214,.7)'; g.lineWidth = 3; for (let i = 0; i < 9; i++) { const x = 30 + i * 52; g.beginPath(); g.moveTo(x, 30 + Math.random() * 30); for (let k = 0; k < 4; k++) g.lineTo(x + Math.random() * 40, 20 + Math.random() * 90); g.stroke(); } g.font = '30px "Pirata One", serif'; g.fillStyle = 'rgba(230,226,214,.55)'; g.fillText('HODIE MIHI', 300, 110); }), transparent: true, depthWrite: false })); scrawl.position.set(0, 5.1, 2.22); B.add(scrawl);
+  zones.road.solids.push({ minX: .8 - 5.7, maxX: .8 - 3.5, minZ: 35.9, maxZ: 40.1 }, { minX: .8 + 3.5, maxX: .8 + 5.7, minZ: 35.9, maxZ: 40.1 });
+  // the empty house: a body laid out on the mattress under a sheet, dark flowers on it,
+  // a calendar on the wall stopped at the 17th
+  const RU = zones.ruin.group, bed = new THREE.Group(); bed.position.set(4.6, .2, 4.6); bed.rotation.y = -.2; RU.add(bed);
+  const shroud = new THREE.Mesh(new THREE.CapsuleGeometry(.22, 1.2, 6, 12), new THREE.MeshStandardMaterial({ color: 0xe0dccf, roughness: 1 })); shroud.rotation.z = Math.PI / 2; shroud.scale.set(1, 1, .55); shroud.position.set(0, .1, 0); bed.add(shroud);
+  const face = new THREE.Mesh(new THREE.SphereGeometry(.1, 12, 10), v7mat(0xb8ae9a, .9)); face.position.set(-.82, .14, 0); bed.add(face);
+  const petal = new THREE.MeshStandardMaterial({ color: 0x2a0a0c, roughness: .8 });
+  for (let i = 0; i < 18; i++) { const fl = new THREE.Group(); fl.position.set(-.8 + Math.random() * 1.6, .24 + Math.random() * .04, (Math.random() - .5) * .5); for (let k = 0; k < 5; k++) { const p = new THREE.Mesh(new THREE.SphereGeometry(.03, 6, 5), petal); p.scale.set(1, .4, .7); p.position.set(Math.cos(k * 1.26) * .02, 0, Math.sin(k * 1.26) * .02); fl.add(p); } bed.add(fl); }
+  const cal = new THREE.Mesh(new THREE.PlaneGeometry(.34, .5), new THREE.MeshStandardMaterial({ map: canvasTex(128, 188, (g, w, h) => { g.fillStyle = '#d8d0bc'; g.fillRect(0, 0, w, h); g.fillStyle = '#4a4438'; g.fillRect(10, 10, w - 20, 70); g.fillStyle = '#1a1612'; g.font = 'bold 54px serif'; g.textAlign = 'center'; g.fillText('17', w / 2, 150); g.font = '13px monospace'; g.fillText('FEBBRAIO', w / 2, 100); }), roughness: 1 })); cal.position.set(7.86, 2.0, 4.4); cal.rotation.y = -Math.PI / 2; RU.add(cal);
+  addLook(RU, 4.6, .8, 4.6, 'The bed', 'Someone laid out under a clean sheet, the only clean thing in the house. Dark flowers dropped over the body one at a time, not arranged. On the wall the calendar is stopped at the seventeenth.', 2.2);
+  // the dark room: at the far end, a bird built out of coats, its neck reaching for the ceiling
+  const D = zones.darkroom.group, bird = new THREE.Group(); bird.position.set(1.2, 0, -10.6); bird.rotation.y = .4; D.add(bird);
+  const coat = new THREE.MeshStandardMaterial({ map: fabricTexture('wool', 0x1c1f26), roughness: 1, color: 0xffffff });
+  const bodyB = new THREE.Mesh(new THREE.SphereGeometry(.6, 12, 10), coat); bodyB.scale.set(.8, 1.2, 1); bodyB.position.y = 1.4; bird.add(bodyB);
+  for (const sd of [-1, 1]) { const wing = new THREE.Mesh(new THREE.ConeGeometry(.4, 1.5, 6, 1, true), coat); wing.position.set(sd * .45, 1.2, -.1); wing.rotation.z = sd * .5; wing.rotation.x = .3; bird.add(wing); }
+  const neck = inkCurveTube([[0, 1.9, 0], [.05, 2.5, .1], [.1, 3.0, .05], [.25, 3.4, -.1], [.45, 3.6, -.25]], .09, coat); bird.add(neck);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(.07, .4, 6), v7mat(0x0a0a0a, .6)); beak.position.set(.62, 3.62, -.36); beak.rotation.z = -1.0; bird.add(beak);
+  for (const sd of [-1, 1]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(.025, .02, .9, 5), v7mat(0x2a2620, .6)); leg.position.set(sd * .15, .45, 0); bird.add(leg); }
+  addLook(D, 1.2, 1.6, -9.6, 'The bird', 'A bird as tall as the ceiling, made of coats: twelve of them, buttoned into each other, a broom handle for a neck and a shoe for a beak. Its head is turned toward the wall, the way something looks away when it is ashamed.', 2.6);
+  // the image under things: photographs, a television, a mirror
+  addTensionItem(H, -9.62, 1.9, 1.4, Math.PI / 2, .3, .38, 'A photograph', 'A face, too dark to make out. The longer you look the less it is a person.');
+  addTensionItem(H, 2.1, 2.25, -8.62, 0, .5, .4, 'The portrait, close', 'The scratched-out family portrait. Under the scratches the paper is white.', false);
+  addTensionItem(RU, -6.2, .62, -4.6, Math.PI / 2 - .3, .55, .42, 'The television', 'The dead set. Its glass holds a reflection that does not quite match the room.', false);
+  addTensionItem(zones.cellar.group, 8.8, 1.6, -2.4, -Math.PI / 2, .3, .4, 'A photograph in the cellar', 'Pinned to the beam with a nail through the forehead.');
+  addTensionItem(zones.church.group, -8.75, 1.7, 4.2, Math.PI / 2, .34, .44, 'A memorial card', 'A dead man’s card, the kind handed out at funerals. The face has been rubbed with a thumb until it is white.');
+  addTensionItem(D, -9.8, 1.5, 6.5, Math.PI / 2, .3, .38, 'A photograph in the dark', 'You only see it when the beam crosses it.');
+  // the face over the house
+  const sf = new THREE.Sprite(new THREE.SpriteMaterial({ map: skyFaceTexture(), transparent: true, opacity: 0, depthWrite: false, fog: false })); sf.scale.set(30, 30, 1); sf.position.set(-3, 25, -46); R.add(sf); skyFace.sprite = sf;
+  // two more tape-cover posters for the walls, in red and in ink
+  addPoster(H, 'redmaw', 9.62, 1.95, -2.2, -Math.PI / 2, 'A red poster', 'A tree with a mouth, printed red on black, the ink bleeding into the fibres. SEPOLCRO, it says, and under it in smaller letters: discesa nel caos.');
+  addPoster(RU, 'inkbeast', -7.72, 1.85, 2.6, Math.PI / 2, 'A photocopied poster', 'Black ink on white: a hooded thing with its mouth open. The lettering is all thorns. Underneath: VOMITO DI LUCE.');
+}
+
+buildV8World(); buildPostersV12(); buildPlacesV17();
+if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), skyFace, tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);

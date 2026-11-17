@@ -82,7 +82,7 @@ export const PEOPLE = {
     contradiction: 'The only sincere believer is the most useful one to a man who believes nothing.',
     tell: 'Touches the hollow of his throat where a collar would sit. Straightens other people’s cutlery.',
     ties: { pino: 'Practical disbelief against sincere belief. Neither wins the argument.' },
-    look: { build: 'slim', height: 1.03, heft: .86, stoop: -.04, skin: 0xa18a74, hair: 'curls-short', hairColor: 0x1c1816, garment: 'blazer', coat: 0x141414, under: 0xd8d4ca, legs: 0x1a1a1a, shoes: 0x0f0f0f, extras: ['rosary'] },
+    look: { build: 'slim', height: 1.03, heft: .86, stoop: -.04, skin: 0xa18a74, hair: 'curls-short', hairColor: 0x1c1816, garment: 'longcoat', coat: 0x0e0e0e, under: 0xd8d4ca, legs: 0x1a1a1a, shoes: 0x0f0f0f, extras: ['rosary'] },
     tic: 'cross', gaze: 'steady', gait: 1,
     barks: ['Tell me where to stand.', 'You are slouching in a consecrated room.', 'There is an order to it. There has to be.'],
     barksAfter: [],
@@ -391,3 +391,25 @@ export const SUBCULTURE = {
   livia: { back: null, extras: ['pins'], note: 'One pin on the coat: the branch logo, very small.' },
   'the first': { back: 'roots', extras: [], note: 'The branch logo painted on the back of the leather, in bone white, half worn away.' }
 };
+
+// v17 — how each of them is dirty. These are voided people, criminals and scoundrels in a
+// borrowed sacred costume. Some carry it on the outside: blood, mud, mortar, soot, wax. Some
+// carry it inside: sallow skin, bruising, rings under the eyes, faces that begin to come apart.
+// `smear` is how far the face is already undone; it grows with each Station.
+export const CORRUPTION = {
+  franco:      { kind: 'external', stain: 'blood',  hands: 0x5a1a10, note: 'Blood dried brown in the weave of the apron, under the nails, up to the elbow.' },
+  walter:      { kind: 'external', stain: 'soot',   hands: 0x2a2620, note: 'Quarry dust and soot in every crease. He does not wash between jobs.' },
+  pino:        { kind: 'external', stain: 'oil',    hands: 0x1e1a14, note: 'Engine oil on the hands and cuffs, road mud to the knee.' },
+  anna:        { kind: 'external', stain: 'mortar', hands: 0x8a8576, note: 'Grey mortar dried on the knuckles and on the hem of the apron.' },
+  sergio:      { kind: 'external', stain: 'ash',    hands: 0x6a5a3a, note: 'Nicotine-yellow fingers and ash down the front of the shirt.' },
+  'don remo':  { kind: 'external', stain: 'wax',    hands: 0x9a9070, note: 'Candle wax and soot on the cassock, black under the fingernails.' },
+  ines:        { kind: 'internal', skin: 0x9c9a78, rings: .8, lips: 0x5a3a36, smear: .15, note: 'Sallow, with grey rings under the eyes. Her hands are spotless.' },
+  gabri:       { kind: 'internal', skin: 0xa08f84, rings: 1,  lips: 0x6a2a24, smear: .2, bruise: true, nose: true, note: 'Bruises at the neck and wrist, a crust of old blood at one nostril.' },
+  livia:       { kind: 'internal', skin: 0xb0aa9a, rings: .6, lips: 0x3a2a2a, smear: .2, note: 'Waxen; the scarf hides something at the throat that has not healed.' },
+  marta:       { kind: 'internal', skin: 0xa69a84, rings: .5, smear: .1, cuts: true, note: 'Four healed cuts on the inside of each forearm, evenly spaced, and paint over them.' },
+  ottavio:     { kind: 'internal', skin: 0xa0a094, rings: .7, smear: .1, note: 'Grey and waxy, like a hand that has held a soundboard for forty years.' },
+  dario:       { kind: 'internal', skin: 0xb2aa98, rings: .6, smear: .1, bruise: true, note: 'Pallid. Under the collar, the marks of a cord he uses on himself.' },
+  'the first': { kind: 'internal', rings: .3, smear: .35, note: 'Clean on the outside. When you look too long, the face does not hold.' },
+  'the widow': { kind: 'internal', rings: .5, smear: 0, note: 'Tired, not rotten. She is the only one here who is grieving.' }
+};
+SUBCULTURE.walter = { ...(SUBCULTURE.walter || {}), leather: true };
