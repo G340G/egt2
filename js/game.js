@@ -1737,6 +1737,8 @@ class AmbientSound {
     this.nodes = []; this.ready = false; this.zoneGain=null; this.pulseGain=null; this.currentZone='road';
     this.musicTracks = {
       // Outdoors and the intro: geatd, baked with a 10 s dissolve of its end into its start, looped gaplessly.
+      // The farmhouse: creeps, with an 8 s dissolve of its end into its start, matched in loudness to geatd.
+      creeps: this.createLoopTrack('creeps', { ogg: './assets/creeps-loop.ogg', mp3: './assets/creeps-loop.mp3' }, 1.06, { loopStart: 8, loopEnd: 322.4772 }),
       mysterious: this.createLoopTrack('mysterious', { ogg: './assets/geatd-loop.ogg', mp3: './assets/geatd-loop.mp3' }, 1.06, { loopStart: 10, loopEnd: 215.4866 }),
       fort: this.createMusicTrack('fort', './assets/fort.mp3', .78),
       dot: this.createMusicTrack('dot', './assets/dot.mp3', .76),
@@ -1975,6 +1977,7 @@ class AmbientSound {
     // score only on the return after the Professore's tea scene, before the final listen.
     let desiredTrack = null;
     if (!gameEnded && (name === 'road' || name === 'forest')) desiredTrack = 'mysterious';
+    else if (!gameEnded && name === 'home') desiredTrack = 'creeps';
     else if (!gameEnded && name === 'abattoir') desiredTrack = 'fort';
     else if (!gameEnded && name === 'darkroom') desiredTrack = 'zero';
     else if (!gameEnded && name === 'cellar' && storyFlags.has('first-tea') && !storyFlags.has('listened-to-white')) desiredTrack = 'dot';
@@ -5380,24 +5383,24 @@ function startIntroV6() {
   if (storyFlags.has('intro-seen')) return;
   storyFlags.add('intro-seen'); $('intro-dark').style.opacity = '1'; $('hud').classList.add('intro');
   playerAnchor.position.set(2.0, 0, 47); camera.position.set(0, 1.63, 0); camera.rotation.set(-.05, -2.5, 0);
-  storyScene = { type: 'intro', t: 0, dur: 32, i: 0, lines: [
-    [14.5, 'Tobia: A man called. Cash, today.'],
-    [24, 'Tobia: Someone has left a lamp lit on the porch.']] };
+  storyScene = { type: 'intro', t: 8.8, dur: 35, i: 0, lines: [
+    [17.5, 'Tobia: A man called. Cash, today.'],
+    [26.5, 'Tobia: Someone has left a lamp lit on the porch.']] };
   setStationCard('hidden'); epiLogo();
   $('skip-hint').classList.add('visible');
 }
 function updateIntroV6(s, dt) {
-  if (s.t < 10) drawVinyl(s.t); else if (!s.vOff) { s.vOff = true; $('intro-vinyl').style.opacity = '0'; }
+  if (!s.vOff) { s.vOff = true; $('intro-vinyl').style.opacity = '0'; }
   if (s.t >= 8.8 && !s.c2) { s.c2 = true; setStationCard('black', '', '', 'I engrave my memoirs\nwith a sunshine\nthat isn’t there;'); $('station-card').classList.add('poem'); }
-  if (s.t >= 11 && !s.c3) { s.c3 = true; setStationCard('hidden'); $('station-card').classList.remove('poem'); audio?.knock(); }
-  const k = THREE.MathUtils.smoothstep(s.t, 11.5, s.dur);
+  if (s.t >= 14.5 && !s.c3) { s.c3 = true; setStationCard('hidden'); $('station-card').classList.remove('poem'); audio?.knock(); }
+  const k = THREE.MathUtils.smoothstep(s.t, 15, s.dur);
   playerAnchor.position.set(THREE.MathUtils.lerp(2.0, 0, k), 0, THREE.MathUtils.lerp(47, 10, k));
-  const walking = s.t > 11.5 && s.t < s.dur - .3, ph = s.t * 5.4;
+  const walking = s.t > 15 && s.t < s.dur - .3, ph = s.t * 5.4;
   camera.position.set(0, 1.63 - (walking ? Math.abs(Math.sin(ph)) * .035 : 0), 0);
-  const turn = THREE.MathUtils.smoothstep(s.t, 11, 17.5);
+  const turn = THREE.MathUtils.smoothstep(s.t, 14.5, 21);
   camera.rotation.set(-.05 + Math.sin(s.t * .23) * .02, THREE.MathUtils.lerp(-2.5, 0, turn) + Math.sin(s.t * .17) * .05 * turn, Math.sin(ph) * .004);
   if (walking && Math.floor(ph / Math.PI) !== s.lastStep) { s.lastStep = Math.floor(ph / Math.PI); audio?.footstep('gravel', false, s.lastStep); }
-  $('intro-dark').style.opacity = String(s.t < 11 ? 1 : Math.max(0, 1 - (s.t - 11) / 6));
+  $('intro-dark').style.opacity = String(s.t < 14.5 ? 1 : Math.max(0, 1 - (s.t - 14.5) / 6));
   if (s.t >= s.dur) endIntroV6();
 }
 function endIntroV6() {
@@ -6078,7 +6081,7 @@ function printTexture(kind, hex, back) {
     const base = new THREE.Color(hex); ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgb(${base.r * 255},${base.g * 255},${base.b * 255})`; ctx.fillRect(0, 0, w, h);
     for (let i = 0; i < 1500; i++) { ctx.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.035)'; ctx.fillRect(Math.random() * w, Math.random() * h, 1, 1); }
     const draw = (cx, k, sc) => {
-      if (!k) return; ctx.save(); ctx.translate(cx, h * .42); ctx.scale(sc, sc); ctx.globalAlpha = .7; const ink = '#b9b2a2';
+      if (!k) return; ctx.save(); ctx.translate(cx, h * .42); ctx.scale(sc, sc); ctx.globalAlpha = sc > 1 ? .7 : .42; const ink = '#a8a192';
       if (k === 'reel') { ctx.strokeStyle = ink; ctx.lineWidth = 3; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sd * 26, 0, 20, 0, Math.PI * 2); ctx.stroke(); for (let q = 0; q < 3; q++) { ctx.beginPath(); ctx.moveTo(sd * 26, 0); ctx.lineTo(sd * 26 + Math.cos(q * 2.1) * 18, Math.sin(q * 2.1) * 18); ctx.stroke(); } } ctx.beginPath(); ctx.moveTo(-26, 20); ctx.lineTo(26, 20); ctx.stroke(); }
       else if (k === 'road') { ctx.fillStyle = ink; ctx.beginPath(); ctx.moveTo(-6, -34); ctx.lineTo(6, -34); ctx.lineTo(40, 30); ctx.lineTo(-40, 30); ctx.fill(); ctx.fillStyle = '#111'; for (let y = -26; y < 28; y += 12) ctx.fillRect(-2, y, 4, 6); ctx.fillStyle = ink; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.fillText('1979', 0, 50); }
       else if (k === 'beast') { ctx.strokeStyle = ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 0, 34, 24, 0, 0, Math.PI * 2); ctx.stroke(); for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sd * 20, -16); ctx.quadraticCurveTo(sd * 46, -40, sd * 30, -50); ctx.stroke(); } ctx.fillStyle = ink; ctx.fillRect(-14, -4, 8, 6); ctx.fillRect(6, -4, 8, 6); }
@@ -6086,7 +6089,7 @@ function printTexture(kind, hex, back) {
       ctx.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 70; i++) ctx.fillRect(Math.random() * 110 - 55, Math.random() * 110 - 55, Math.random() * 7, 1);
       ctx.restore();
     };
-    draw(0, kind, 1); draw(w, kind, 1); draw(w / 2, back, 1.25); // the seam of the body is at the front; the back is the middle of the cloth
+    draw(0, kind, .8); draw(w, kind, .8); draw(w / 2, back, 1.25); // the seam of the body is at the front; the back is the middle of the cloth
   };
   paint(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; if (kind === 'roots' || back === 'roots') whenLogo(() => { paint(); t.needsUpdate = true; }); return t;
 }
@@ -6752,7 +6755,7 @@ function updateSmoker(S, dt) {
   const drawing = c > .9 && c < 2.4, exhaling = c > 4.3 && c < 6.7;
   S.lift = lift; S.drawing = drawing;
   // arm: down at rest (cigarette low by the hip), up to the mouth for the draw
-  A.sh.rotation.x = THREE.MathUtils.lerp(.06, -.22, lift); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, -.36, lift); A.el.rotation.x = THREE.MathUtils.lerp(-.12, -2.22, lift); A.wr.rotation.x = THREE.MathUtils.lerp(0, -.35, lift);
+  smokerArm(S);
   P.headTilt = 0; P.head.rotation.x += (drawing ? .1 : exhaling ? -.14 : 0) * .25;
   S.ember.material.opacity = drawing ? .75 + Math.sin(S.t * 30) * .2 : .38; const es = drawing ? .075 : .032; S.ember.scale.set(es, es, 1);
   const tip = new THREE.Vector3(); S.ember.getWorldPosition(tip);
@@ -7057,7 +7060,8 @@ function buildPostersV12() {
   if (porch.hall) { porch.hall.userData.interactables = []; addPoster(porch.hall, 'ankh', .45, 1.75, -11.13, 0, 'A poster in the hall', 'The mask on the ankh. TREDICI VOCI.', .8); }
 }
 
-function smokerArm(S) { const A = S.npc.rig.arms[1], lift = S.lift || 0; A.sh.rotation.x = THREE.MathUtils.lerp(.06, -.22, lift); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, -.36, lift); A.el.rotation.x = THREE.MathUtils.lerp(-.12, -2.22, lift); A.wr.rotation.x = THREE.MathUtils.lerp(0, -.35, lift); }
+function smokerArm(S) { const A = S.npc.rig.arms[1], l = S.lift || 0, e = l * l * (3 - 2 * l); A.sh.rotation.x = THREE.MathUtils.lerp(.06, SMOKE_POSE.shX, e); A.sh.rotation.y = THREE.MathUtils.lerp(0, SMOKE_POSE.shY, e); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, SMOKE_POSE.shZ, e); A.el.rotation.x = THREE.MathUtils.lerp(-.12, SMOKE_POSE.elX, e); A.wr.rotation.x = THREE.MathUtils.lerp(0, SMOKE_POSE.wrX, e); A.wr.rotation.z = THREE.MathUtils.lerp(0, SMOKE_POSE.wrZ, e); }
+var SMOKE_POSE = { shX: -1.25, shY: -.75, shZ: -.2, elX: -2.35, wrX: -.2, wrZ: -.3 };
 // =============================================================================
 // v17 — from the inspiration folder: voided people (dirty outside or rotten inside),
 // faces that come apart as the night goes on, an image that surfaces on objects,
@@ -7095,7 +7099,7 @@ function smearTexture(seed) {
 }
 function applyCorruption(npc, P) {
   const C = CORRUPTION[personaKey(npc)]; if (!C) return; npc.corruption = C;
-  const head = P.head, skinMat = head.children[0]?.material;
+  const head = P.head, skinMat = P.skinMat || head.children[0]?.material;
   if (C.kind === 'external') {
     const tm = P.chestMesh.material; if (tm.map) { tm.map = grimeTexture(tm.map, C.stain, personaKey(npc).length); tm.needsUpdate = true; }
     const lm = P.legs[0].th.children[0]?.material; if (lm?.map) { lm.map = grimeTexture(lm.map, C.stain === 'blood' ? 'soot' : C.stain, 3); lm.needsUpdate = true; }
@@ -7104,12 +7108,10 @@ function applyCorruption(npc, P) {
     P.arms.forEach(a => a.wr.children.forEach(m => { if (m.isMesh) m.material = hm; }));
     if (C.stain === 'blood') { const am = P.hips.children.find(c => c.isMesh && c.geometry.type === 'CylinderGeometry' && c.material.map); if (am) { am.material = am.material.clone(); am.material.map = grimeTexture(am.material.map, 'blood', 9); } }
   } else {
-    if (C.skin && skinMat) skinMat.color.lerp(new THREE.Color(C.skin), .45);
-    // rings under the eyes, darkened lips
-    if (C.rings) for (const sd of [-1, 1]) { const ring = new THREE.Mesh(new THREE.SphereGeometry(.022, 10, 8), new THREE.MeshStandardMaterial({ color: 0x3a2a2c, roughness: 1, transparent: true, opacity: .45 * C.rings, depthWrite: false })); ring.scale.set(1.3, .75, .4); ring.position.set(sd * .036, .118, .09); head.add(ring); }
+    if (C.skin) { skinMat?.color.lerp(new THREE.Color(C.skin), .45); P.headMat?.color.lerp(new THREE.Color(C.skin), .45); }
+    // rot is in the colour, not in stuck-on shapes: the skin above, darker lips, a mark at the throat
     if (C.lips && P.mouth) P.mouth.material = new THREE.MeshStandardMaterial({ color: C.lips, roughness: .6 });
-    if (C.bruise) { const bm = new THREE.MeshStandardMaterial({ color: 0x4a3448, roughness: 1, transparent: true, opacity: .55, depthWrite: false }); const b1 = new THREE.Mesh(new THREE.SphereGeometry(.03, 8, 6), bm); b1.scale.set(1.4, .8, .5); b1.position.set(.04, .02, .045); P.neck.add(b1); const b2 = b1.clone(); b2.position.set(-.06, .085, .07); b2.scale.set(.8, .6, .4); head.add(b2); }
-    if (C.nose) { const crust = new THREE.Mesh(new THREE.BoxGeometry(.006, .02, .004), new THREE.MeshStandardMaterial({ color: 0x4a0e08, roughness: .7 })); crust.position.set(.006, .078, .104); head.add(crust); }
+    if (C.bruise) { const bm = new THREE.MeshStandardMaterial({ color: 0x5a4250, roughness: 1, transparent: true, opacity: .35, depthWrite: false }); const b1 = new THREE.Mesh(new THREE.SphereGeometry(.026, 10, 8), bm); b1.scale.set(1.3, .7, .4); b1.position.set(.035, .02, .045); P.neck.add(b1); }
     if (C.cuts) (P.forearms || []).forEach(fa => { for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(.03, .003, .004), new THREE.MeshStandardMaterial({ color: 0x6a2018, roughness: .8 })); c.position.set(0, -.04 + i * .025, .046 * P.spec.w); fa.add(c); } });
   }
   // every face can come apart; the internal ones start further gone
@@ -7123,7 +7125,7 @@ function updateSmears(t) {
     if (!n.smear || !n.object.visible) return;
     const wp = updateSmears.w || (updateSmears.w = new THREE.Vector3()); n.smear.getWorldPosition(wp); const d = wp.distanceTo(cam);
     // closer and later, worse; it breathes rather than sitting still
-    const k = Math.min(1, n.smearBase + night * .55 + fear * .25) * THREE.MathUtils.clamp(1.4 - d / 5, 0, 1);
+    const k = Math.min(.8, night * (.35 + n.smearBase) + Math.max(0, fear - .55) * .5) * THREE.MathUtils.clamp(1.3 - d / 4, 0, 1);
     n.smear.material.opacity = k * (.75 + Math.sin(t * .0013 + n.phase * 3) * .25);
     n.smear.rotation.z = Math.sin(t * .0007 + n.phase) * .08;
   });
@@ -7200,8 +7202,8 @@ function buildPlacesV17() {
     const font = new THREE.Mesh(new THREE.SphereGeometry(.06, 14, 10), tin); font.scale.y = .6; font.position.y = -.08; L.add(font);
     const flame = new THREE.Mesh(new THREE.SphereGeometry(.014, 8, 6), new THREE.MeshStandardMaterial({ color: 0x221a10, emissive: 0xffb860, emissiveIntensity: 4 })); flame.scale.y = 2.4; flame.position.y = .02; L.add(flame);
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xffb466, transparent: true, opacity: .4, blending: THREE.AdditiveBlending, depthWrite: false })); halo.scale.set(1.1, 1.1, 1); L.add(halo);
-    const lamp = new THREE.PointLight(0xffa04a, 28, 9, 1.6); lamp.position.y = -.05; lamp.castShadow = !lowFx; if (lamp.castShadow) { lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.bias = -.002; lamp.shadow.radius = 4; } L.add(lamp);
-    lampFlickers.push({ light: lamp, base: 28, flicker: .08, bulb: flame.material, phase: 5 });
+    const lamp = new THREE.PointLight(0xffa04a, 20, 9, 1.9); lamp.position.y = -.05; lamp.castShadow = !lowFx; if (lamp.castShadow) { lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.bias = -.002; lamp.shadow.radius = 4; } L.add(lamp);
+    lampFlickers.push({ light: lamp, base: 20, flicker: .08, bulb: flame.material, phase: 5 });
     const z = zones.home; z.ambient.color.setHex(0x6f6a48); z.ambient.groundColor?.setHex(0x1a1810); z.ambient.intensity = .26; z.moon.intensity = .2;
     // what is on the table: eggs in cups, a sheet of flatbread, a block of butter with a knife in it
     const tx = T.top[0], ty = T.topY, tz = T.top[1] - 1.6, white = v7mat(0xe8e2d2, .5), china = v7mat(0xdcd6c6, .35);
@@ -7271,8 +7273,66 @@ function buildPlacesV17() {
   addPoster(RU, 'inkbeast', -7.72, 1.85, 2.6, Math.PI / 2, 'A photocopied poster', 'Black ink on white: a hooded thing with its mouth open. The lettering is all thorns. Underneath: VOMITO DI LUCE.');
 }
 
-buildV8World(); buildPostersV12(); buildPlacesV17();
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+// ---- v18: beer, profanity, posters on the floor ------------------------------------
+function beerLabelTexture(seed = 1, scrawl = '') {
+  return canvasTex(256, 128, (g, w, h) => {
+    let r = seed * 7919; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+    g.fillStyle = '#d9cba0'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#8a1c14'; g.fillRect(0, 0, w, 18); g.fillRect(0, h - 18, w, 18);
+    g.strokeStyle = '#3a2a18'; g.lineWidth = 2; g.beginPath(); g.ellipse(w / 2, h / 2, 70, 40, 0, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#1e1a14'; g.textAlign = 'center'; g.font = 'bold 22px "Pirata One", serif'; g.fillText('Birra del Po', w / 2, h / 2 - 2);
+    g.font = '10px "IBM Plex Mono", monospace'; g.fillText('BIONDA · DOPPIO MALTO', w / 2, h / 2 + 16); g.fillStyle = '#ecdcb0'; g.fillText('CREMONA · DAL 1921', w / 2, 13); g.fillText('66 cl · 5,2% vol', w / 2, h - 5);
+    g.fillStyle = '#8a1c14'; g.beginPath(); g.moveTo(w / 2, h / 2 - 34); g.lineTo(w / 2 - 6, h / 2 - 24); g.lineTo(w / 2 + 6, h / 2 - 24); g.fill();
+    if (scrawl) { g.save(); g.translate(w / 2 + 10, h / 2 + 8); g.rotate(-.12); g.fillStyle = 'rgba(20,24,60,.85)'; g.font = '20px "Reenie Beanie", cursive'; g.fillText(scrawl, 0, 0); g.restore(); }
+    for (let i = 0; i < 9; i++) { g.fillStyle = `rgba(80,60,30,${rnd() * .25})`; g.beginPath(); g.arc(rnd() * w, rnd() * h, 4 + rnd() * 14, 0, Math.PI * 2); g.fill(); }
+    if (rnd() < .5) { g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(w * rnd(), 0, 30, h); }
+  });
+}
+function addBeer(group, x, y, z, { seed = 1, fallen = false, level = .4, scrawl = '' } = {}) {
+  const b = new THREE.Group(); b.position.set(x, y, z); group.add(b);
+  const glass = new THREE.MeshStandardMaterial({ color: 0x3a1e08, roughness: .12, metalness: .1, transparent: true, opacity: .82 });
+  const body = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [.036, 0], [.038, .01], [.038, .2], [.032, .23], [.014, .26], [.013, .31], [.015, .315], [.0, .315]].map(([a, c]) => new THREE.Vector2(a, c)), 20), glass); b.add(body);
+  if (level > 0) { const beer = new THREE.Mesh(new THREE.CylinderGeometry(.034, .034, .2 * level, 16), new THREE.MeshStandardMaterial({ color: 0x8a5a14, roughness: .3, transparent: true, opacity: .7 })); beer.position.y = .1 * level + .004; b.add(beer); }
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(.0385, .0385, .075, 20, 1, true, -1.3, 2.6), new THREE.MeshStandardMaterial({ map: beerLabelTexture(seed, scrawl), roughness: .9 })); label.position.y = .1; b.add(label);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(.0142, .0142, .02, 14, 1, true), new THREE.MeshStandardMaterial({ color: 0x8a1c14, roughness: .8 })); neck.position.y = .285; b.add(neck);
+  if (fallen) { b.rotation.z = Math.PI / 2 - .05; b.position.y += .038; b.rotation.y = seed; const spill = new THREE.Mesh(new THREE.CircleGeometry(.12, 16), new THREE.MeshStandardMaterial({ color: 0x6a4410, roughness: .05, transparent: true, opacity: .45 })); spill.rotation.x = -Math.PI / 2; spill.scale.set(1.4, .7, 1); spill.position.set(x + .12, y + .002, z); group.add(spill); }
+  return b;
+}
+function buildTableDetailsV18() {
+  const H = zones.home.group, T = storyRef.tableSeats; if (!T) return;
+  const tx = T.top[0], ty = T.topY, tz = T.top[1];
+  [[-.3, -1.4, 1, false, .35, ''], [.28, -.9, 2, false, .0, ''], [-.22, -.2, 3, true, 0, ''], [.3, .4, 4, false, .6, 'bevi e taci'], [-.3, .9, 5, false, .1, ''], [.24, 1.5, 6, true, 0, ''], [-.05, 1.9, 7, false, .8, 'porco dio']].forEach(([dx, dz, sd, f, lv, sc]) => addBeer(H, tx + dx, ty, tz + dz, { seed: sd, fallen: f, level: lv, scrawl: sc }));
+  const capM = new THREE.MeshStandardMaterial({ color: 0x8a1c14, roughness: .4, metalness: .6 });
+  for (let i = 0; i < 9; i++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .004, 12), capM); c.position.set(tx + (Math.random() - .5) * .8, ty + .002, tz + (Math.random() - .5) * 3.6); c.rotation.z = Math.random() < .5 ? Math.PI : 0; H.add(c); }
+  // a glass, half drunk, foam gone flat; wet rings everywhere
+  const gl = new THREE.Mesh(new THREE.CylinderGeometry(.034, .028, .12, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0xd8e0d8, roughness: .05, transparent: true, opacity: .3, side: THREE.DoubleSide })); gl.position.set(tx + .12, ty + .06, tz - .55); H.add(gl);
+  const pint = new THREE.Mesh(new THREE.CylinderGeometry(.03, .027, .06, 16), new THREE.MeshStandardMaterial({ color: 0x9a6a1c, roughness: .2, transparent: true, opacity: .8 })); pint.position.set(tx + .12, ty + .031, tz - .55); H.add(pint);
+  const foam = new THREE.Mesh(new THREE.CylinderGeometry(.031, .031, .006, 16), v7mat(0xe8e0c8, .9)); foam.position.set(tx + .12, ty + .064, tz - .55); H.add(foam);
+  for (let i = 0; i < 12; i++) { const ring = new THREE.Mesh(new THREE.RingGeometry(.03, .038, 20), new THREE.MeshBasicMaterial({ color: 0x2a1c10, transparent: true, opacity: .35, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(tx + (Math.random() - .5) * .9, ty + .0015, tz + (Math.random() - .5) * 4); H.add(ring); }
+  // an ashtray of stubbed butts
+  const ash = new THREE.Mesh(new THREE.CylinderGeometry(.06, .05, .025, 18), v7mat(0x3a3a34, .3, { metalness: .6 })); ash.position.set(tx - .1, ty + .013, tz + 1.15); H.add(ash);
+  for (let i = 0; i < 7; i++) { const bt = new THREE.Mesh(new THREE.CylinderGeometry(.004, .004, .025, 6), v7mat(i % 3 ? 0xc08a4a : 0xe8e2d4, .8)); bt.position.set(tx - .1 + (Math.random() - .5) * .07, ty + .03, tz + 1.15 + (Math.random() - .5) * .07); bt.rotation.set(Math.random() * 1.4, Math.random() * 3, Math.random()); H.add(bt); }
+  // what has been cut into the table top with a knife
+  const carve = new THREE.Mesh(new THREE.PlaneGeometry(.7, .22), new THREE.MeshBasicMaterial({ map: canvasTex(512, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(232,214,176,.55)'; g.lineWidth = 3; g.font = '60px "Reenie Beanie", cursive'; g.fillStyle = 'rgba(30,20,12,.7)'; g.fillText('PORCO DIO', 20, 70); g.font = '44px "Reenie Beanie", cursive'; g.fillText('merda a chi legge', 160, 130); g.strokeText('77', 420, 70); }), transparent: true, depthWrite: false })); carve.rotation.x = -Math.PI / 2; carve.rotation.z = Math.PI / 2 + .1; carve.position.set(tx + .2, ty + .002, tz - 1.9); H.add(carve);
+  addLook(H, tx, ty + .25, tz + .3, 'Beer', 'Birra del Po, bionda, sixty-six centilitres, most of them empty. Caps everywhere, two bottles on their sides. Somebody has written on a label in biro: bevi e taci. Drink and shut up. On another: porco dio.', 1.7);
+  addLook(H, tx + .2, ty + .2, tz - 1.9, 'Cut into the wood', 'PORCO DIO, in capitals, gouged with a knife and gone over many times. Under it, smaller: merda a chi legge. Shit on whoever reads this. And a date, seventy-seven, cut deeper than the rest.', 1.4);
+}
+function addFloorPoster(group, kind, x, z, rot, title, text, scale = 1) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale, 6, 6), new THREE.MeshStandardMaterial({ map: posterTexture(kind), roughness: 1, side: THREE.DoubleSide }));
+  const pa = m.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const px = pa.getX(i), py = pa.getY(i); pa.setZ(i, Math.max(0, Math.abs(py) - .3 * scale) * .25 + (px > .2 * scale && py > .3 * scale ? .03 : 0)); } m.geometry.computeVertexNormals();
+  m.rotation.x = -Math.PI / 2; m.rotation.z = rot; m.position.set(x, .008, z); m.receiveShadow = true; group.add(m);
+  addLook(group, x, .3, z, title, text, 1.6); return m;
+}
+function buildFloorPostersV18() {
+  addFloorPoster(zones.home.group, 'kaleido', 3.2, 6.6, .4, 'A poster on the floor', 'Fallen from the wall, or pulled down. A boot print across the tree-sun.');
+  addFloorPoster(zones.ruin.group, 'redmaw', -1.3, 4.6, -.9, 'A poster underfoot', 'The red tree with a mouth, face up on the boards, swollen with damp. Someone has walked on it for weeks.');
+  addFloorPoster(zones.cellar.group, 'spike', 4.2, 4.0, 2.1, 'A poster on the cellar floor', 'Used as a mat under a bucket. The ring the bucket left is darker than water.');
+  addFloorPoster(zones.abattoir.group, 'inkbeast', 2.8, 6.0, -.3, 'A poster by the drain', 'The hooded beast, face up by the drain, the ink running where the floor is hosed.');
+  addFloorPoster(zones.darkroom.group, 'couple', -2.6, 7.4, 1.2, 'A poster in the dark', 'Two robed figures holding each other, face up among the chairs. You almost step on them.');
+}
+
+buildV8World(); buildPostersV12(); buildPlacesV17(); buildTableDetailsV18(); buildFloorPostersV18();
+if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);
