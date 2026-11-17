@@ -44,6 +44,13 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 20 — Marta's bob, Sergio's head
+
+- **The skull, fixed at the root.** Several of the head's shaping steps ran their smoothsteps high-to-low, which three.js treats as a step: the "narrow the jaw" pass was narrowing the whole cranium and leaving the chin at full width, so heads were too thin above and flared below, with the ears floating off the sides. The steps now run both ways, the cranium is a natural width, and the ears sit on the skull wherever it is.
+- **Falling hair.** A new hair shell (`fallGeometry`) is the skull scaled out above the ears and hangs straight down below them from the head's widest ring, tapering toward the neck and curling under at the ends, open at the face. Nothing round pokes out of an oval head any more.
+- **Marta** has a clean chin-length bleached bob with dark roots at the crown, covering her ears; no more side flaps.
+- **Sergio** keeps his long grey hair, beard and the cigarette behind his ear, but the hair now lies on the head and falls behind the ears to the nape, instead of sitting in clumps beside the beard.
+
 ## Version 19 — heads with skulls, and swearing out loud
 
 - **Profanity is spoken, not written.** The biro on the beer labels and the words carved into the table are gone. Instead, people swear when they talk, the way they would: Franco (*porca puttana*, *cazzo*, *porco Dio*), Sergio (*Madonna*, *testa di cazzo*), Pino (*porca miseria*), Walter (*merda*), Gabri (*vaffanculo*).
