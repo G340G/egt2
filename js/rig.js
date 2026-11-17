@@ -80,8 +80,10 @@ export function makePerson(key, spec) {
   }
   // neck and head
   const neck = new THREE.Group(); neck.position.y = 0.3 * k; chest.add(neck); P.neck = neck;
-  const nm = cap(0.048, 0.06, s.hood ? M(s.hair[1], 0.95) : skin); nm.position.y = 0.04; neck.add(nm);
-  const head = new THREE.Group(); head.position.y = 0.1; neck.add(head); P.head = head;
+  const nm = cap(s.female ? 0.045 : 0.056, 0.035, s.hood ? M(s.hair[1], 0.95) : skin); nm.position.set(0, 0.04, -0.012); nm.scale.z = 0.92; neck.add(nm);
+  if (!s.hood) { const trap = new THREE.Mesh(new THREE.CylinderGeometry(s.female ? 0.06 : 0.07, (s.female ? 0.15 : 0.175) * W, 0.09, 18, 1, true), top); trap.scale.z = 0.62; trap.position.set(0, 0.255 * k, -0.012); chest.add(trap); }
+  if (!s.hood && !s.female) { const ad = sph(0.011, skin, 8, 6); ad.scale.set(0.8, 1.2, 0.7); ad.position.set(0, 0.045, 0.042); neck.add(ad); }
+  const head = new THREE.Group(); head.position.y = 0.072; neck.add(head); P.head = head;
   if (s.hood) {
     // quarry blasting hood: heavy canvas over head and shoulders, an opaque visor, a metal catch
     const hm = M(0x4a4334, 0.98); const hood = sph(0.15, hm, 16, 12); hood.scale.set(1.0, 1.25, 1.05); hood.position.y = 0.1; head.add(hood);
@@ -95,7 +97,7 @@ export function makePerson(key, spec) {
     // (jaw taper, chin, flat face plane, cheekbones) and shaded with vertex colour (sockets,
     // lips), and the features are placed on the actual surface.
     const headMat = new THREE.MeshStandardMaterial({ color: s.skin, roughness: 0.72, vertexColors: true });
-    const hg = headGeometry(0.1, 36, 28, s); const skull = new THREE.Mesh(hg, headMat); skull.position.y = 0.11; skull.castShadow = true; head.add(skull);
+    const hg = headGeometry(0.1, 40, 32, s); const skull = new THREE.Mesh(hg, headMat); skull.position.y = 0.11; skull.castShadow = true; skull.receiveShadow = false; head.add(skull); P.skull = skull;
     P.headMat = headMat; P.skinMat = skin;
     const surf = (x, y) => surfaceZ(hg, x, y - 0.11);
     const featM = M(new THREE.Color(s.skin).multiplyScalar(0.92).getHex(), 0.7);
@@ -104,58 +106,62 @@ export function makePerson(key, spec) {
     const tip = sph(0.01, featM, 10, 8); tip.scale.set(1.15, 0.85, 0.9); tip.position.set(0, 0.087, surf(0, 0.087) + 0.008); head.add(tip);
     for (const sd of [-1, 1]) {
       const ey = 0.132, ex = sd * 0.033, ez = surf(ex, ey);
-      const white = sph(0.0105, M(0xd8d0c0, 0.4), 12, 10); white.scale.set(1.15, 0.7, 0.6); white.position.set(ex, ey, ez - 0.004); head.add(white);
+      const white = sph(s.female ? 0.0115 : 0.0102, M(0xd8d0c0, 0.4), 12, 10); white.scale.set(1.15, s.female ? 0.78 : 0.68, 0.6); white.position.set(ex, ey, ez - 0.004); head.add(white);
       const iris = sph(0.0058, M(s.eyes ?? 0x1c1612, 0.25), 10, 8); iris.position.set(ex, ey, ez + 0.001); iris.scale.set(1, 1, 0.5); head.add(iris);
-      const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.0032, 0.026, 3, 6), hairM); brow.rotation.z = Math.PI / 2 - sd * 0.12; brow.position.set(sd * 0.034, 0.152, surf(sd * 0.034, 0.152) + 0.003); head.add(brow);
+      const brow = new THREE.Mesh(new THREE.CapsuleGeometry(s.female ? 0.0022 : 0.0036, s.female ? 0.024 : 0.027, 3, 6), hairM); brow.rotation.z = Math.PI / 2 - sd * (s.female ? 0.28 : 0.1); brow.position.set(sd * 0.034, s.female ? 0.155 : 0.151, surf(sd * 0.034, 0.152) + 0.003); head.add(brow);
       const ear = sph(0.02, featM, 10, 8); ear.scale.set(0.38, 1.05, 0.72); ear.position.set(sd * 0.091, 0.115, -0.004); head.add(ear);
     }
-    const mouth = bx(0.03, 0.0032, 0.006, M(new THREE.Color(s.skin).multiplyScalar(0.42).lerp(new THREE.Color(0x5a2a24), 0.3).getHex(), 0.7)); mouth.position.set(0, 0.06, surf(0, 0.06) + 0.001); head.add(mouth); P.mouth = mouth;
+    const mouth = bx(s.female ? 0.031 : 0.028, s.female ? 0.0045 : 0.003, 0.006, M(new THREE.Color(s.skin).multiplyScalar(0.42).lerp(new THREE.Color(0x5a2a24), 0.3).getHex(), 0.7)); mouth.position.set(0, 0.06, surf(0, 0.06) + 0.001); head.add(mouth); P.mouth = mouth;
     P.lids = [-1, 1].map(sd => { const ex = sd * 0.033; const l = sph(0.0125, headMat, 10, 6); l.scale.set(1.2, 0.12, 0.62); l.position.set(ex, 0.138, surf(ex, 0.132) - 0.002); head.add(l); return l; });
     P.headGeo = hg;
     if (s.stubble) { const st = new THREE.Mesh(beardGeometry(hg, 1.012, 0.64), M(new THREE.Color(s.skin).multiplyScalar(0.68).getHex(), 1, { transparent: true, opacity: 0.55 })); st.position.y = 0.11; head.add(st); }
     if (s.earring) { const er = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.002, 6, 10), M(0xcfd4d8, 0.2, { metalness: 1 })); er.position.set(0.092, 0.088, 0.004); head.add(er); }
-    hair(head, s.hair[0], hairM, R);
+    hair(head, s.hair[0], hairM, R, !!s.female);
   }
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  faceShadows(P);
   // state
   Object.assign(P, { pose: 'stand', look: null, lookW: 0, talk: 0, laugh: 0, laughFrozen: false, smile: 0, breathe: R() * 6, sleep: 0, walk: null, idle: null, yaw: 0, t0: R() * 10, anim: null, tremble: 0, headTilt: 0 });
   return P;
 }
 
-function hair(head, style, m, R) {
+function hair(head, style, m, R, female = false) {
   // Hair fits the skull: a cap is the top of the same sculpted head, a few millimetres out,
   // tilted so the hairline sits higher at the front than at the nape. Length is a single
   // smooth drape behind, not a pile of spheres.
   const hg = head.parent ? null : null;
-  const cap = (scale, front = 0.47, back = 0.66, bump = 0) => { const g = hairCapGeometry(0.1, scale, front, back, bump, R); const c = new THREE.Mesh(g, m); c.position.y = 0.11; c.castShadow = true; head.add(c); return c; };
-  const drape = (len, width, wave = 0, lift = 0) => { const g = drapeGeometry(len, width, wave, R); const d = new THREE.Mesh(g, m); d.position.set(0, 0.13 + lift, -0.02); d.castShadow = true; head.add(d); return d; };
+  const cap = (scale, front = 0.47, back = 0.66, bump = 0) => { const g = hairCapGeometry(0.1, scale, front, back, bump, R, 0, female); const c = new THREE.Mesh(g, m); c.position.y = 0.11; c.castShadow = true; head.add(c); return c; };
+  const m2 = m.clone(); m2.side = THREE.DoubleSide;
+  const frame = (len, width, wave = 0) => { const g = frameGeometry(len, width, wave); const d = new THREE.Mesh(g, m2); d.position.set(0, 0.15, -0.006); d.castShadow = true; head.add(d); return d; };
+  const drape = (len, width, wave = 0, lift = 0) => { const g = drapeGeometry(len, width, wave, R); const d = new THREE.Mesh(g, m.side === THREE.DoubleSide ? m : Object.assign(m.clone(), { side: THREE.DoubleSide })); d.position.set(0, 0.13 + lift, -0.02); d.castShadow = true; head.add(d); return d; };
   switch (style) {
     case 'short': cap(1.045, 0.42, 0.6); break;
     case 'crop': cap(1.025, 0.4, 0.58); break;
-    case 'knot': { cap(1.04, 0.45, 0.62); const b = new THREE.Mesh(new THREE.SphereGeometry(0.034, 16, 12), m); b.position.set(0, 0.1, -0.112); b.scale.set(1, 0.9, 0.85); head.add(b); break; }
+    case 'knot': { cap(female ? 1.07 : 1.04, 0.42, 0.62); const b = new THREE.Mesh(new THREE.SphereGeometry(female ? 0.04 : 0.034, 16, 12), m); b.position.set(0, 0.1, -0.122); b.scale.set(1, 0.9, 0.85); head.add(b); break; }
     case 'curls': cap(1.07, 0.44, 0.64, 0.012); break;
     case 'collar': cap(1.05, 0.45, 0.66); drape(0.12, 0.09, 0.004); break;
     case 'fringe': cap(1.05, 0.56, 0.66); break;
     case 'bleach': cap(1.03, 0.4, 0.58); break;
     case 'overeye': { const c = cap(1.05, 0.55, 0.64); c.rotation.z = -0.12; break; }
     case 'longtop': cap(1.05, 0.48, 0.5); break;
-    case 'long': cap(1.05, 0.46, 0.66); drape(0.36, 0.105, 0.006); break;
+    case 'long': cap(1.05, 0.46, 0.66); if (female) frame(0.3, 0.112, 0.004); else drape(0.36, 0.105, 0.006); break;
+    case 'bob': cap(1.06, 0.5, 0.66); frame(0.12, 0.108, 0.002); break;
     case 'receding': cap(1.03, 0.3, 0.6); break;
     case 'bald': { const g = hairCapGeometry(0.1, 1.025, 0.1, 0.7, 0, R, 0.3); const c = new THREE.Mesh(g, m); c.position.y = 0.11; head.add(c); break; }
     case 'scarf': { const sm = M(0x4b3d33, 1); const sc = new THREE.Mesh(hairCapGeometry(0.1, 1.11, 0.6, 0.74, 0, R), sm); sc.position.y = 0.11; head.add(sc); const tail = new THREE.Mesh(drapeGeometry(0.1, 0.05, 0, R), sm); tail.position.set(0, 0.04, -0.09); head.add(tail); break; }
-    case 'longcurls': cap(1.08, 0.46, 0.66, 0.012); drape(0.34, 0.115, 0.012); break;
+    case 'longcurls': cap(1.08, 0.46, 0.66, 0.012); if (female) frame(0.3, 0.116, 0.01); else drape(0.34, 0.115, 0.012); break;
   }
 }
 // The head: a sphere pushed into a skull and a face.
 export function headGeometry(r = 0.1, ws = 36, hs = 28, s = {}) {
-  const g = new THREE.SphereGeometry(r, ws, hs); shapeHead(g, r);
+  const g = new THREE.SphereGeometry(r, ws, hs); shapeHead(g, r, !!s.female);
   const p = g.attributes.position, col = new Float32Array(p.count * 3), base = new THREE.Color(1, 1, 1);
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i) / r, y = p.getY(i) / r, z = p.getZ(i) / r; let c = 1, rr = 1, gg = 1, bb = 1;
     // eye sockets: a soft shadow above and around each eye
     for (const sd of [-1, 1]) { const d = Math.hypot((x - sd * 0.34) / 0.2, (y - 0.24) / 0.15); if (z > 0.5) c -= Math.max(0, 1 - d) * 0.28; }
     // lips: a little colour on the mouth line
-    { const d = Math.hypot(x / 0.24, (y + 0.45) / 0.07); if (z > 0.6) { const k = Math.max(0, 1 - d); rr -= k * 0.08; gg -= k * 0.22; bb -= k * 0.2; } }
+    { const d = Math.hypot(x / (s.female ? 0.27 : 0.23), (y + 0.42) / (s.female ? 0.11 : 0.06)); if (z > 0.6) { const k = Math.max(0, 1 - d); rr -= k * (s.female ? 0.02 : 0.08); gg -= k * (s.female ? 0.3 : 0.2); bb -= k * (s.female ? 0.26 : 0.18); } }
     // cheeks: faint warmth; under the jaw: shade
     for (const sd of [-1, 1]) { const d = Math.hypot((x - sd * 0.55) / 0.22, (y + 0.1) / 0.2); if (z > 0.3) { const k = Math.max(0, 1 - d); gg -= k * 0.05; bb -= k * 0.06; } }
     if (y < -0.7) c -= (-0.7 - y) * 0.6;
@@ -163,17 +169,28 @@ export function headGeometry(r = 0.1, ws = 36, hs = 28, s = {}) {
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals(); return g;
 }
-function shapeHead(g, r) {
-  const p = g.attributes.position;
+function shapeHead(g, r, female = false) {
+  // A skull with a face under it: a fuller cranium behind, a face plane that narrows below the
+  // cheekbones to the angle of the jaw and then to the chin, a flat underside that becomes the
+  // jawline. Men: wider jaw, squarer chin, heavier brow. Women: narrower jaw, softer chin.
+  // Every adjustment is weighted smoothly, so the surface has no creases.
+  const p = g.attributes.position, ss = THREE.MathUtils.smoothstep, L = THREE.MathUtils.lerp;
+  const win = (v, a, b) => { const e = (b - a) * 0.35; return ss(v, a, a + e) * (1 - ss(v, b - e, b)); };
+  const jawW = female ? 0.66 : 0.8, chinW = female ? 0.36 : 0.48, brow = female ? 0.012 : 0.05, chinF = female ? 0.04 : 0.09;
   for (let i = 0; i < p.count; i++) {
     let x = p.getX(i) / r, y = p.getY(i) / r, z = p.getZ(i) / r;
-    if (y < 0) { const t = Math.pow(-y, 1.4); x *= 1 - 0.3 * t; if (z < 0) z *= 1 - 0.35 * t; }          // jaw tapers, back of the neck tucks in
-    if (y < -0.45 && z > 0.3) z += 0.1 * (Math.min(1, (-0.45 - y) / 0.4)) * z;                           // chin forward
-    if (z > 0.55) z -= (z - 0.55) * 0.35;                                                                // flat face plane
-    if (Math.abs(x) > 0.45 && Math.abs(x) < 0.85 && y > -0.3 && y < 0.15 && z > 0.35) { x *= 1.04; z += 0.03; } // cheekbones
-    if (y > 0.15 && y < 0.38 && z > 0.6) z += 0.035 * (1 - Math.abs(x) / 0.8);                          // brow ridge
-    if (z < -0.1 && y > -0.2) z *= 1.06;                                                                  // occiput
-    p.setXYZ(i, x * r * 0.88, y * r * 1.16, z * r * 1.0);
+    const ax = Math.abs(x);
+    if (z < 0) z *= 1 + 0.16 * ss(y, -0.6, -0.25);                                           // occiput
+    { const t = ss(y, -0.15, -0.62); let w = L(1, jawW, t); w *= L(1, chinW / jawW, ss(z, 0.15, 0.95) * ss(y, -0.35, -0.85)); x *= w; if (z < 0) z *= L(1, 0.5, t); }
+    if (y < -0.62) { const k = ss(y, -0.62, -0.95); y = L(y, -0.72 + (y + 0.72) * 0.3, k); } // a jawline, not a dome
+    z += chinF * ss(z, 0.45, 0.65) * ss(y, -0.5, -0.78);                                       // chin
+    if (z > 0.6) z -= (z - 0.6) * 0.42;                                                         // face plane
+    z += brow * win(y, 0.08, 0.38) * ss(z, 0.5, 0.7) * (1 - Math.min(1, ax / 0.75));            // brow ridge
+    { const wc = win(ax, 0.45, 0.92) * win(y, -0.3, 0.12) * ss(z, 0.25, 0.5); x *= 1 + 0.05 * wc; z += 0.022 * wc; }   // cheekbones
+    z -= (female ? 0.008 : 0.02) * win(ax, 0.32, 0.72) * win(y, -0.64, -0.28) * ss(z, 0.42, 0.62);                     // hollow under the cheekbone
+    x *= 1 - 0.035 * win(y, 0.1, 0.5) * ss(ax, 0.7, 0.82) * ss(z, -0.25, 0);                   // temples
+    x *= 1 + 0.07 * ss(y, 0.2, 0.85);                                                           // a broad crown, not an egg
+    p.setXYZ(i, x * r * (female ? 0.85 : 0.89), y * r * 1.14, z * r * 1.02);
   }
 }
 export function surfaceZ(g, x, y) {
@@ -182,8 +199,8 @@ export function surfaceZ(g, x, y) {
   return bz;
 }
 // A cap of hair: the top of the same head shape, scaled out, with the hairline lower behind.
-export function hairCapGeometry(r, scale, front, back, bump, R, band = 0) {
-  const g = new THREE.SphereGeometry(r, 36, 24, 0, Math.PI * 2, 0, Math.PI * 0.78); shapeHead(g, r);
+export function hairCapGeometry(r, scale, front, back, bump, R, band = 0, female = false) {
+  const g = new THREE.SphereGeometry(r, 40, 22, 0, Math.PI * 2, 0, Math.PI * 0.64); shapeHead(g, r, female);
   const p = g.attributes.position, keep = [];
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i), n = Math.hypot(x, y, z) || 1, ny = y / n, nz = z / n;
@@ -192,7 +209,7 @@ export function hairCapGeometry(r, scale, front, back, bump, R, band = 0) {
     // below the hairline the cap sinks under the skin, so the edge reads as a hairline, not a rim
     let k = THREE.MathUtils.smoothstep(ny, line - 0.07, line + 0.03);
     if (band) k *= 1 - THREE.MathUtils.smoothstep(ny, band - 0.04, band + 0.06);                       // bald: a fringe only
-    const f = THREE.MathUtils.lerp(0.94, sc, k);
+    const f = THREE.MathUtils.lerp(0.82, sc, k);
     p.setXYZ(i, x * f, y * f, z * f);
   }
   g.computeVertexNormals(); return g;
@@ -294,7 +311,7 @@ export function personalize(P, X, tex = {}) {
   const hairM = new THREE.MeshStandardMaterial({ color: s.hair[1], roughness: 0.95 });
   const add = (mesh, parent, x, y, z) => { mesh.position.set(x, y, z); mesh.castShadow = true; parent.add(mesh); return mesh; };
   const e = new Set(X.extras || []);
-  if (e.has('beard-full') || e.has('beard-grey')) { const bm = e.has('beard-grey') ? M(0xa29d93, 1) : hairM; add(new THREE.Mesh(beardGeometry(P.headGeo, 1.055, 0.6), bm), head, 0, 0.11, 0); const mo = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.0045, 0.026, 3, 8), bm), head, 0, 0.069, surfaceZ(P.headGeo, 0, 0.069 - 0.11) + 0.004); mo.rotation.z = Math.PI / 2; mo.scale.set(1, 1, 0.7); }
+  if (e.has('beard-full') || e.has('beard-grey')) { const bm = e.has('beard-grey') ? M(0xa29d93, 1) : hairM; add(new THREE.Mesh(beardGeometry(P.headGeo, 1.05, 0.67), bm), head, 0, 0.11, 0); const mo = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.0045, 0.026, 3, 8), bm), head, 0, 0.069, surfaceZ(P.headGeo, 0, 0.069 - 0.11) + 0.004); mo.rotation.z = Math.PI / 2; mo.scale.set(1, 1, 0.7); }
   if (e.has('stubble')) add(new THREE.Mesh(beardGeometry(P.headGeo, 1.012, 0.64), M(new THREE.Color(s.skin).multiplyScalar(0.62).getHex(), 1, { transparent: true, opacity: 0.6 })), head, 0, 0.11, 0);
   if (e.has('moustache')) { const mo = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.0045, 0.026, 3, 8), M(0x9a948a, 1)), head, 0, 0.069, surfaceZ(P.headGeo, 0, 0.069 - 0.11) + 0.004); mo.rotation.z = Math.PI / 2; }
   if (e.has('glasses-round')) { const g = M(0x2b2620, 0.4, { metalness: 0.5 }); for (const sd of [-1, 1]) add(new THREE.Mesh(new THREE.TorusGeometry(0.016, 0.0018, 5, 18), g), head, sd * 0.034, 0.132, surfaceZ(P.headGeo, sd * 0.034, 0.022) + 0.01); add(new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.002, 0.002), g), head, 0, 0.136, surfaceZ(P.headGeo, 0, 0.026) + 0.011); }
@@ -363,3 +380,14 @@ export function leatherJacket(P) {
   P.arms.forEach(a => { const er = new THREE.Mesh(new THREE.TorusGeometry(0.052 * W, 0.004, 4, 14), seam); er.rotation.x = Math.PI / 2; a.el.add(er); const cf = new THREE.Mesh(new THREE.CylinderGeometry(0.046 * W, 0.044 * W, 0.045, 12, 1, true), seam); cf.position.y = -0.235 * k; a.el.add(cf); const cz = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.06, 0.004), steel); cz.position.set(0, -0.22 * k, -0.046 * W); a.el.add(cz); });
   P.leather = hide; return hide;
 }
+
+// Hair that frames the face: sides and back, open in front, falling to the jaw or the shoulders.
+export function frameGeometry(len, width, wave) {
+  const g = new THREE.CylinderGeometry(width, width * 1.1, len, 32, 8, true, Math.PI * 0.42, Math.PI * 1.16); const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const t = (len / 2 - y) / len; p.setXYZ(i, x * (1 - t * 0.06) + Math.sin(y * 70 + z * 30) * wave, y - len / 2, z * 0.86 - t * 0.012); }
+  g.computeVertexNormals(); return g;
+}
+
+// Small facial features casting into a coarse shadow map leave blocky streaks across the face.
+// Only the skull casts; everything on the face and the hair just receives light.
+export function faceShadows(P) { if (!P.head) return; P.head.traverse(o => { if (o.isMesh && o !== P.skull) { o.castShadow = false; o.receiveShadow = false; } }); }

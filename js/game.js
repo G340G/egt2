@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, personFor } from './people.js';
-import { makePerson, updatePerson, personalize, leatherJacket } from './rig.js';
+import { makePerson, updatePerson, personalize, leatherJacket, faceShadows } from './rig.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
 // ---- Player settings: volumes, mouse sensitivity and difficulty persist between visits. ----
@@ -6552,7 +6552,7 @@ function buildLightingV8() {
 function updateShafts(t) { shafts.forEach(s => { const v = s.base * (.82 + Math.sin(t * .0007 + s.ph) * .12 + (Math.random() < .01 ? -.2 : 0)); if (s.shader) s.m.material.uniforms.uOpacity.value = v; else s.m.material.opacity = v; }); }
 
 // ---- v9: Il Professore wears the egtest rig (articulated hips, spine, neck, look-at, smoke) ----
-function RIG_HAIR() { return { knot: 'knot', bald: 'bald', scarf: 'scarf', 'curls-short': 'curls', receding: 'receding', 'crop-bleached': 'bleach', long: 'long', 'long-curls': 'longcurls', 'fringe-eye': 'overeye', shaved: 'crop', scribble: 'short' }; }
+function RIG_HAIR() { return { knot: 'knot', bald: 'bald', scarf: 'scarf', 'curls-short': 'curls', receding: 'receding', 'crop-bleached': 'bleach', 'bob-bleached': 'bob', long: 'long', 'long-curls': 'longcurls', 'fringe-eye': 'overeye', shaved: 'crop', scribble: 'short' }; }
 function RIG_TOP() { return { cardigan: 'cardigan', turtleneck: 'knit', dress: 'knit', blazer: 'blazer', 'shirt-oversized': 'shirt', leather: 'leather', track: 'track', workjacket: 'work', tee: 'tee', 'tee-long': 'teelong', longcoat: 'coat', cassock: 'cassock' }; }
 function RIG_FEMALE() { return ['ines', 'anna', 'marta', 'livia', 'the widow']; }
 function rigSpec(npc) {
@@ -6569,7 +6569,7 @@ function attachRig(npc) {
   personalize(P, X, { fabric: leather ? null : fabricTexture, print: printTexture, tattoo: tattooTexture });
   if (leather) { const pm = P.leather.clone(); pm.map = printTexture(null, 0x0b0b0b, first ? 'roots' : 'spike'); P.chestMesh.material = pm; }
   if (leather && !first && P.legs[0].th.children[0]?.material) { const lm = P.legs[0].th.children[0].material; lm.map = fabricTexture('denim', 0x15161a); lm.color.setHex(0xffffff); lm.needsUpdate = true; }
-  applyCorruption(npc, P);
+  applyCorruption(npc, P); faceShadows(P);
   root.children.forEach(c => { c.visible = false; });
   P.root.scale.set(1.06 / (root.scale.x || 1), 1.06 / (root.scale.y || 1), 1.06 / (root.scale.z || 1));
   root.add(P.root); P.look = 'cam'; P.lookW = 0; npc.rig = P; npc.radius = Math.max(npc.radius || 0, 3.2); (attachRig.list || (attachRig.list = [])).push(npc);
@@ -7301,7 +7301,7 @@ function addBeer(group, x, y, z, { seed = 1, fallen = false, level = .4, scrawl 
 function buildTableDetailsV18() {
   const H = zones.home.group, T = storyRef.tableSeats; if (!T) return;
   const tx = T.top[0], ty = T.topY, tz = T.top[1];
-  [[-.3, -1.4, 1, false, .35, ''], [.28, -.9, 2, false, .0, ''], [-.22, -.2, 3, true, 0, ''], [.3, .4, 4, false, .6, 'bevi e taci'], [-.3, .9, 5, false, .1, ''], [.24, 1.5, 6, true, 0, ''], [-.05, 1.9, 7, false, .8, 'porco dio']].forEach(([dx, dz, sd, f, lv, sc]) => addBeer(H, tx + dx, ty, tz + dz, { seed: sd, fallen: f, level: lv, scrawl: sc }));
+  [[-.3, -1.4, 1, false, .35, ''], [.28, -.9, 2, false, .0, ''], [-.22, -.2, 3, true, 0, ''], [.3, .4, 4, false, .6, ''], [-.3, .9, 5, false, .1, ''], [.24, 1.5, 6, true, 0, ''], [-.05, 1.9, 7, false, .8, '']].forEach(([dx, dz, sd, f, lv, sc]) => addBeer(H, tx + dx, ty, tz + dz, { seed: sd, fallen: f, level: lv, scrawl: sc }));
   const capM = new THREE.MeshStandardMaterial({ color: 0x8a1c14, roughness: .4, metalness: .6 });
   for (let i = 0; i < 9; i++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .004, 12), capM); c.position.set(tx + (Math.random() - .5) * .8, ty + .002, tz + (Math.random() - .5) * 3.6); c.rotation.z = Math.random() < .5 ? Math.PI : 0; H.add(c); }
   // a glass, half drunk, foam gone flat; wet rings everywhere
@@ -7312,10 +7312,7 @@ function buildTableDetailsV18() {
   // an ashtray of stubbed butts
   const ash = new THREE.Mesh(new THREE.CylinderGeometry(.06, .05, .025, 18), v7mat(0x3a3a34, .3, { metalness: .6 })); ash.position.set(tx - .1, ty + .013, tz + 1.15); H.add(ash);
   for (let i = 0; i < 7; i++) { const bt = new THREE.Mesh(new THREE.CylinderGeometry(.004, .004, .025, 6), v7mat(i % 3 ? 0xc08a4a : 0xe8e2d4, .8)); bt.position.set(tx - .1 + (Math.random() - .5) * .07, ty + .03, tz + 1.15 + (Math.random() - .5) * .07); bt.rotation.set(Math.random() * 1.4, Math.random() * 3, Math.random()); H.add(bt); }
-  // what has been cut into the table top with a knife
-  const carve = new THREE.Mesh(new THREE.PlaneGeometry(.7, .22), new THREE.MeshBasicMaterial({ map: canvasTex(512, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(232,214,176,.55)'; g.lineWidth = 3; g.font = '60px "Reenie Beanie", cursive'; g.fillStyle = 'rgba(30,20,12,.7)'; g.fillText('PORCO DIO', 20, 70); g.font = '44px "Reenie Beanie", cursive'; g.fillText('merda a chi legge', 160, 130); g.strokeText('77', 420, 70); }), transparent: true, depthWrite: false })); carve.rotation.x = -Math.PI / 2; carve.rotation.z = Math.PI / 2 + .1; carve.position.set(tx + .2, ty + .002, tz - 1.9); H.add(carve);
-  addLook(H, tx, ty + .25, tz + .3, 'Beer', 'Birra del Po, bionda, sixty-six centilitres, most of them empty. Caps everywhere, two bottles on their sides. Somebody has written on a label in biro: bevi e taci. Drink and shut up. On another: porco dio.', 1.7);
-  addLook(H, tx + .2, ty + .2, tz - 1.9, 'Cut into the wood', 'PORCO DIO, in capitals, gouged with a knife and gone over many times. Under it, smaller: merda a chi legge. Shit on whoever reads this. And a date, seventy-seven, cut deeper than the rest.', 1.4);
+  addLook(H, tx, ty + .25, tz + .3, 'Beer', 'Birra del Po, bionda, sixty-six centilitres, most of them empty. Caps everywhere, two bottles on their sides in their own spill. Nobody has cleared anything since the afternoon.', 1.7);
 }
 function addFloorPoster(group, kind, x, z, rot, title, text, scale = 1) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale, 6, 6), new THREE.MeshStandardMaterial({ map: posterTexture(kind), roughness: 1, side: THREE.DoubleSide }));
