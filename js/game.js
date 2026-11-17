@@ -6558,7 +6558,7 @@ function RIG_FEMALE() { return ['ines', 'anna', 'marta', 'livia', 'the widow']; 
 function rigSpec(npc) {
   const P = npc.persona, L = P.look, key = personaKey(npc);
   const skin = new THREE.Color(L.skin).lerp(new THREE.Color(0xd8c0a8), .45).getHex();
-  return { label: (npc.displayName || npc.name).toUpperCase(), h: 1.74 * (L.height || 1), w: L.heft || 1, skin, hair: [RIG_HAIR()[L.hair] || 'short', L.hairColor], top: [L.coat, RIG_TOP()[L.garment] || 'shirt', L.under ?? 0xcfccc2], legs: L.legs ?? 0x2a2a2a, shoes: L.shoes ?? 0x1a1a1a, skirt: L.garment === 'dress' ? L.coat : undefined, female: RIG_FEMALE().includes(key), heavy: (L.heft || 1) > 1.15, earring: false, f0: 120 };
+  return { label: (npc.displayName || npc.name).toUpperCase(), h: 1.74 * (L.height || 1), w: L.heft || 1, skin, hair: [RIG_HAIR()[L.hair] || 'short', L.hairColor, L.roots], top: [L.coat, RIG_TOP()[L.garment] || 'shirt', L.under ?? 0xcfccc2], legs: L.legs ?? 0x2a2a2a, shoes: L.shoes ?? 0x1a1a1a, skirt: L.garment === 'dress' ? L.coat : undefined, female: RIG_FEMALE().includes(key), heavy: (L.heft || 1) > 1.15, earring: false, f0: 120 };
 }
 function attachRig(npc) {
   const first = personaKey(npc) === 'the first';
