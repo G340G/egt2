@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, personFor } from './people.js';
-import { makePerson, updatePerson, personalize, leatherJacket, faceShadows } from './rig.js';
+import { makePerson, updatePerson, personalize, leatherJacket, faceShadows, shirtUnderJacket } from './rig.js';
 import { createSociety } from './society.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
@@ -18,10 +18,10 @@ function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringif
 // 2 = hard: contact is fatal. 3 = nightmare: faster pursuers, fear rises quicker.
 // v21: nobody hunts Tobia. Difficulty is how readily the people around him act on what they believe.
 const DIFFICULTY_INFO = [
-  { name: '0 · PASTORALE', text: 'Nobody will lay a hand on you. The room still decides who it keeps. Five tissues.' },
-  { name: '1 · ASCOLTO', text: 'People act only when they have many reasons. Five tissues.' },
-  { name: '2 · MESSA', text: 'People act on what they believe about you. Four tissues.' },
-  { name: '3 · IL BIANCO', text: 'People act on less. Three tissues. Tension reaches the body sooner.' }
+  { name: '0 · PASTORALE', text: 'Nobody will come for you. The room still decides who it keeps. Five tissues.' },
+  { name: '1 · ASCOLTO', text: 'One of them at a time may decide you must disappear, and only for many reasons. Five tissues.' },
+  { name: '2 · MESSA', text: 'Up to two may come for you, for what they believe you did. Four tissues.' },
+  { name: '3 · IL BIANCO', text: 'Up to three, for less. Three tissues. Nowhere is safe.' }
 ];
 function noEnemies() { return true; }
 function lethalContact() { return false; }
@@ -6639,6 +6639,7 @@ function attachRig(npc) {
   const leather = first || sub.leather; if (leather) leatherJacket(P);
   personalize(P, X, { fabric: leather ? null : fabricTexture, print: printTexture, tattoo: tattooTexture });
   if (leather) { const pm = P.leather.clone(); pm.map = printTexture(null, 0x0b0b0b, first ? 'roots' : 'spike'); P.chestMesh.material = pm; }
+  if (first) shirtUnderJacket(P, fabricTexture('cotton', 0xe8e4da));
   if (leather && !first && P.legs[0].th.children[0]?.material) { const lm = P.legs[0].th.children[0].material; lm.map = fabricTexture('denim', 0x15161a); lm.color.setHex(0xffffff); lm.needsUpdate = true; }
   applyCorruption(npc, P); faceShadows(P);
   root.children.forEach(c => { c.visible = false; });
@@ -7305,7 +7306,7 @@ buildV8World(); buildPostersV12(); buildPlacesV17(); buildTableDetailsV18(); bui
 // ---- v21: the room ------------------------------------------------------------------
 function socialPeople() {
   const out = [], z = zones.home; if (!z) return out;
-  for (const n of z.interactables) { if (n.type !== 'npc' || !n.object?.visible || !n.object.parent || (n.fate && n.fate !== 'present')) continue; const k = personaKey(n); if (!SOCIAL[k]) continue; n.socialKey = k; out.push({ key: k, npc: n }); }
+  for (const n of z.interactables) { if (n.type !== 'npc' || n.hunting || n.borrowed || !n.object?.visible || !n.object.parent || (n.fate && n.fate !== 'present')) continue; const k = personaKey(n); if (!SOCIAL[k]) continue; n.socialKey = k; out.push({ key: k, npc: n }); }
   const f = welcome.first; if (f?.object?.visible && z.interactables.includes(f)) { f.socialKey = 'primo'; out.push({ key: 'primo', npc: f }); }
   return out;
 }
@@ -7320,7 +7321,7 @@ function socialPhotoTexture() {
 }
 society = createSociety({ THREE, camera, playerAnchor, look, zone: () => currentZone, home: () => zones.home, elapsed: () => elapsed, people: socialPeople, seats: () => storyRef.tableSeats,
   line: storyLine, lineNow: (t) => { clearLines(); storyLine(t); }, clearLines, voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
-  fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done,
+  fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true) });
 if (TEST_MODE) window.__epi = { society: () => society, zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 

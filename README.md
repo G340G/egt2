@@ -44,6 +44,19 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 22 — they decide
+
+v21 made the group the threat. Now the group acts, and nowhere is safe.
+
+- **Hunters.** When someone's reasons outweigh their care (trust, grievance and fear from everything you did, said, took, repeated or refused), they decide you must disappear. For a while they keep their face at the table, pleasant, warmer than before. Then one evening their chair is empty. From then on they are in the rooms you walk into, standing out of your line of sight, or they come in through the door behind you. They move only when you are not looking at them. They never act in front of other people. When they are close you hear a footstep, a breath. Turn round and they are ordinary ("Looking for the lamp oil. You?"), and you can ask what they are really doing, apologise, tell them what really happened, give back what you took, let them see the knife, or back away. Whether any of it works depends on who they are. Look away for too long and they go somewhere else; look back and they are closer.
+- **How they kill, with what is in their hands.** Franco: the cleaver. Marta: her burin. Gabri: the bread knife. Anna: the long kitchen knife. Dario: a rosary cord. Sergio: his belt. Livia: a cushion. On foot, Walter and Pino use their hands, but on the road the van comes out of the fog behind you with its lights off and corrects towards you. Step aside late, or not at all. Ines does not need a weapon: the tissues disappear from your coat while you are wiping your nose, the bleeding does not stop, the edges of the room go dark, and you bleed out unless someone who still cares stops it (speak to them while you bleed).
+- **Deception.** People send you on errands: "Il Professore wants you in the cellar. Alone, he said." Some are traps, and the person who decided you must disappear is waiting just inside the door, or the van is on the road. Some are a friend trying to warn you, and you find a napkin with a name on it or a packet of tissues. You cannot tell which beforehand.
+- **Never safe.** Members are seen in the fog of every place you go, watching, gone when you get close. Most of them mean nothing. The blood makes it worse. Bleeding shrinks how far you can see a person, and wiping blinds you for a few seconds, which is when they move fastest.
+- **Every death is a reconstruction.** The death screen says who, with what, and why, as far as anyone can say. It covers the stories that reached them, the lie that was exposed, the errand you were sent on, whether your nose was bleeding, and who would have stopped it if they had been near.
+- Difficulty: 0 nobody comes for you; 1 one at a time, for many reasons; 2 up to two; 3 up to three, for less.
+- **Epistaxis is about 25% less frequent**: tension builds more slowly, the threshold is higher, bleeds are shorter and the pause between them is longer.
+- **Il Professore wears a white shirt under the black leather jacket**, lying in the open V of the lapels with a soft collar.
+
 ## Version 21 — the room (nobody hunts Tobia)
 
 The Attendant is gone, and so is every pursuer: the forest chaser, the dark-room hunt, the old stalker. A pursuer teaches tactics (appear, hide, escape). What replaces him is less comfortable: nobody is hunting Tobia, but any of the people around him might decide that he has to disappear, and nobody will necessarily stop them. The new systems live in `js/society.js`; each person's temperament is in `SOCIAL` in `js/people.js`.
