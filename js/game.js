@@ -5,8 +5,9 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, personFor } from './people.js';
+import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, personFor } from './people.js';
 import { makePerson, updatePerson, personalize, leatherJacket, faceShadows } from './rig.js';
+import { createSociety } from './society.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
 // ---- Player settings: volumes, mouse sensitivity and difficulty persist between visits. ----
@@ -15,14 +16,15 @@ const SETTINGS = Object.assign({ master: .9, music: .85, sfx: 1, sens: 1, diffic
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); } catch (_) {} }
 // Difficulty 0 = no enemies and no lethal traps. 1 = standard: the pursuers frighten but rarely kill.
 // 2 = hard: contact is fatal. 3 = nightmare: faster pursuers, fear rises quicker.
+// v21: nobody hunts Tobia. Difficulty is how readily the people around him act on what they believe.
 const DIFFICULTY_INFO = [
-  { name: '0 · PASTORALE', text: 'The Attendant is visible and audible. He never catches you.' },
-  { name: '1 · ASCOLTO', text: 'Generous warning. If the Attendant reaches you, he walks you back to the door.' },
-  { name: '2 · MESSA', text: 'Shorter warning, longer searches. His hand on you ends the recording.' },
-  { name: '3 · IL BIANCO', text: 'Shortest warning, most persistent search. Fear rises faster. Darkness can kill.' }
+  { name: '0 · PASTORALE', text: 'Nobody will lay a hand on you. The room still decides who it keeps. Five tissues.' },
+  { name: '1 · ASCOLTO', text: 'People act only when they have many reasons. Five tissues.' },
+  { name: '2 · MESSA', text: 'People act on what they believe about you. Four tissues.' },
+  { name: '3 · IL BIANCO', text: 'People act on less. Three tissues. Tension reaches the body sooner.' }
 ];
-function noEnemies() { return SETTINGS.difficulty === 0; }
-function lethalContact() { return SETTINGS.difficulty >= 2; }
+function noEnemies() { return true; }
+function lethalContact() { return false; }
 function enemySpeed() { return [0, .55, .95, 1.35][SETTINGS.difficulty] || .55; }
 const TEST_MODE = new URLSearchParams(location.search).has('test');
 const lowFx = new URLSearchParams(location.search).has('lowfx');
@@ -40,6 +42,7 @@ const CHOICE_EFFECTS = {
   anna: ['good:map', 'bad:closer']
 };
 const camDir2 = new THREE.Vector3();
+let society = null;
 let bokeh = null, zoomPulse = 0, presence = 0, presenceWarned = false, nearFlag = false, beatTimer = 0;
 let stalker = null, stalkerZone = null, digEntry = null, digProgress = 0, digDone = false, candlesLit = 0;
 let narrationTimer = null, rightMouse = false;
@@ -212,10 +215,53 @@ composer.addPass(new RenderPass(scene, camera));
 if (!lowFx) { bokeh = new BokehPass(scene, camera, { focus: 4.5, aperture: 0.00016, maxblur: 0.0045 }); composer.addPass(bokeh); }
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.34, 0.62, 0.78);
 composer.addPass(bloom);
+// v21 — epistaxis: not a red screen. The material of the world changes: wood towards skin,
+// plaster wet and veined, the dark turning to velvet, the image drawn in too close to see well.
+const FleshShader = {
+  uniforms: { tDiffuse: { value: null }, amount: { value: 0 }, time: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `
+    varying vec2 vUv; uniform sampler2D tDiffuse; uniform float amount; uniform float time;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x), mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x), f.y); }
+    float fbm(vec2 p){ float v=0.0, a=0.5; for(int i=0;i<4;i++){ v+=a*noise(p); p*=2.03; a*=0.5; } return v; }
+    void main(){
+      float a = amount; vec2 c = vUv - 0.5; float breath = sin(time * 1.55) * 0.5 + 0.5;
+      // the world comes too close: a slow pull toward the centre, breathing, drifting
+      vec2 uv = 0.5 + c * (1.0 - a * (0.03 + 0.025 * breath));
+      uv += (vec2(fbm(uv * 3.0 + time * 0.05), fbm(uv * 3.0 + 7.3 - time * 0.04)) - 0.5) * a * 0.012;
+      vec3 col = texture2D(tDiffuse, uv).rgb;
+      // no comfortable distance: everything off-centre goes soft
+      float r = length(c), blur = a * smoothstep(0.1, 0.6, r) * 0.011; vec3 acc = col;
+      for (int i = 0; i < 6; i++) { float an = float(i) * 1.047 + time * 0.1; acc += texture2D(tDiffuse, uv + vec2(cos(an), sin(an)) * blur).rgb; }
+      col = mix(col, acc / 7.0, min(1.0, a * 1.4));
+      float l = dot(col, vec3(0.299, 0.587, 0.114)), mx = max(col.r, max(col.g, col.b)), mn = min(col.r, min(col.g, col.b)), sat = (mx - mn) / (mx + 0.001);
+      float pale = smoothstep(0.38, 0.8, l);
+      float warm = smoothstep(0.0, 0.12, col.r - col.b) * smoothstep(0.04, 0.22, l) * (1.0 - pale);
+      float dark = 1.0 - smoothstep(0.03, 0.17, l);
+      float n = fbm(uv * vec2(9.0, 14.0) + vec2(0.0, time * 0.03)), pores = fbm(uv * 60.0);
+      // wood becomes skin
+      vec3 skin = vec3(0.86, 0.58, 0.5) * (l * 1.25 + 0.05) * (0.88 + pores * 0.24); skin.r += n * 0.06 * l;
+      col = mix(col, skin, warm * a * 0.85);
+      // plaster becomes wet flesh: veins, a sheen that moves
+      float vf = fbm(uv * vec2(6.0, 9.0) + 3.1), vein = smoothstep(0.47, 0.5, vf) * (1.0 - smoothstep(0.5, 0.53, vf));
+      float sheen = pow(max(0.0, fbm(uv * 5.0 + time * 0.08) - 0.45) * 2.0, 3.0);
+      vec3 flesh = mix(vec3(0.86, 0.66, 0.6), vec3(0.68, 0.34, 0.33), n) * (l * 0.95 + 0.06) * (0.9 + pores * 0.2);
+      flesh = mix(flesh, vec3(0.4, 0.07, 0.08), vein * 0.7) + vec3(1.0, 0.9, 0.88) * sheen * 0.45 * (0.6 + 0.4 * breath);
+      col = mix(col, flesh, pale * a * 0.85);
+      // the dark becomes velvet, a deep red pile that catches a little light
+      float pile = noise(uv * vec2(420.0, 260.0)) * 0.5 + noise(uv * 90.0) * 0.5;
+      vec3 velvet = vec3(0.16, 0.025, 0.035) * (0.6 + pile * 0.8) + vec3(0.05, 0.01, 0.01) * breath;
+      col = mix(col, velvet, dark * a * 0.9);
+      col = mix(col, col * vec3(1.07, 0.87, 0.85), a * 0.5);
+      gl_FragColor = vec4(col, 1.0);
+    }`
+};
 const glitchPass = new ShaderPass(GlitchShader);
 composer.addPass(glitchPass);
 const baconPass = new ShaderPass(BaconShader);
 composer.addPass(baconPass);
+const fleshPass = new ShaderPass(FleshShader); fleshPass.enabled = false; composer.addPass(fleshPass);
 
 // -----------------------------------------------------------------------------
 // Procedural materials and geometry
@@ -1723,10 +1769,10 @@ function enterZone(name, spawn) {
   $('location').textContent = ({ road: 'FOG ROAD', home: 'THE HOUSE / THIRTEEN PLACES', church: 'THE DECONSECRATED CHURCH', ruin: 'THE EMPTY HOUSE', cellar: 'THE CELLAR / 14-B', darkroom: 'THE DARK ROOM / 14-B', abattoir: 'THE SLAUGHTERHOUSE / THE VOID ROOM', forest: 'THE CANAL FOREST' })[name];
   glitchPulse = Math.max(glitchPulse, .42); audio?.stinger(.32); audio?.setZone(name); if(name==='abattoir'){fear=Math.min(1,fear+.19);audio?.mechanicalEvent('hoist');} if(name==='church' && collected.size>=2 && !scenePlayed) showToast('THE BELL ROPE IS WET.'); if(name==='cellar'||name==='darkroom'){fear=Math.min(1,fear+.18);} if(name==='darkroom'){darkroomHunt.active=!noEnemies()&&!storyFlags.has('darkroom-cleared');if(noEnemies()&&storyRef.darkroomHunter?.object)storyRef.darkroomHunter.object.visible=false;if(!storyFlags.has('darkroom-entered')){storyFlags.add('darkroom-entered');darkroomHunt.elapsed=0;darkroomHunt.reappear=3.2;startMonologue(['Il Professore: The lamp is not a weapon. It is a question you can only ask in one direction.','Voice: The room is full. You cannot see what it contains.','Il Professore: Find what the tape cannot carry. Do not mistake being watched for being seen.'],13);}}
   showToast(({ road: 'THE ROAD IS NOT WHERE YOU LEFT IT', home: 'NO ONE ASKED YOUR NAME', church: 'THE NAVE IS LONGER FROM THE INSIDE', ruin: 'SOMEONE IS WAITING BY THE TELEPHONE', cellar: 'THE ROOM HAS KEPT ITS HEAT', darkroom: 'THE DARK HAS BEEN ARRANGED BY HAND', forest: 'THE FOREST KEEPS YOUR POSITION', abattoir: 'HERE THE FLESH HAS A LONG MEMORY' })[name]);
-  placeStalker(name); showChapterCard(name); resetTensionFor(name);
+  placeStalker(name); showChapterCard(name); resetTensionFor(name); society?.onEnterZone(name);
 }
 function currentPosition() { return playerAnchor.position; }
-function playerInputEnabled() { return gameStarted && !gameEnded && !listeningPending && !doorTransitioning && !cultFateActive && !dialogueOpen && !journalOpen && !settingsOpen && (!storyScene || storyScene.type === 'hold'); }
+function playerInputEnabled() { return gameStarted && !gameEnded && !listeningPending && !doorTransitioning && !cultFateActive && !dialogueOpen && !journalOpen && !settingsOpen && (!storyScene || storyScene.type === 'hold') && !society?.busy; }
 
 // -----------------------------------------------------------------------------
 // Sound: entirely synthesised, layered and intentionally non-musical.
@@ -2278,6 +2324,7 @@ function speakVoice(text, npcName = '') {
 }
 function openDialogue(npc) {
   if (dialogueOpen) return;
+  { const g = society?.dialogueGate(npc); if (g === 'handled') return; if (g) { storyLine(g); return; } }
   if (npc.isHomeFirst) { const j = jobFor(npc); if (j) offerJob(npc, j); else storyLine('IL PROFESSORE: ' + (primoAside() || 'Sit wherever the room puts you. You will know which chair.')); return; }
   if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { const j = jobFor(npc); if (j) { offerJob(npc, j); return; } openSecondDialogue(npc); return; }
   clearLines(); dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
@@ -2291,7 +2338,7 @@ function openDialogue(npc) {
 }
 function chooseDialogue(npc, index) {
   if(!npc||(npc.talkedOnce&&!npc.isOpeningPrimo&&!/the first/i.test(npc.name||'')))return;
-  npc.talkedOnce=true; meetPerson(npc);
+  npc.talkedOnce=true; meetPerson(npc); society?.onDialogueChoice(npc);
   let reply = npc.dialogue?.replies?.[index] || 'The answer comes from a room that does not exist.';
   const lower=(npc.name||'').toLowerCase();
   if(lower==='ines'){storyFlags.add(index===0?'ines-trust':'ines-betrayed');storyFlags.add('talked-ines');}
@@ -2356,9 +2403,11 @@ function inspectTarget(item) {
   if (item.type === 'dig') { return; }
   if (item.type === 'egg') { collectRelic(item); return; }
   if (item.type === 'story') { item.run(); return; }
+  if (item.type === 'social') { item.run(); return; }
 }
 function activateDoor(item){
-  if(doorTransitioning||item._opening)return;doorTransitioning=true;item._opening=true;keys.clear();audio?.doorCreak();
+  if(doorTransitioning||item._opening)return;
+  if(society?.doorGate(item))return;doorTransitioning=true;item._opening=true;keys.clear();audio?.doorCreak();
   const pivot=item.doorPivot;
   if(!pivot){setTimeout(()=>{doorTransitioning=false;item._opening=false;enterZone(item.destination,item.spawn);},360);return;}
   const from=pivot.rotation.y,to=item.openAngle??-1.08,start=performance.now(),duration=520;
@@ -2403,13 +2452,32 @@ function finishListening(){
   ]};audio?.voidBloom();
 }
 function revealEndingChoices(){
-  storyScene=null;$('subtitle-wrap').classList.remove('visible');$('ending-screen').classList.add('active');
+  // v21: no final menu. The ending emerges from what the house came to believe about Tobia.
+  storyScene=null;$('subtitle-wrap').classList.remove('visible');
+  if(society){const E=society.computeEnding();finaleThenV6(E.choice||'preserve');return;}
+  $('ending-screen').classList.add('active');
   $('ending-title').textContent='The White Was Not Heard.';$('ending-copy').textContent='The turntable is still in the cellar. The forest has made a place the size of a person.';
   $('ending-small').textContent='THE THIRTEEN HAVE LEFT. WHAT YOU LEFT BEHIND REMAINS.';$('ending-choices').classList.add('visible');
   $('ending-testimony').style.display=(storyFlags.has('grave-revealed')&&storyFlags.has('pastorale-complete'))?'':'none';$('ending-result').classList.remove('visible');
 }
 
+function showSocialEnding(E, abrupt = false) {
+  clearSavedEvidence();
+  const show = () => {
+    $('ending-screen').classList.add('active'); $('ending-title').textContent = E.title; $('ending-copy').textContent = E.copy; $('ending-small').textContent = E.small;
+    $('ending-choices').classList.remove('visible'); $('ending-result').classList.add('visible');
+    let el = $('ending-ledger'); if (!el) { el = document.createElement('div'); el.id = 'ending-ledger'; el.className = 'ending-ledger'; $('ending-result').prepend(el); }
+    el.innerHTML = '<p class="ledger-head">WHAT HAPPENED, AS FAR AS ANYONE CAN SAY</p>' + (E.ledger || []).map(l => `<p>${l}</p>`).join('');
+    storyFlags.add('ending-' + E.id); speakVoice(E.voice, 'RECORDING 14-B');
+    $('event-flash').classList.add('active'); setTimeout(() => $('event-flash').classList.remove('active'), 420); audio?.killSting();
+  };
+  if (!abrupt) { show(); return; }
+  if (gameEnded) return; gameEnded = true; controls.unlock(); keys.clear(); $('hud').classList.add('hidden-hud');
+  const d = $('intro-dark'); d.style.transition = 'opacity .35s linear'; d.style.opacity = '1'; audio?.mechanicalNoise(.3, 300, .8, .2, 0);
+  setTimeout(() => { show(); d.style.transition = 'opacity 2.4s linear'; d.style.opacity = '0'; }, 2200);
+}
 function resolveEnding(choice) {
+  if (society?.S.ending) { showSocialEnding(society.S.ending); return; }
   clearSavedEvidence();
   const choices={
     testimony:{title:'The Names Took Root',copy:'You spoke the thirteen names as people call to one another from a window. In the forest, thirteen leaves stopped against the wind. They did not return. But for the first time they were no longer only erased shapes. The fog let the light pass without dissolving them.',small:'ENDING IV / TESTIMONY',voice:'Aurelio. Ines. Dario. Sergio. You are not the record. You were here.'},
@@ -2550,6 +2618,7 @@ let bobPhase = 0, bobAmount = 0, sprintBlend = 0, strafeRoll = 0;
 function updatePlayer(dt) {
   if (!playerInputEnabled()) { velocity.multiplyScalar(Math.max(0, 1 - dt * 8)); bobAmount *= Math.max(0, 1 - dt * 6); return; }
   applyLook(dt);
+  if (society?.seated) { velocity.set(0, 0, 0); bobAmount = 0; camera.position.y = 1.12; return; }
   const sprinting=keys.has('ShiftLeft') || keys.has('ShiftRight'); const speed = sprinting ? 5.4 : 3.2; if(sprinting&&wishVec.lengthSq()>.1)fear=Math.min(1,fear+dt*.012);
   const f = hiddenBreath ? 0 : ((keys.has('KeyW') || keys.has('ArrowUp')) ? 1 : 0) - ((keys.has('KeyS') || keys.has('ArrowDown')) ? 1 : 0);
   const s = hiddenBreath ? 0 : ((keys.has('KeyD') || keys.has('ArrowRight')) ? 1 : 0) - ((keys.has('KeyA') || keys.has('ArrowLeft')) ? 1 : 0);
@@ -2684,8 +2753,8 @@ const movementCodes = new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown'
 window.addEventListener('keydown', (e) => {
   if (playerInputEnabled() && movementCodes.has(e.code)) e.preventDefault();
   keys.add(e.code);
+  if (gameStarted && !gameEnded && society && !e.repeat && !dialogueOpen && !journalOpen && !settingsOpen && !bench && society.onKey(e.code)) { e.preventDefault(); return; }
   if (e.code === 'KeyF' && !e.repeat && playerInputEnabled()) toggleFlashlight();
-  if(e.code==='KeyQ' && playerInputEnabled() && !e.repeat){hiddenBreath=true;showToast('HOLD YOUR BREATH. DO NOT MOVE.');}
   if (e.code === 'KeyM' && !e.repeat) audio.toggle();
   if (e.code === 'KeyP' && !e.repeat) { settingsOpen ? closeSettings() : openSettings(); }
   if (e.code === 'Space' && !e.repeat && storyScene && storyScene.skippable !== false && storyScene.type !== 'hold') { e.preventDefault(); skipStoryScene(); }
@@ -4256,7 +4325,7 @@ function loop() {
   if (gameStarted && !gameEnded) {
     updatePlayer(dt); updateCemeteryTrap(); updateTargets(); animateZone(t, dt); updateCultSequence(dt,t);
     if(listeningPending && !cultFateActive && cultFateQueue.length===0) finishListening();
-    updateMissions(); updateDig(dt); updatePresence(dt, t); updatePeople(dt, t);
+    updateMissions(); updateDig(dt); updatePresence(dt, t); updatePeople(dt, t); society?.update(dt);
     if(!gameEnded){updateHorror(dt,t);updateDayNight(dt,t);updateWeather(dt,t);updateCameraDirector(dt,t);updateHud(dt);}
     if (activeTarget?.id !== previousTargetId && activeTarget) audio.stinger(.07);
     previousTargetId = activeTarget?.id || '';
@@ -4268,6 +4337,7 @@ function loop() {
   glitchPass.uniforms.time.value = t * .001;
   baconPass.uniforms.time.value = t * .001; baconPass.uniforms.grade.value = .62 + dread * .3; baconPass.uniforms.smear.value = .05 + dread * .12;
   glitchPass.uniforms.strength.value = .10 + dread * .13 + glitchPulse * .5;
+  { const fa = society?.distort || 0; fleshPass.uniforms.amount.value = fa; fleshPass.uniforms.time.value = t * .001; fleshPass.enabled = fa > .004; }
   bloom.strength = .24 + dread * .15; bloom.threshold = .78 - dread * .12;
   storyTick(dt, t);
   composer.render();
@@ -5554,7 +5624,7 @@ function triggerCemeteryAmbushV6() {
   const flash = $('event-flash'); flash.classList.add('active'); setTimeout(() => flash.classList.remove('active'), 130);
   glitchPulse = Math.max(glitchPulse, 2); camera.rotation.z += .11;
   if (storyRef.lumini) storyRef.lumini.visible = false;
-  if (SETTINGS.difficulty === 0) {
+  if (true) {
     storyLine('Tobia: A crack from the factory roof. A gravestone beside me loses a corner. Nobody fires again.');
     showToast('THE SHOT MISSED. THE MISSING NAME WAS NEVER HERE — HE SENT YOU TO BE SEEN.'); fear = Math.min(1, fear + .3); updateMissions(); return;
   }
@@ -5611,7 +5681,7 @@ function finaleThenV6(choice) {
   const stranger = buildCar(); stranger.position.set(-1.6, 0, 62); stranger.rotation.y = 0; zones.road.group.add(stranger);
   const beams = []; for (const sx of [-1, 1]) { const l = new THREE.SpotLight(0xfff2d0, 0, 46, .4, .5, 1.1); l.position.set(sx * .62, .72, -1.95); l.target.position.set(sx * .6, -.3, -18); stranger.add(l, l.target); beams.push(l); }
   const door = zones.road.interactables.find(i => i.destination === 'home');
-  storyScene = { type: 'finale', t: 0, dur: 30, i: 0, choice, stranger, beams, door, skippable: true, lines: [
+  storyScene = { type: 'finale', t: 0, dur: 30, i: 0, choice, stranger, beams, door, skippable: true, lines: society?.S.ending?.finale || [
     [1.2, 'Voice: The last Pastorale. The farmhouse in fog. The fog does not lift.'],
     [8.5, 'Ines: Someone is coming up the lane. Set another place.'],
     [14.5, 'Tobia: Headlights. A stranger who listens too well.'],
@@ -5832,7 +5902,6 @@ function personaAnimate(n, t, dt) {
 // ---- The hidden ledger -----------------------------------------------------
 function nudgeHouse(kind, amount = 1, quiet = false) {
   if (kind === 'accordo') house.accordo += amount; else house.rifiuto += amount;
-  if (!quiet) setTimeout(() => showToast(kind === 'accordo' ? 'THE HOUSE IS A LITTLE WARMER TOWARD YOU.' : 'THE ROOM HAS NOTICED. NOBODY SAYS ANYTHING.'), 2600);
   applyHouseHand();
 }
 function houseLean() { return house.accordo - house.rifiuto; }
@@ -5863,12 +5932,12 @@ function openSecondDialogue(npc) {
   $('speaker').textContent = (npc.displayName || npc.name).toUpperCase() + ' · LATER';
   $('subtitle').textContent = P.second.line; speakVoice(P.second.line, npc.name);
   const options = $('dialogue-options'); options.innerHTML = '';
-  P.second.choices.forEach((choice, i) => { const b = document.createElement('button'); b.className = 'dialogue-option ' + (P.second.effect[i] === 'accordo' ? 'leans-house' : 'leans-own'); b.innerHTML = `<b>[${i + 1}]</b>${choice}`; b.addEventListener('click', () => chooseSecond(npc, i)); options.appendChild(b); });
+  P.second.choices.forEach((choice, i) => { const b = document.createElement('button'); b.className = 'dialogue-option'; b.innerHTML = `<b>[${i + 1}]</b>${choice}`; b.addEventListener('click', () => chooseSecond(npc, i)); options.appendChild(b); });
   activeTarget = null; $('prompt').classList.remove('visible');
 }
 function chooseSecond(npc, i) {
   const P = personaOf(npc); if (!P?.second || npc.talkedTwice) return;
-  npc.talkedTwice = true; npc.secondChoice = P.second.effect[i];
+  npc.talkedTwice = true; npc.secondChoice = P.second.effect[i]; society?.onDialogueChoice(npc);
   const reply = P.second.replies[i];
   $('subtitle').textContent = reply; speakVoice(reply, npc.name);
   const flag = P.second.flag?.[i]; if (flag) storyFlags.add(flag);
@@ -5891,6 +5960,7 @@ function pinoLeaves(npc) {
 }
 function personaBark(npc) {
   const P = personaOf(npc); if (!P) return null;
+  { const o = society?.barkFor(npc); if (o) return o; }
   const someoneGone = cultRoster.some(c => c.fate !== 'present');
   const pool = someoneGone && P.barksAfter?.length ? P.barksAfter.concat(P.barks.slice(0, 1)) : P.barks;
   npc.barkIx = ((npc.barkIx ?? -1) + 1) % pool.length; return pool[npc.barkIx];
@@ -6223,6 +6293,7 @@ function jobStationLine(id, def) {
 
 // ---- Il Professore: the man who arranges rooms ---------------------------------
 function primoAside() {
+  { const s = society?.primoAside(); if (s) return s; }
   const done = Object.values(jobState.done), well = done.filter(r => r === 'well').length, refused = done.filter(r => r === 'refused').length, lean = houseLean();
   if (refused >= 2) return 'You say no in such a reasonable voice. Have you noticed that the room does it anyway, and only takes longer? I write that down too. ';
   if (well >= 3) return `You have earned €${jobState.cash} tonight. I counted. Good hands are a kind of consent, did you know? `;
@@ -6611,6 +6682,7 @@ function driveRig(n, t, dt) {
   if (house.welcomeT > 0 && currentZone === 'home') want = 1;
   const m = house.moment?.speakers?.includes(n) ? house.moment.speakers.find(x => x !== n) : null;
   if (m?.rig) { P.look = m.rig.head.getWorldPosition(new THREE.Vector3()); want = 1; } else if (P.look !== rigIdle.fridge) P.look = 'cam';
+  { const sg = society?.gazeFor(n); if (sg != null && !n.posed) { want = sg; if (P.look !== 'cam' && sg > 0) P.look = 'cam'; } }
   P.lookW += (want - P.lookW) * Math.min(1, dt * 2.5);
   if (n.talkT > 0) { P.talk = Math.max(P.talk, n.talkT); n.talkT -= dt; }
   updatePerson(P, dt, t * .001, cam);
@@ -6765,113 +6837,14 @@ function updateSmoker(S, dt) {
   if (exhaling) { S.emitT -= dt; if (S.emitT <= 0) { S.emitT = .11; const m = new THREE.Vector3(); (P.mouth || P.head).getWorldPosition(m); const yaw = n.object.rotation.y + P.head.rotation.y + P.neck.rotation.y; const f = 1 - (c - 4.3) / 2.4; emitPuff(S, m, new THREE.Vector3(Math.sin(yaw) * (.55 * f + .15) + (Math.random() - .5) * .06, -.03 + Math.random() * .05, Math.cos(yaw) * (.55 * f + .15) + (Math.random() - .5) * .06), .06, 6.5, .2); } }
 }
 
-// ---- The Attendant ---------------------------------------------------------------
-// A human office passed between followers: a quarry blasting hood with an opaque visor,
-// heavy gloves, borrowed work clothes. He goes to the last disturbance through real space.
-// No teleporting. Two cues only, each with its visible cause: three uneven gloved knocks
-// with dust falling at the same instant; the dry hood-catch click with metal trembling.
-const att = { P: null, group: null, zone: null, state: 'off', target: null, post: null, wait: 0, knockCd: 12, cueT: -1, cueKind: null, cueStep: 0, clickT: 0, dust: [], cooldown: 0, seenOnce: false, bloodT: 0 };
-const blood = { drops: [], bleedT: 0, dropT: 0, last: new THREE.Vector3(999, 0, 999), told: false };
-function buildAttendant() {
-  const P = makePerson('attendant'); const g = new THREE.Group(); g.add(P.root); P.root.scale.setScalar(1.06); g.visible = false;
-  P.look = null; P.lookW = 0; P.extWalk = { on: false, ph: 0, speed: 1.1 };
-  att.P = P; att.group = g; stalker = g;
-  for (let i = 0; i < 30; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xb8b0a0, transparent: true, opacity: 0, depthWrite: false })); s.userData = { life: 99, v: new THREE.Vector3() }; att.dust.push(s); }
-}
-function attendantHeard(pos, strength = 1) {
-  if (!att.group?.visible || att.zone !== currentZone) return;
-  if (att.state === 'chase') return;
-  att.target = pos.clone(); att.target.y = 0; att.state = 'go'; att.strength = strength;
-}
-function placeStalker(name) {
-  storyFlags.add(`visited-${name}`);
-  if (!att.group) buildAttendant();
-  const g = att.group;
-  if (noEnemiesAttendant() || !stalkerEligible(name)) { g.visible = false; stalkerZone = null; att.zone = null; att.state = 'off'; presence = 0; nearFlag = false; return; }
-  const z = zones[name]; if (g.parent !== z.group) { g.parent?.remove(g); z.group.add(g); att.dust.forEach(s => z.group.add(s)); }
-  // He stands at a real doorway of this place, the one farthest from where you came in.
-  const sp = z.spawn, doors = z.interactables.filter(i => i.type === 'door').map(d => d.point.clone());
-  const b = z.bounds; [[b.minX + 1.2, b.minZ + 1.2], [b.maxX - 1.2, b.minZ + 1.2], [b.minX + 1.2, b.maxZ - 1.2], [b.maxX - 1.2, b.maxZ - 1.2]].forEach(c => doors.push(new THREE.Vector3(c[0], 0, c[1])));
-  doors.sort((p, q) => Math.hypot(q.x - sp.x, q.z - sp.z) - Math.hypot(p.x - sp.x, p.z - sp.z));
-  const d0 = doors[0]; const inward = new THREE.Vector3((b.minX + b.maxX) / 2 - d0.x, 0, (b.minZ + b.maxZ) / 2 - d0.z).normalize();
-  att.post = new THREE.Vector3(d0.x + inward.x * 1.1, 0, d0.z + inward.z * 1.1); g.position.copy(att.post); g.rotation.y = Math.atan2(inward.x, inward.z);
-  g.visible = true; stalkerZone = name; att.zone = name; att.state = 'post'; att.appearT = 0; att.target = null; att.knockCd = 6 + Math.random() * 6; presenceWarned = false; presence = 0;
-}
-function noEnemiesAttendant() { return false; } // at PASTORALE he is visible and audible, and never catches you
-function attBlocked(x, z) { return zone.solids.some(o => x + .28 > o.minX && x - .28 < o.maxX && z + .28 > o.minZ && z - .28 < o.maxZ); }
-function attSees(p) {
-  const g = att.group, dx = p.x - g.position.x, dz = p.z - g.position.z, d = Math.hypot(dx, dz); const range = (houseLean() >= 2 ? 5 : 7.5) * (flashlightOn ? 1 : .7); if (d > range) return false;
-  const fx = Math.sin(g.rotation.y), fz = Math.cos(g.rotation.y); if ((fx * dx + fz * dz) / (d || 1) < .25) return false; // the visor only looks forward
-  for (let i = 1; i < 8; i++) { const x = g.position.x + dx * i / 8, z = g.position.z + dz * i / 8; if (zone.solids.some(o => x > o.minX && x < o.maxX && z > o.minZ && z < o.maxZ)) return false; }
-  return true;
-}
-function attCue(kind) { if (att.cueT >= 0) return; att.cueKind = kind; att.cueT = 0; att.cueStep = 0; }
-function updateAttCue(dt) {
-  if (att.cueT < 0) return; att.cueT += dt; const g = att.group, P = att.P;
-  if (att.cueKind === 'knock') {
-    P.pose = 'wall'; const times = [.5, .82, 1.45]; // three, uneven
-    if (att.cueStep < 3 && att.cueT >= times[att.cueStep]) {
-      att.cueStep++; audio?.knock();
-      const hand = new THREE.Vector3(); P.arms[1].hand.getWorldPosition(hand); const loc = g.parent.worldToLocal(hand.clone());
-      for (let i = 0; i < 9; i++) { const s = att.dust.find(d => d.userData.life > 2.2) || att.dust[i]; s.userData.life = 0; s.position.copy(loc).add(new THREE.Vector3((Math.random() - .5) * .3, .25 + Math.random() * .5, (Math.random() - .5) * .3)); s.userData.v.set((Math.random() - .5) * .1, -.35 - Math.random() * .4, (Math.random() - .5) * .1); }
-    }
-    if (att.cueT > 2.3) { att.cueT = -1; P.pose = 'stand'; }
-  } else {
-    if (att.cueStep === 0 && att.cueT > .25) { att.cueStep = 1; audio?.mechanicalTone(2600, 1700, .045, 'square', .05); att.clickT = .5; const dz = zone.interactables.filter(i => i.type === 'door').sort((a, b) => a.point.distanceTo(g.position) - b.point.distanceTo(g.position))[0]; att.latch = dz?.doorPivot || null; att.latchBase = att.latch ? att.latch.rotation.y : 0; }
-    if (att.cueT > .9) att.cueT = -1;
-  }
-}
-function updatePresence(dt, t) {
-  const g = att.group; if (!g) return;
-  // dust and the trembling catch always resolve, even when he is idle
-  att.dust.forEach(s => { const u = s.userData; if (u.life > 2.2) { s.material.opacity = 0; return; } u.life += dt; s.position.addScaledVector(u.v, dt); s.scale.setScalar(.05 + u.life * .06); s.material.opacity = .5 * (1 - u.life / 2.2); });
-  if (att.clickT > 0) { att.clickT -= dt; const j = Math.sin(t * .09) * .25 * (att.clickT / .5); if (att.P.catch) att.P.catch.rotation.z = j; if (att.latch) att.latch.rotation.y = att.latchBase + j * .06; if (att.clickT <= 0) { if (att.P.catch) att.P.catch.rotation.z = 0; if (att.latch) att.latch.rotation.y = att.latchBase; } }
-  updateBlood(dt);
-  const active = g.visible && att.zone === currentZone && gameStarted && !gameEnded && !listeningPending && !cultFateActive && !journalOpen && (!storyScene || storyScene.type === 'hold');
-  if (!active) { presence = Math.max(0, presence - dt * .8); att.P.extWalk.on = false; return; }
-  const P = att.P, p = playerAnchor.position, dx = p.x - g.position.x, dz = p.z - g.position.z, dist = Math.hypot(dx, dz) || .001;
-  att.cooldown = Math.max(0, att.cooldown - dt); att.appearT = (att.appearT || 0) + dt;
-  // Each appearance starts slow and becomes quite fast: 35% of full pace, rising to 140% over ~45 s.
-  const ramp = THREE.MathUtils.lerp(.35, 1.4, THREE.MathUtils.smoothstep(att.appearT, 0, 45));
-  // Disturbances: running, the bench, digging.
-  const running = (keys.has('ShiftLeft') || keys.has('ShiftRight')) && velocity.lengthSq() > 1.5;
-  att.noiseT = (att.noiseT || 0) - dt;
-  if (att.noiseT <= 0 && (running || bench || (digProgress > 0 && digProgress < 1))) { att.noiseT = 1.2; attendantHeard(p, 1); }
-  // Blood on the floor draws him more than sound does: he follows the freshest drops.
-  if (att.state !== 'chase') { let best = null; for (const d of blood.drops) { if (d.zone !== currentZone || d.visited) continue; const dd = Math.hypot(d.mesh.position.x - g.position.x, d.mesh.position.z - g.position.z); if (dd < 16 && (!best || d.born > best.born)) best = d; } if (best && (att.state === 'post' || att.state === 'check' || att.state === 'return' || att.onBlood)) { att.target = best.mesh.position.clone(); att.target.y = 0; att.state = 'go'; att.onBlood = best; } }
-  if (attSees(p) && SETTINGS.difficulty > 0 || (SETTINGS.difficulty === 0 && attSees(p) && dist > 2.2)) { att.target = p.clone(); att.state = 'chase'; att.lostT = 0; }
-  else if (att.state === 'chase') { att.lostT = (att.lostT || 0) + dt; if (att.lostT > 1.2) att.state = 'go'; }
-  // Movement through real space, sliding along obstacles. Never faster for being unseen.
-  let moving = false;
-  if ((att.state === 'go' || att.state === 'chase' || att.state === 'return') && att.cueT < 0) {
-    const tgt = att.state === 'return' ? att.post : att.target; const tx = tgt.x - g.position.x, tz = tgt.z - g.position.z, td = Math.hypot(tx, tz);
-    const stopAt = att.state === 'chase' ? (SETTINGS.difficulty === 0 ? 2.2 : .9) : .7;
-    if (td > stopAt) {
-      const sp = ([.95, 1.15, 1.5, 1.85][SETTINGS.difficulty] || 1.15) * ramp * (att.onBlood ? 1.3 : 1) * (att.state === 'return' ? .8 : 1), step = sp * dt;
-      const nx = g.position.x + tx / td * step, nz = g.position.z + tz / td * step;
-      let moved = false; if (!attBlocked(nx, g.position.z)) { g.position.x = nx; moved = true; } if (!attBlocked(g.position.x, nz)) { g.position.z = nz; moved = true; }
-      if (!moved) { const side = (att.sideT = (att.sideT || 0) + dt) % 3 < 1.5 ? 1 : -1; const sx = g.position.x - tz / td * step * side, sz = g.position.z + tx / td * step * side; if (!attBlocked(sx, sz)) { g.position.x = sx; g.position.z = sz; } }
-      let dy = Math.atan2(tx, tz) - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * Math.min(1, dt * 4); moving = true; P.extWalk.speed = sp;
-    } else if (att.state === 'return') { att.state = 'post'; g.rotation.y += 0; }
-    else if (att.state === 'go') { if (att.onBlood) { att.onBlood.visited = true; att.onBlood = null; } att.state = 'check'; att.wait = 3.2; attCue('knock'); }
-  }
-  if (att.state === 'check' && att.cueT < 0) { att.wait -= dt; if (att.wait <= 0) { attCue('click'); att.state = 'return'; } }
-  if (att.state === 'post') { att.knockCd -= dt; if (att.knockCd <= 0 && dist < 16) { att.knockCd = 22 + Math.random() * 14; attCue('knock'); } }
-  updateAttCue(dt);
-  P.extWalk.on = moving; P.parentYaw = g.rotation.y; updatePerson(P, dt, t * .001, p);
-  // What it does to Tobia.
-  const target = THREE.MathUtils.clamp(1 - (dist - 1.2) / 8, 0, 1); presence += (target - presence) * Math.min(1, dt * 1.6);
-  if (dist < 5.5) blood.bleedT = Math.max(blood.bleedT, 7);
-  if (!att.seenOnce && dist < 9 && attSeenByPlayer()) { att.seenOnce = true; setTimeout(() => storyLine('TOBIA: Who was that?'), 600); setTimeout(() => { storyLine('IL PROFESSORE: Whoever’s turn it is. There is always somebody who attends.'); journal.push({ id: 'attendant', title: 'The Attendant', description: 'An old quarry blasting hood with a blind visor, heavy gloves, somebody else’s work clothes. Not a monster: a turn that somebody takes. He goes to where the last noise was. Before he comes there are three uneven knocks, and dust falls from the wall at the same instant. When he leaves, the catch on the hood clicks and a latch near him trembles. Running brings him. Blood brings him faster.', kind: 'witness account', zone: currentZone }); updateJournalCount(); }, 4200); }
-  const lean = houseLean(); if (dist < (lean > 1 ? 6 : lean < -1 ? 2.6 : 3.6) && !presenceWarned && att.state !== 'post') { presenceWarned = true; showToast(lean > 1 ? 'SOMEONE AT THE TABLE SAYS, QUIETLY: HE IS ATTENDING. WALK. DO NOT RUN.' : 'THREE KNOCKS. DUST. WALK AWAY FROM WHERE YOU WERE LOUD.'); }
-  if (dist > 9) presenceWarned = false;
-  if (dist < 1.05 && att.cooldown <= 0 && SETTINGS.difficulty > 0) {
-    att.cooldown = 8;
-    if (lethalContact()) { triggerDeath('THE ATTENDANT HAS YOU', 'A gloved hand closes over your wrist. It is not angry. It is somebody’s turn.'); return; }
-    fear = Math.min(1, fear + .25); glitchPulse = 1.2; $('intro-dark').style.opacity = '1'; setTimeout(() => { playerAnchor.position.set(zone.spawn.x, 0, zone.spawn.z); velocity.set(0, 0, 0); att.state = 'return'; att.target = null; $('intro-dark').style.opacity = '0'; showToast('A GLOVED HAND ON YOUR SHOULDER WALKS YOU BACK TO THE DOOR. NOBODY SPEAKS.'); }, 450);
-  }
-}
-function attSeenByPlayer() { const g = att.group, p = playerAnchor.position; camera.getWorldDirection(camDir2); const dx = g.position.x - p.x, dz = g.position.z - p.z, d = Math.hypot(dx, dz) || 1; return (camDir2.x * dx + camDir2.z * dz) / (Math.hypot(camDir2.x, camDir2.z) * d) > .7; }
+// ---- v21: the Attendant is gone ------------------------------------------------------
+// A pursuer teaches the player tactics: appear, hide, escape. Nobody hunts Tobia now. The danger
+// is the people at the table, and what they come to believe about him (js/society.js).
+const att = { group: null, state: 'off' };
+const blood = { drops: [], bleedT: 0, dropT: 0, last: new THREE.Vector3(999, 0, 999), told: true };
+function attendantHeard() {}
+function placeStalker(name) { storyFlags.add(`visited-${name}`); stalkerZone = null; presence = 0; nearFlag = false; }
+function updatePresence(dt) { presence = Math.max(0, presence - dt * .8); updateBlood(dt); }
 function moveStalker() {}
 
 // ---- The nosebleed: drops stay on the floor for minutes, and he follows them ----
@@ -7329,7 +7302,27 @@ function buildFloorPostersV18() {
 }
 
 buildV8World(); buildPostersV12(); buildPlacesV17(); buildTableDetailsV18(); buildFloorPostersV18();
-if (TEST_MODE) window.__epi = { zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+// ---- v21: the room ------------------------------------------------------------------
+function socialPeople() {
+  const out = [], z = zones.home; if (!z) return out;
+  for (const n of z.interactables) { if (n.type !== 'npc' || !n.object?.visible || !n.object.parent || (n.fate && n.fate !== 'present')) continue; const k = personaKey(n); if (!SOCIAL[k]) continue; n.socialKey = k; out.push({ key: k, npc: n }); }
+  const f = welcome.first; if (f?.object?.visible && z.interactables.includes(f)) { f.socialKey = 'primo'; out.push({ key: 'primo', npc: f }); }
+  return out;
+}
+function socialPhotoTexture() {
+  return canvasTex(180, 220, (g, w, h) => {
+    g.fillStyle = '#efe8d6'; g.fillRect(0, 0, w, h);
+    const sky = g.createLinearGradient(0, 12, 0, 150); sky.addColorStop(0, '#d9a36a'); sky.addColorStop(1, '#e8c79a'); g.fillStyle = sky; g.fillRect(12, 12, w - 24, 110);
+    g.fillStyle = '#b98652'; g.fillRect(12, 122, w - 24, 52); g.fillStyle = '#c9a070'; g.fillRect(12, 112, w - 24, 12);
+    g.fillStyle = '#6a3a22'; g.beginPath(); g.ellipse(92, 84, 13, 15, 0, 0, Math.PI * 2); g.fill(); g.fillRect(80, 98, 26, 46); g.fillStyle = '#d07a4a'; g.fillRect(78, 104, 30, 22);
+    g.globalAlpha = .25; g.fillStyle = '#7a4a20'; g.beginPath(); g.ellipse(150, 196, 18, 14, .4, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+  });
+}
+society = createSociety({ THREE, camera, playerAnchor, look, zone: () => currentZone, home: () => zones.home, elapsed: () => elapsed, people: socialPeople, seats: () => storyRef.tableSeats,
+  line: storyLine, lineNow: (t) => { clearLines(); storyLine(t); }, clearLines, voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
+  fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done,
+  end: (E) => showSocialEnding(E, true) });
+if (TEST_MODE) window.__epi = { society: () => society, zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);
