@@ -49,7 +49,7 @@ export function makePerson(key, spec) {
   }
   // torso
   const spine = new THREE.Group(); hips.add(spine); P.spine = spine;
-  const belly = cap(0.135 * W, 0.12 * k, top); belly.scale.set(1.22, 1, 0.82); belly.position.y = 0.16 * k; spine.add(belly);
+  const belly = cap(0.135 * W, 0.12 * k, top); belly.scale.set(1.22, 1, 0.82); belly.position.y = 0.16 * k; spine.add(belly); P.belly = belly;
   const chest = new THREE.Group(); chest.position.y = 0.27 * k; spine.add(chest); P.chest = chest;
   const ch = cap(0.155 * W, 0.16 * k, top); ch.scale.set(1.3, 1, 0.82); ch.position.y = 0.12 * k; chest.add(ch); P.chestMesh = ch;
   if (s.female) for (const sd of [-1, 1]) { const b = sph(0.06 * W, top, 12, 10); b.scale.set(1, 0.85, 0.75); b.position.set(sd * 0.075 * W, 0.12 * k, 0.1 * W); chest.add(b); }
@@ -57,7 +57,7 @@ export function makePerson(key, spec) {
   // clothing details
   const kind = s.top[1];
   // v10: no flat under-shirt strips on the chest. A collar ring in the shirt colour shows at the neckline instead.
-  if (['cardigan', 'jacket', 'blazer', 'leather', 'coat', 'track', 'work', 'cassock'].includes(kind)) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.06 * W, 0.016, 6, 18), kind === 'cassock' ? M(0xf2efe6, 0.6) : under); ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.29 * k, 0.012); ring.scale.set(1, 1.15, 1); chest.add(ring); }
+  if (['cardigan', 'jacket', 'blazer', 'leather', 'coat', 'track', 'work', 'cassock'].includes(kind)) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.06 * W, 0.016, 6, 18), kind === 'cassock' ? M(0xf2efe6, 0.6) : under); ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.29 * k, 0.012); ring.scale.set(1, 1.15, 1); P.collarRing = ring; chest.add(ring); }
   if (kind === 'apron') { const ap = new THREE.Mesh(new THREE.CylinderGeometry(0.17 * W, 0.2 * W, 0.62 * k, 18, 1, true, -1.15, 2.3), M(s.top[2] ?? 0xd8d3c6, 0.95, { side: THREE.DoubleSide })); ap.scale.z = 0.85; ap.position.y = 0.05 * k; spine.add(ap); P.apron = ap; }
   if (kind === 'track') { for (const sd of [-1, 1]) { const pipe = bx(0.012, 0.42 * k, 0.012, M(0xd8dde0, 0.3, { emissive: 0x222426 })); pipe.position.set(sd * 0.07 * W, 0.14 * k, 0.137 * W * 0.86); chest.add(pipe); } }
   if (kind === 'work') { const band = new THREE.Mesh(new THREE.TorusGeometry(0.2 * W, 0.012, 4, 24), M(0x9a9a7a, 0.5)); band.rotation.x = Math.PI / 2; band.scale.set(1, 0.82, 1); band.position.y = 0.06 * k; chest.add(band); }
@@ -81,7 +81,7 @@ export function makePerson(key, spec) {
   // neck and head
   const neck = new THREE.Group(); neck.position.y = 0.3 * k; chest.add(neck); P.neck = neck;
   const nm = cap(s.female ? 0.045 : 0.056, 0.035, s.hood ? M(s.hair[1], 0.95) : skin); nm.position.set(0, 0.04, -0.012); nm.scale.z = 0.92; neck.add(nm);
-  if (!s.hood) { const trap = new THREE.Mesh(new THREE.CylinderGeometry(s.female ? 0.06 : 0.07, (s.female ? 0.15 : 0.175) * W, 0.09, 18, 1, true), top); trap.scale.z = 0.62; trap.position.set(0, 0.255 * k, -0.012); chest.add(trap); }
+  if (!s.hood) { const trap = new THREE.Mesh(new THREE.CylinderGeometry(s.female ? 0.06 : 0.07, (s.female ? 0.15 : 0.175) * W, 0.09, 18, 1, true), top); trap.scale.z = 0.62; trap.position.set(0, 0.255 * k, -0.012); chest.add(trap); P.trap = trap; }
   if (!s.hood && !s.female) { const ad = sph(0.011, skin, 8, 6); ad.scale.set(0.8, 1.2, 0.7); ad.position.set(0, 0.045, 0.042); neck.add(ad); }
   const head = new THREE.Group(); head.position.y = 0.072; neck.add(head); P.head = head;
   if (s.hood) {
@@ -385,22 +385,88 @@ export function personalize(P, X, tex = {}) {
 // v12: a fitted black leather jacket, built to read from every side: stand collar and
 // asymmetric lapels, an off-centre zip, waistband and buckle, epaulettes, a back yoke
 // and centre seam, sleeve seams and zipped cuffs. All parts hug the body; none is a flat panel.
-// A white shirt in the open front of a jacket: a V of cotton lying on the chest curve, over the
-// lapels' inner edge, with a soft collar and three small buttons. Not a flat panel.
-export function shirtUnderJacket(P, map = null) {
-  const k = P.k, W = P.spec.w, R = 0.209 * W, g = new THREE.BufferGeometry(), pos = [], uv = [], idx = [], NU = 10, NV = 12;
-  for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) {
-    const v = j / NV, u = i / NU * 2 - 1, half = THREE.MathUtils.lerp(0.07, 0.3, v), th = u * half, y = THREE.MathUtils.lerp(0.05, 0.32, v) * k;
-    const rr = R * (1 + 0.04 * THREE.MathUtils.smoothstep(v, 0.55, 1)) * (1 - 0.02 * Math.abs(u)); pos.push(Math.sin(th) * rr, y, Math.cos(th) * rr * 0.84); uv.push(i / NU, v);
+// v23 — Il Professore: an unzipped Perfecto-type motorcycle jacket over a white shirt.
+// Built from the real garments (Schott 618 Perfecto: asymmetric front zip, large lapel collar with
+// snaps, attached belt, zip cuffs, coin pocket, ~25" body; a dress shirt: 1.4" collar band, ~3"
+// straight collar points, a centre placket of buttons). The shirt is the torso itself, so it can
+// never float; the jacket is a shell computed from the torso's own profile at every height, a little
+// over a centimetre out, open at the front the way an unzipped jacket hangs.
+export function perfectoOpen(P, shirtMap = null) {
+  const k = P.k, W = P.spec.w, chest = P.chest, ss = THREE.MathUtils.smoothstep, L = THREE.MathUtils.lerp;
+  const hide = new THREE.MeshStandardMaterial({ color: 0x151413, roughness: 0.42, metalness: 0.1, side: THREE.DoubleSide });
+  const face = new THREE.MeshStandardMaterial({ color: 0x1d1b19, roughness: 0.3, metalness: 0.14, side: THREE.DoubleSide });
+  const steel = new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.25, metalness: 0.9 });
+  const cotton = new THREE.MeshStandardMaterial({ color: shirtMap ? 0xffffff : 0xeeeae2, map: shirtMap, roughness: 0.86, side: THREE.DoubleSide });
+  // the shirt: the body under the jacket is white cotton, tucked in at the waist
+  P.chestMesh.material = cotton; if (P.belly) P.belly.material = cotton;
+  if (P.trap) P.trap.visible = false; if (P.collarRing) P.collarRing.visible = false;
+  // the torso's exact cross-section (chest and belly capsules), in chest coordinates
+  const capR = (y, cy, h, r) => { const d = Math.abs(y - cy) - h; return d <= 0 ? r : d < r ? Math.sqrt(r * r - d * d) : 0; };
+  const torso = (y) => { const c = capR(y, 0.12 * k, 0.08 * k, 0.155 * W), b = capR(y, -0.11 * k, 0.06 * k, 0.135 * W); return { a: Math.max(c * 1.3, b * 1.22), b: Math.max(c * 0.82, b * 0.82) }; };
+  let yTop = 0.2 * k; while (torso(yTop + 0.004).a > 0.105 * W) yTop += 0.004;
+  const yHem = -0.25 * k, NV = 30, NU = 44;
+  const t = (y) => (y - yHem) / (yTop - yHem);
+  const off = (y) => L(0.02, 0.011, ss(t(y), 0, 0.8));                          // hangs a little loose at the hem
+  const open = (y) => L(0.16, 0.24, t(y)) + 0.36 * ss(t(y), 0.6, 1);            // the front opening, wider where the lapels roll
+  const at = (th, y, extra = 0) => { const s0 = torso(y), o = off(y) + extra; return new THREE.Vector3(Math.sin(th) * (s0.a + o), y, Math.cos(th) * (s0.b + o)); };
+  const sheet = (rows, mat) => { const g = new THREE.BufferGeometry(), pos = [], idx = [], nu = rows[0].length; rows.forEach(r => r.forEach(v => pos.push(v.x, v.y, v.z))); for (let j = 0; j < rows.length - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, c, b, b, c, d); } g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.castShadow = true; chest.add(m); return m; };
+  const tube = (pts, r, mat) => { const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Math.max(8, pts.length * 3), r, 5, false), mat); m.castShadow = true; chest.add(m); return m; };
+  const ys = Array.from({ length: NV + 1 }, (_, j) => L(yHem, yTop, j / NV));
+  // body shell
+  sheet(ys.map(y => { const f = open(y); return Array.from({ length: NU + 1 }, (_, i) => at(L(f, Math.PI * 2 - f, i / NU), y)); }), hide);
+  // the leather has a thickness: a rolled edge down both fronts and round the hem
+  for (const sd of [1, -1]) tube(ys.map(y => at(sd * open(y), y, 0.002)), 0.0065, face);
+  tube(Array.from({ length: 25 }, (_, i) => at(L(open(yHem), Math.PI * 2 - open(yHem), i / 24), yHem, 0.001)), 0.006, face);
+  // asymmetric zip: teeth along both front edges, the pull hanging at the left hem
+  for (const sd of [1, -1]) tube(ys.filter(y => t(y) < 0.7).map(y => at(sd * (open(y) + 0.035), y, 0.004)), 0.0028, steel);
+  const pull = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.03, 0.004), steel); pull.position.copy(at(-open(yHem) - 0.035, yHem + 0.012, 0.008)); chest.add(pull);
+  // lapels, folded back from the opening, ending in a point with a snap
+  for (const sd of [1, -1]) {
+    const lys = ys.filter(y => t(y) >= 0.5);
+    sheet(lys.map(y => { const f = open(y), w = 0.42 * ss(t(y), 0.5, 1); return Array.from({ length: 9 }, (_, i) => at(sd * (f + w * i / 8), y, 0.006 + 0.004 * Math.sin(Math.PI * i / 8))); }), face);
+    tube(lys.map(y => at(sd * (open(y) + 0.42 * ss(t(y), 0.5, 1)), y, 0.008)), 0.0045, face);
+    const snap = new THREE.Mesh(new THREE.SphereGeometry(0.0065, 8, 6), steel); snap.position.copy(at(sd * (open(lys[2]) + 0.05), lys[2], 0.012)); chest.add(snap);
   }
-  for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  const cot = new THREE.MeshStandardMaterial({ color: map ? 0xffffff : 0xe8e4da, map, roughness: 0.85, side: THREE.DoubleSide });
-  const front = new THREE.Mesh(g, cot); P.chest.add(front);
-  for (const sd of [-1, 1]) { const col = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.05, 3), cot); col.position.set(sd * 0.032, 0.318 * k, 0.15 * W); col.rotation.set(1.2, 0, sd * 2.6); col.scale.z = 0.35; P.chest.add(col); }
-  const btn = new THREE.MeshStandardMaterial({ color: 0xcfcac0, roughness: 0.4 });
-  for (let i = 0; i < 3; i++) { const y = (0.27 - i * 0.07) * k; const b = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 8), btn); b.rotation.x = Math.PI / 2; b.position.set(0, y, R * 0.84 + 0.002); P.chest.add(b); }
-  return front;
+  // the large collar round the back of the neck, standing and then falling over
+  const fT = open(yTop);
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.083, 0.112 * W, 0.05, 30, 1, true, fT - 0.15, Math.PI * 2 - 2 * (fT - 0.15)), face); col.position.set(0, yTop - 0.004, -0.008); col.scale.z = 0.88; col.castShadow = true; chest.add(col);
+  // attached belt round the back and sides, its ends hanging loose at the open front
+  const yB = -0.2 * k;
+  sheet([0, 1].map(j => Array.from({ length: 33 }, (_, i) => at(L(open(yB) + 0.05, Math.PI * 2 - open(yB) - 0.05, i / 32), yB + (j - 0.5) * 0.042, 0.006))), face);
+  const buckle = new THREE.Mesh(new THREE.TorusGeometry(0.019, 0.003, 4, 4), steel); buckle.rotation.z = Math.PI / 4; buckle.position.copy(at(open(yB) + 0.08, yB, 0.012)); buckle.lookAt(buckle.position.clone().multiplyScalar(2)); chest.add(buckle);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.09, 0.006), face); tail.position.copy(at(-open(yB) - 0.06, yB - 0.035, 0.012)); tail.rotation.set(0.1, -0.5, 0.15); chest.add(tail);
+  // slanted zip pockets on the lower fronts, a small flapped coin pocket on the left
+  for (const sd of [1, -1]) tube([0, 1, 2, 3].map(i => at(sd * L(0.95, 1.3, i / 3), L(-0.15 * k, -0.04 * k, i / 3), 0.004)), 0.0025, steel);
+  sheet([0, 1].map(j => Array.from({ length: 5 }, (_, i) => at(-L(0.72, 0.98, i / 4), -0.1 * k + j * 0.032, 0.005))), face);
+  const cs = new THREE.Mesh(new THREE.SphereGeometry(0.005, 6, 5), steel); cs.position.copy(at(-0.85, -0.1 * k + 0.008, 0.01)); chest.add(cs);
+  // back: the yoke seam across the shoulders and two long side seams
+  tube(Array.from({ length: 16 }, (_, i) => at(L(Math.PI * 0.62, Math.PI * 1.38, i / 15), yTop - 0.11 * k, 0.003)), 0.0022, face);
+  for (const sd of [1, -1]) tube(ys.filter(y => t(y) < 0.72).map(y => at(Math.PI + sd * 0.62, y, 0.003)), 0.0022, face);
+  // epaulettes, each with its snap
+  for (const sd of [-1, 1]) { const yE = yTop - 0.045 * k; const a = at(sd * Math.PI / 2, yE, 0.008); const ep = new THREE.Mesh(new THREE.BoxGeometry(0.085 * W, 0.006, 0.034), face); ep.position.set(a.x * 0.82, yE + 0.012, 0); ep.rotation.z = -sd * 0.42; chest.add(ep); const sn = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 6, 5), steel); sn.position.set(a.x * 0.6, yE + 0.026, 0); chest.add(sn); }
+  // sleeves: leather, an elbow seam, zipped cuffs; a white shirt cuff just showing at the wrist
+  P.arms.forEach(a => {
+    a.sh.children.forEach(c => { if (c.isMesh) c.material = hide; }); a.el.children.forEach(c => { if (c.isMesh) c.material = hide; });
+    const er = new THREE.Mesh(new THREE.TorusGeometry(0.052 * W, 0.004, 4, 14), face); er.rotation.x = Math.PI / 2; a.el.add(er);
+    const cf = new THREE.Mesh(new THREE.CylinderGeometry(0.047 * W, 0.045 * W, 0.05, 12, 1, true), face); cf.position.y = -0.232 * k; a.el.add(cf);
+    const cz = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.06, 0.004), steel); cz.position.set(0, -0.22 * k, -0.047 * W); a.el.add(cz);
+    const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.041 * W, 0.042 * W, 0.016, 12, 1, true), cotton); sc.position.y = -0.264 * k; a.el.add(sc);
+  });
+  // the shirt's collar: a band round the neck, points lying on the chest, the fall behind
+  const neckY = 0.3 * k, band = new THREE.Mesh(new THREE.CylinderGeometry(0.063, 0.066, 0.036, 22, 1, true), cotton); band.position.set(0, neckY + 0.016, -0.012); band.scale.z = 0.94; chest.add(band);
+  const fall = new THREE.Mesh(new THREE.CylinderGeometry(0.067, 0.079, 0.032, 22, 1, true, 0.75, Math.PI * 2 - 1.5), cotton); fall.position.set(0, neckY + 0.022, -0.012); fall.scale.z = 0.94; chest.add(fall);
+  const surf = (x, y, extra = 0.003) => { const s0 = torso(y); const q = Math.min(0.98, Math.abs(x) / s0.a); return new THREE.Vector3(x, y, s0.b * Math.sqrt(1 - q * q) + extra); };
+  for (const sd of [-1, 1]) {
+    const base0 = new THREE.Vector3(sd * 0.008, neckY + 0.03, 0.054), base1 = new THREE.Vector3(sd * 0.05, neckY + 0.028, 0.035), tip = surf(sd * 0.032, neckY - 0.068, 0.006), mid = surf(sd * 0.052, neckY - 0.03, 0.006);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([base0.x, base0.y, base0.z, base1.x, base1.y, base1.z, mid.x, mid.y, mid.z, tip.x, tip.y, tip.z], 3)); g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
+    const pt = new THREE.Mesh(g, cotton); pt.castShadow = true; chest.add(pt);
+  }
+  // the placket and its buttons, on the shirt's own surface
+  const pl = []; for (let j = 0; j <= 14; j++) { const y = L(neckY - 0.06, -0.24 * k, j / 14); pl.push([-0.015, 0.015].map(x => surf(x, y, 0.0025))); }
+  sheet(pl, new THREE.MeshStandardMaterial({ color: 0xf6f3ec, map: shirtMap, roughness: 0.8, side: THREE.DoubleSide }));
+  const bm = new THREE.MeshStandardMaterial({ color: 0xd8d4ca, roughness: 0.35 });
+  for (let i = 0; i < 6; i++) { const y = neckY - 0.075 - i * 0.085 * k; const b = new THREE.Mesh(new THREE.CylinderGeometry(0.0052, 0.0052, 0.002, 10), bm); b.rotation.x = Math.PI / 2; b.position.copy(surf(0, y, 0.0045)); chest.add(b); }
+  P.leather = hide; return hide;
 }
 export function leatherJacket(P) {
   const k = P.k, W = P.spec.w, chest = P.chest, spine = P.spine;

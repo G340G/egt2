@@ -5,8 +5,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, personFor } from './people.js';
-import { makePerson, updatePerson, personalize, leatherJacket, faceShadows, shirtUnderJacket } from './rig.js';
+import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, BIANCO, personFor } from './people.js';
+import { makePerson, updatePerson, personalize, leatherJacket, faceShadows, perfectoOpen } from './rig.js';
 import { createSociety } from './society.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
@@ -2225,22 +2225,29 @@ function showToast(text) {
 // A line that arrives while the previous one is still being read waits its turn; scenes hold
 // their final frame until the queue is empty.
 const LINES = { queue: [], until: 0, timer: null };
-function readMs(text) { return Math.max(3000, 1500 + String(text).replace(/^[^:]+:\s*/, '').length * 50); }
-function presentLine(render, text) {
+// v23: conversations are paced to be read. One line at a time, slower, and nothing new is said
+// while a modal conversation or a choice is open: the room waits for Tobia's answer.
+function readMs(text) { return Math.max(3400, 1800 + String(text).replace(/^[^:]+:\s*/, '').length * 52); }
+function convoHeld() { return dialogueOpen || !!society?.S?.ui || !!bench; }
+function presentLine(render, text, action = null) {
   const now = performance.now();
-  if (now < LINES.until) { LINES.queue.push({ render, text, at: now }); return; }
+  if (now < LINES.until || convoHeld() || LINES.queue.length) { LINES.queue.push({ render, text, at: now, action }); if (!LINES.timer || now >= LINES.until) { clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, Math.max(250, LINES.until - now)); } return; }
+  if (action) { action(); LINES.until = now + 450; clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, 450); return; }
   render(); LINES.until = now + readMs(text);
   clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, readMs(text));
 }
 function pumpLines() {
+  LINES.timer = null;
+  if (convoHeld()) { LINES.timer = setTimeout(pumpLines, 300); return; }
   LINES.until = 0;
-  while (LINES.queue.length && performance.now() - LINES.queue[0].at > 20000) LINES.queue.shift();
+  while (LINES.queue.length && !LINES.queue[0].action && performance.now() - LINES.queue[0].at > 90000) LINES.queue.shift();
   const next = LINES.queue.shift();
-  if (next) presentLine(next.render, next.text);
+  if (next) { if (next.action) { next.action(); LINES.until = performance.now() + 450; LINES.timer = setTimeout(pumpLines, 450); } else { next.render(); LINES.until = performance.now() + readMs(next.text); LINES.timer = setTimeout(pumpLines, readMs(next.text)); } }
   else if (!dialogueOpen && (!storyScene || storyScene.type === 'hold')) $('subtitle-wrap').classList.remove('visible');
 }
+function queueAction(fn) { presentLine(null, '', fn); }
 function clearLines() { LINES.queue.length = 0; LINES.until = 0; clearTimeout(LINES.timer); }
-function linesPending() { return LINES.queue.length > 0 || performance.now() < LINES.until - 400; }
+function linesPending() { return LINES.queue.length > 0 || performance.now() < LINES.until - 400 || convoHeld(); }
 function addLoreProp(z,id,title,description,flag,object,point,prompt){
   const entry={id,type:'story',object,point:point.clone?point:object.position.clone(),radius:2.8,prompt,title,run:()=>{
     if(storyFlags.has(flag)){showToast('THE OBJECT HAS ALREADY BEEN RECORDED.');return;}
@@ -2754,6 +2761,7 @@ window.addEventListener('keydown', (e) => {
   if (playerInputEnabled() && movementCodes.has(e.code)) e.preventDefault();
   keys.add(e.code);
   if (gameStarted && !gameEnded && society && !e.repeat && !dialogueOpen && !journalOpen && !settingsOpen && !bench && society.onKey(e.code)) { e.preventDefault(); return; }
+  if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !e.repeat && !dialogueOpen && !society?.S?.ui && performance.now() < LINES.until) { LINES.until = 0; clearTimeout(LINES.timer); pumpLines(); }
   if (e.code === 'KeyF' && !e.repeat && playerInputEnabled()) toggleFlashlight();
   if (e.code === 'KeyM' && !e.repeat) audio.toggle();
   if (e.code === 'KeyP' && !e.repeat) { settingsOpen ? closeSettings() : openSettings(); }
@@ -3464,6 +3472,7 @@ function endFirstTeaScene(){
 }
 function storyLine(text) { presentLine(() => storyLineNow(text), text); }
 function storyLineNow(text) {
+  if (TEST_MODE) (window.__lines = window.__lines || []).push([Math.round(performance.now()), text.slice(0, 60)]);
   const m = /^\(/.test(text) ? null : /^([^:]+):\s*/.exec(text);
   if (!dialogueOpen) $('dialogue-options').innerHTML = '';
   $('speaker').textContent = m ? m[1].toUpperCase() : '';
@@ -5961,6 +5970,7 @@ function pinoLeaves(npc) {
 function personaBark(npc) {
   const P = personaOf(npc); if (!P) return null;
   { const o = society?.barkFor(npc); if (o) return o; }
+  { const b = BIANCO[personaKey(npc)]; if (b && Math.random() < .45) return b[Math.floor(Math.random() * b.length)]; }
   const someoneGone = cultRoster.some(c => c.fate !== 'present');
   const pool = someoneGone && P.barksAfter?.length ? P.barksAfter.concat(P.barks.slice(0, 1)) : P.barks;
   npc.barkIx = ((npc.barkIx ?? -1) + 1) % pool.length; return pool[npc.barkIx];
@@ -6418,6 +6428,7 @@ function updateWelcome(dt) {
   const n = welcome.first; if (!n) return;
   if (!welcome.done && currentZone === 'home' && storyFlags.has('porch-primo-gone')) {
     welcome.done = true; n.object.visible = true; if (!zones.home.interactables.includes(n)) zones.home.interactables.push(n);
+    if (society?.introScene()) return;
     house.welcomeT = 6;
     const lines = ['IL PROFESSORE: This is Ines. Ottavio looks after the instruments. Franco works with meat. Pino knows the roads.', 'IL PROFESSORE: Anna cooks. Marta marks the beams. Gabri sits by the refrigerator. Sergio has opinions.', 'IL PROFESSORE: Dario remembers the prayers. Livia sings. Walter measures the places.', 'TOBIA: And you?', 'IL PROFESSORE: The First is enough. The guitar is on the table. Take your time.'];
     lines.forEach((l, i) => setTimeout(() => { if (!storyScene) storyLine(l); }, 900 + i * 3900));
@@ -6636,10 +6647,9 @@ function attachRig(npc) {
   const P = first ? makePerson('first') : makePerson(personaKey(npc).replace(/\s+/g, '_'), rigSpec(npc)), root = npc.object;
   const sub = SUBCULTURE[personaKey(npc)] || {}, base = first ? { extras: [] } : npc.persona.look;
   const X = { ...base, back: sub.back ?? base.back, extras: [...(base.extras || []), ...(sub.extras || [])] };
-  const leather = first || sub.leather; if (leather) leatherJacket(P);
+  const leather = first || sub.leather; if (first) perfectoOpen(P, fabricTexture('cotton', 0xefebe3)); else if (leather) leatherJacket(P);
   personalize(P, X, { fabric: leather ? null : fabricTexture, print: printTexture, tattoo: tattooTexture });
-  if (leather) { const pm = P.leather.clone(); pm.map = printTexture(null, 0x0b0b0b, first ? 'roots' : 'spike'); P.chestMesh.material = pm; }
-  if (first) shirtUnderJacket(P, fabricTexture('cotton', 0xe8e4da));
+  if (leather && !first) { const pm = P.leather.clone(); pm.map = printTexture(null, 0x0b0b0b, 'spike'); P.chestMesh.material = pm; }
   if (leather && !first && P.legs[0].th.children[0]?.material) { const lm = P.legs[0].th.children[0].material; lm.map = fabricTexture('denim', 0x15161a); lm.color.setHex(0xffffff); lm.needsUpdate = true; }
   applyCorruption(npc, P); faceShadows(P);
   root.children.forEach(c => { c.visible = false; });
@@ -6684,6 +6694,7 @@ function driveRig(n, t, dt) {
   const m = house.moment?.speakers?.includes(n) ? house.moment.speakers.find(x => x !== n) : null;
   if (m?.rig) { P.look = m.rig.head.getWorldPosition(new THREE.Vector3()); want = 1; } else if (P.look !== rigIdle.fridge) P.look = 'cam';
   { const sg = society?.gazeFor(n); if (sg != null && !n.posed) { want = sg; if (P.look !== 'cam' && sg > 0) P.look = 'cam'; } }
+  if (n.lookAt) { P.look = n.lookAt; want = 1; }
   P.lookW += (want - P.lookW) * Math.min(1, dt * 2.5);
   if (n.talkT > 0) { P.talk = Math.max(P.talk, n.talkT); n.talkT -= dt; }
   updatePerson(P, dt, t * .001, cam);
@@ -7320,7 +7331,8 @@ function socialPhotoTexture() {
   });
 }
 society = createSociety({ THREE, camera, playerAnchor, look, zone: () => currentZone, home: () => zones.home, elapsed: () => elapsed, people: socialPeople, seats: () => storyRef.tableSeats,
-  line: storyLine, lineNow: (t) => { clearLines(); storyLine(t); }, clearLines, voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
+  line: storyLine, lineNow: storyLine, say: storyLine, queueAction, linesBusy: () => linesPending(), clearLines,
+  scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true) });
 if (TEST_MODE) window.__epi = { society: () => society, zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };

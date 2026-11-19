@@ -12,7 +12,7 @@
 // Every consequence is recorded with its cause, so an ending can be read back
 // afterwards: not random, only unpredictable.
 // =============================================================================
-import { SOCIAL } from './people.js';
+import { SOCIAL, BIANCO } from './people.js';
 
 const NAMES = { ines: 'Ines', ottavio: 'Ottavio', anna: 'Anna', dario: 'Dario', sergio: 'Sergio', marta: 'Marta', pino: 'Pino', gabri: 'Gabri', walter: 'Walter', livia: 'Livia', franco: 'Franco', primo: 'Il Professore', tobia: 'Tobia' };
 const nm = (k) => NAMES[k] || k;
@@ -322,8 +322,8 @@ export function createSociety(G) {
       if (kind === 'silence') { tense(.05); G.line(pick(['(You say nothing. The question stays on the table between the glasses.)', '(Nothing. Somebody scrapes a chair.)'])); }
       if (kind === 'leave') { gesture('walked-off', { seenBy: [asker, ...listeners] }); }
     };
-    G.lineNow(`${UP(asker)}: ${def.q}`);
-    setTimeout(() => offer(UP(asker), '', def.opts.map(([label, kind, said]) => [label, () => resolve(kind, said)]), { timeout: 9, onTimeout: () => resolve('silence'), leave: () => resolve('leave') }), 900);
+    G.line(`${UP(asker)}: ${def.q}`);
+    G.queueAction(() => offer(UP(asker), '', def.opts.map(([label, kind, said]) => [label, () => resolve(kind, said)]), { timeout: 14, onTimeout: () => resolve('silence'), leave: () => resolve('leave') }));
     return true;
   }
   // What Tobia knows, what he did, and what each answer costs.
@@ -478,7 +478,7 @@ export function createSociety(G) {
     offer('INES', 'Here. Not your sleeve. (She holds out a folded tissue, already warm from her pocket.)', [
       ['Take it.', () => { B.tissues++; showPacket(3); affect('ines', { t: .8 }); if (seen.includes('gabri')) affect('gabri', { g: .5 }, 'Gabri watched Ines take care of you.'); }],
       ['“I’m fine.”', () => { affect('ines', { t: -.4, g: .2 }); G.line('INES: (She puts it back in her pocket.) Of course you are.'); }]
-    ], { timeout: 7, onTimeout: () => affect('ines', { t: -.2 }), speaker: 'Ines' });
+    ], { timeout: 11, onTimeout: () => affect('ines', { t: -.2 }), speaker: 'Ines' });
   }
 
   // ---- 05 Il Primo arranges --------------------------------------------------------
@@ -505,7 +505,7 @@ export function createSociety(G) {
     add(14, () => sit());
     add(40, () => { if (!A.sat && G.zone() === 'home' && !S.seated) { gesture('refuse-gathering', { seenBy: present().map(p => p.key) }); S.refused++; for (const p of present()) affect(p.key, { g: .3 * (SOCIAL[p.key]?.loyalty ?? .5) }, p.key === 'primo' ? null : 'You did not come to the table when Il Professore called everyone.'); } });
     add(55, () => { G.earplugs(P.npc, false); });
-    add(58, () => { S.gather.active = null; if (S.placeDenied && S.place) { /* the place stays gone */ } });
+    add(58, () => { S.gather.active = null; if (!S.plotN) S.plotAt = Math.min(S.plotAt || 1e9, now() + 70); if (S.placeDenied && S.place) { /* the place stays gone */ } });
   }
   function chooseSituation() {
     const n = S.gather.n, list = [];
@@ -520,36 +520,36 @@ export function createSociety(G) {
     if (has('walter') && has('gabri') && !S.didHumil?.has('walter')) list.push(() => humiliation('walter', 'gabri', 'WALTER: Nineteen, and he sits by the fridge like a dog waiting for a door.', '(Gabri looks at his hands.)'));
     if (has('ines') && has('sergio') && !S.helped) list.push(() => helpRequest());
     if (has('sergio') && !S.primoStopped && G.flags.has('sergio-truth')) list.push(() => primoIntervenes());
-    return list.length ? pick(list) : () => G.line(pick(['ANNA: More bread. Who wants more.', 'PINO: Fog on the provinciale again. Nobody is going anywhere.']));
+    return list.length ? pick(list) : () => G.line(pick(['ANNA: More bread. Who wants more.', 'DARIO: Can you hear it tonight? Under the rain. Il Bianco is close.', 'MARTA: Another beam this week. Il Bianco does not wait for the wood to dry.', 'INES: Eat. Il Bianco fills the empty ones first.']));
   }
   // Somebody is humiliated in public. Defending them, laughing, or looking at your plate are all things you did.
   function humiliation(agg, vic, line, reply) {
     (S.didHumil = S.didHumil || new Set()).add(agg);
-    G.lineNow(line); setTimeout(() => G.line(reply), 2600);
-    setTimeout(() => offer('', '', [
+    G.line(line); G.line(reply);
+    G.queueAction(() => offer('', '', [
       [`“Leave ${nm(vic)} alone.”`, () => { G.line(`TOBIA: Leave ${nm(vic)} alone.`); const seen = present().map(p => p.key); affect(vic, { t: 1.4 }); affect(agg, { g: 1.2 }, `You defended ${nm(vic)} against ${nm(agg)} at the table.`); S.primoNotes.push('defend'); seen.forEach(k => { if (k !== agg && k !== vic && SOCIAL[k]?.protects?.includes(vic)) affect(k, { t: .5 }); }); }],
       ['Laugh.', () => { G.line('(You laugh. Two others laugh with you, a beat late.)'); affect(agg, { t: .6 }); affect(vic, { g: 1.2 }, `You laughed when ${nm(agg)} humiliated ${nm(vic)}.`); }],
       ['(Look at your plate.)', () => { affect(vic, { t: -.5 }); }]
-    ], { timeout: 7, onTimeout: () => { affect(vic, { t: -.6 }); S.truths.push(`You said nothing when ${nm(agg)} humiliated ${nm(vic)}.`); } }), 4400);
+    ], { timeout: 12, onTimeout: () => { affect(vic, { t: -.6 }); S.truths.push(`You said nothing when ${nm(agg)} humiliated ${nm(vic)}.`); } }));
   }
   function cigarette() {
     S.cigOffered = true;
     G.line('SERGIO: (He holds the pack out to you across the table.) Go on.');
-    setTimeout(() => G.line('(Dario watches your hand. His face does something you cannot read.)'), 1800);
-    setTimeout(() => offer('SERGIO', '', [['Take one.', () => { affect('sergio', { t: .8 }); affect('dario', { g: .5 }, 'You took a cigarette from Sergio in front of Dario.'); conflict('dario', 'sergio', 'Sergio offered you a cigarette'); }], ['“No, thanks.”', () => { affect('sergio', { t: -.2 }); affect('dario', { t: .2 }); }]], { timeout: 7, onTimeout: () => affect('sergio', { t: -.3 }) }), 2600);
+    G.line('(Dario watches your hand. His face does something you cannot read.)');
+    G.queueAction(() => offer('SERGIO', '', [['Take one.', () => { affect('sergio', { t: .8 }); affect('dario', { g: .5 }, 'You took a cigarette from Sergio in front of Dario.'); conflict('dario', 'sergio', 'Sergio offered you a cigarette'); }], ['“No, thanks.”', () => { affect('sergio', { t: -.2 }); affect('dario', { t: .2 }); }]], { timeout: 11, onTimeout: () => affect('sergio', { t: -.3 }) }));
   }
   // Helping is inconvenient: while you carry the pot, Sergio says the important thing.
   function helpRequest() {
     S.helped = true;
     G.line('INES: Tobia. The pot. I cannot lift it alone.');
-    setTimeout(() => offer('INES', '', [['Go and help her.', () => { affect('ines', { t: 1 }); S.gestures++; G.line('(You carry the pot. By the time you are back, Sergio is finishing something.) SERGIO: …and that is why the vents. Anyway.'); }], ['“In a minute.”', () => { affect('ines', { t: -.3 }); G.line('SERGIO: (low, to you) Listen. The cellar vents were taped from the inside. I have the report. Not here.'); G.flags.add('sergio-truth'); }]], { timeout: 6, onTimeout: () => affect('ines', { t: -.5 }) }), 1200);
+    G.queueAction(() => offer('INES', '', [['Go and help her.', () => { affect('ines', { t: 1 }); S.gestures++; G.line('(You carry the pot. By the time you are back, Sergio is finishing something.) SERGIO: …and that is why the vents. Anyway.'); }], ['“In a minute.”', () => { affect('ines', { t: -.3 }); G.line('SERGIO: (low, to you) Listen. The cellar vents were taped from the inside. I have the report. Not here.'); G.flags.add('sergio-truth'); }]], { timeout: 10, onTimeout: () => affect('ines', { t: -.5 }) }));
   }
   // He stops a revelation, not to protect anyone: he wants to see what happens without it.
   function primoIntervenes() {
     S.primoStopped = true;
     G.line('SERGIO: The thing nobody says about the cellar is that the vents—');
-    setTimeout(() => G.line('IL PROFESSORE: Not now, Sergio. (He does not raise his voice.) Let him find it.'), 2300);
-    setTimeout(() => G.line('(Sergio drinks. Nobody looks at anybody.)'), 5600);
+    G.line('IL PROFESSORE: Not now, Sergio. (He does not raise his voice.) Let him find it.');
+    G.line('(Sergio drinks. Nobody looks at anybody.)');
     S.truths.push('Il Professore stopped Sergio telling you about the vents. He wanted you to find it yourself.');
   }
   function exclusion() {
@@ -633,7 +633,7 @@ export function createSociety(G) {
     sc.stage = 'talk';
     if (sc.kind === 'pretend') { setTimeout(() => { G.line(`${UP(k)}: ${s.kitchen.pretend}`); setTimeout(() => goBack(sc), 5000); }, 2600); return; }
     if (sc.kind === 'help') {
-      setTimeout(() => offer(UP(k), s.kitchen.help, [['“Yes.”', () => { S.promised = k; G.flags.add('promised-' + k); affect(k, { t: 1.4, g: -1 }); goBack(sc); }], ['“I can’t.”', () => { affect(k, { t: -.5 }); goBack(sc); }]], { timeout: 9, onTimeout: () => { affect(k, { t: -.6 }); goBack(sc); }, speaker: nm(k) }), 2400);
+      G.queueAction(() => offer(UP(k), s.kitchen.help, [['“Yes.”', () => { S.promised = k; G.flags.add('promised-' + k); affect(k, { t: 1.4, g: -1 }); goBack(sc); }], ['“I can’t.”', () => { affect(k, { t: -.5 }); goBack(sc); }]], { timeout: 13, onTimeout: () => { affect(k, { t: -.6 }); goBack(sc); }, speaker: nm(k) }));
       return;
     }
     // attack: still an ordinary exchange, until it is not
@@ -642,9 +642,9 @@ export function createSociety(G) {
     const opts = [];
     if (giveBack) opts.push([`Give back the ${({ photo: 'photograph', keys: 'keys', earplugs: 'earplugs' })[giveBack] || giveBack}.`, () => { S.carried.delete(giveBack); affect(k, { g: -2.5, t: .4 }); defused(sc, 'returned'); }]);
     if (S.carried.has('knife')) opts.push(['Put the knife on the table between you.', () => { const K = S.belong.knife; putAt(K, new THREE.Vector3(-7.85, .89, -6.3), 'origin'); affect(k, { f: 1.2, g: -1 }); defused(sc, 'knife'); }]);
-    opts.push(['“What did they tell you about me?”', () => { G.line('TOBIA: What did they tell you about me?'); setTimeout(() => { G.line(`${UP(k)}: ${cause.text ? cause.text.replace(/^[A-Z][a-z]+ /, (m) => m === nm(k) + ' ' ? 'I ' : m).replace(/\byou\b/g, 'you') : 'Nothing. Nobody had to.'}`); setTimeout(() => offer(UP(k), '', [['“That isn’t what happened.”', () => { if (SOCIAL[k].distorts < .5 && /\(you had not\)/.test(cause.text)) { affect(k, { g: -2.2 }); defused(sc, 'truth'); } else fail(sc); }], ['“I’m sorry.”', () => { if (SOCIAL[k].care >= .45) { affect(k, { g: -2 }); defused(sc, 'sorry'); } else fail(sc); }], ['(Walk out of the kitchen.)', () => { defused(sc, 'walked'); }]], { timeout: 6, onTimeout: () => fail(sc), leave: () => defused(sc, 'walked') }), 2400); }, 1400); }]);
+    opts.push(['“What did they tell you about me?”', () => { G.line('TOBIA: What did they tell you about me?'); setTimeout(() => { G.line(`${UP(k)}: ${cause.text ? cause.text.replace(/^[A-Z][a-z]+ /, (m) => m === nm(k) + ' ' ? 'I ' : m).replace(/\byou\b/g, 'you') : 'Nothing. Nobody had to.'}`); G.queueAction(() => offer(UP(k), '', [['“That isn’t what happened.”', () => { if (SOCIAL[k].distorts < .5 && /\(you had not\)/.test(cause.text)) { affect(k, { g: -2.2 }); defused(sc, 'truth'); } else fail(sc); }], ['“I’m sorry.”', () => { if (SOCIAL[k].care >= .45) { affect(k, { g: -2 }); defused(sc, 'sorry'); } else fail(sc); }], ['(Walk out of the kitchen.)', () => { defused(sc, 'walked'); }]], { timeout: 10, onTimeout: () => fail(sc), leave: () => defused(sc, 'walked') })); }, 1400); }]);
     opts.push(['(Walk out of the kitchen.)', () => defused(sc, 'walked')]);
-    setTimeout(() => offer(UP(k), sc.knife ? '(The knife is on the table between you. The loaf is half cut.)' : '', opts, { timeout: 7, onTimeout: () => fail(sc), leave: () => defused(sc, 'walked') }), 2600);
+    G.queueAction(() => offer(UP(k), sc.knife ? '(The knife is on the table between you. The loaf is half cut.)' : '', opts, { timeout: 11, onTimeout: () => fail(sc), leave: () => defused(sc, 'walked') }));
   }
   function defused(sc, how) {
     const k = sc.k;
@@ -807,7 +807,7 @@ export function createSociety(G) {
     const p = who(k) || G.people().find(x => x.key === k); if (!p) return null;
     const [method, tool] = WEAPON[k];
     const h = { k, npc: p.npc, method, tool, state: 'mask', where: 'home', t: 0, maskT: 40 + Math.random() * 50, seenT: 0, faced: 0, cd: 0, why };
-    keepHome(p.npc); H.list.push(h);
+    keepHome(p.npc); H.list.push(h); S.plotAt = Math.min(S.plotAt || 1e9, now() + 25);
     S.truths.push(`${nm(k)} decided you had to disappear${why ? ': ' + why : ''}.`);
     return h;
   }
@@ -917,12 +917,12 @@ export function createSociety(G) {
     const opts = [];
     if (give) opts.push([`Give back the ${({ photo: 'photograph', keys: 'keys', earplugs: 'earplugs' })[give]}.`, () => { S.carried.delete(give); affect(h.k, { g: -3 }); endHunt(h, `You gave ${nm(h.k)} back the ${give}. ${nm(h.k)} went back to the table.`); G.line(`${UP(h.k)}: (A long look.) Go and eat something.`); }]);
     if (S.carried.has('knife')) opts.push(['(Let them see the knife.)', () => { affect(h.k, { f: 1.4 }); h.cd = 30; G.line(`(${nm(h.k)} sees it, and smiles, and steps back into the dark.)`); setTimeout(() => reHide(h), 1500); }]);
-    opts.push(['“What are you really doing here?”', () => { G.line('TOBIA: What are you really doing here?'); setTimeout(() => { G.line(`${UP(h.k)}: ${Math.random() < .5 || !cause.text ? lie : cause.text}`); setTimeout(() => offer(UP(h.k), '', [
+    opts.push(['“What are you really doing here?”', () => { G.line('TOBIA: What are you really doing here?'); setTimeout(() => { G.line(`${UP(h.k)}: ${Math.random() < .5 || !cause.text ? lie : cause.text}`); G.queueAction(() => offer(UP(h.k), '', [
       ['“I’m sorry.”', () => { if (SOCIAL[h.k].care >= .45 && S.rel[h.k].grievance < 7) { affect(h.k, { g: -3 }); endHunt(h, `You apologised to ${nm(h.k)} in time.`); G.line(`${UP(h.k)}: (Nothing for a long time.) Go back inside.`); } else { h.cd = 0; h.state = 'stalk'; h.boldUntil = now() + 4; } }],
       ['“That isn’t what happened.”', () => { if (/\(you had not\)/.test(cause.text) && SOCIAL[h.k].distorts < .55) { affect(h.k, { g: -3.5 }); endHunt(h, `You told ${nm(h.k)} the truth about a story somebody had told wrong. ${nm(h.k)} believed you.`); G.line(`${UP(h.k)}: …Then who told me.`); } else { h.state = 'stalk'; h.boldUntil = now() + 4; } }],
-      ['(Back away.)', () => { h.state = 'stalk'; h.cd = 6; }]], { timeout: 6, onTimeout: () => { h.state = 'stalk'; h.boldUntil = now() + 5; }, leave: () => { h.state = 'stalk'; h.cd = 5; } }), 2200); }, 1300); }]);
+      ['(Back away.)', () => { h.state = 'stalk'; h.cd = 6; }]], { timeout: 10, onTimeout: () => { h.state = 'stalk'; h.boldUntil = now() + 5; }, leave: () => { h.state = 'stalk'; h.cd = 5; } })); }, 1300); }]);
     opts.push(['(Back away.)', () => { h.state = 'stalk'; h.cd = 6; }]);
-    setTimeout(() => offer(UP(h.k), '', opts, { timeout: 7, onTimeout: () => { h.state = 'stalk'; h.boldUntil = now() + 5; }, leave: () => { h.state = 'stalk'; h.cd = 4; } }), 900);
+    G.queueAction(() => offer(UP(h.k), '', opts, { timeout: 11, onTimeout: () => { h.state = 'stalk'; h.boldUntil = now() + 5; }, leave: () => { h.state = 'stalk'; h.cd = 4; } }));
     setTimeout(() => { h.faced = 0; }, 25000);
   }
   // ---- the deaths ----
@@ -987,10 +987,10 @@ export function createSociety(G) {
     const reason = pick(['Il Professore wants you', 'Sergio is waiting for you', 'Ines left something for you', 'Somebody is asking for you', 'Pino says the van is leaving from there']);
     const what = `${reason} in ${PLACES[zone]}`;
     G.lineNow(`${UP(from)}: ${reason} in ${PLACES[zone]}. ${pick(['Now.', 'Alone, he said.', 'Go on, before it gets dark.', 'I would go if I were you.'])}`);
-    setTimeout(() => offer(UP(from), '', [
+    G.queueAction(() => offer(UP(from), '', [
       ['“All right.”', () => { H.lure = { zone, trap, k, from, what, until: now() + 140 }; }],
       ['“Who told you that?”', () => { G.line(`${UP(from)}: ${pick(['Does it matter?', 'He did. Who else.', '(A shrug.) I am only saying it.'])}`); H.lure = { zone, trap, k, from, what, until: now() + 140 }; }],
-      ['“I’m staying here.”', () => { if (!trap) affect(from, { t: -.3 }); }]], { timeout: 8, onTimeout: () => {} }), 900);
+      ['“I’m staying here.”', () => { if (!trap) affect(from, { t: -.3 }); }]], { timeout: 12, onTimeout: () => {} }));
   }
   function friendWaits(lure, zone) {
     const f = lure.from; S.truths.push(`${nm(f)} really did send you to ${PLACES[zone]}, to warn you.`);
@@ -1036,6 +1036,120 @@ export function createSociety(G) {
   }
   function huntBark(npc) { const h = hunting(npc.socialKey); if (h && h.state === 'mask') return pick(SOCIAL[h.k].warm); return null; }
 
+
+  // ===================================================================================
+  // v23 — CUTSCENES. A sequencer that waits for each line to be read and for each of
+  // Tobia's answers before it moves on: nobody talks over anybody.
+  // ===================================================================================
+  function runScene(steps, { onEnd } = {}) {
+    const sc = { steps, i: -1, mode: 'now', wait: 0, shot: null };
+    const save = { pos: G.playerAnchor.position.clone(), rx: G.camera.rotation.x, ry: G.camera.rotation.y, fov: G.camera.fov };
+    const next = () => {
+      sc.i++; const st = sc.steps[sc.i];
+      if (!st) { G.endScene(); G.fov(save.fov); onEnd?.(save); return; }
+      if (st.shot) sc.shot = st.shot;
+      if (st.say) { G.line(st.say); sc.mode = 'say'; }
+      else if (st.choose) { sc.mode = 'say'; G.queueAction(() => offer('TOBIA', st.line || '', st.choose.map(([label, fn]) => [label, () => fn?.(sc)]), { timeout: 18, onTimeout: () => st.silence?.(sc) })); }
+      else if (st.wait) { sc.mode = 'wait'; sc.until = performance.now() + st.wait * 1000; }
+      else { st.do?.(sc); sc.mode = 'now'; }
+    };
+    G.scene({ update(s, dt) {
+      const sh = sc.shot; if (sh) { const pos = typeof sh.pos === 'function' ? sh.pos() : sh.pos; G.playerAnchor.position.set(pos.x, 0, pos.z); G.camera.position.set(0, pos.y, 0); const look = typeof sh.look === 'function' ? sh.look() : sh.look; if (look) G.aim(look, Math.min(1, dt * (sh.speed || 2.2))); if (sh.fov) G.fov(THREE.MathUtils.lerp(G.camera.fov, sh.fov, Math.min(1, dt * 1.5))); }
+      if (sc.mode === 'now') next();
+      else if (sc.mode === 'wait') { if (performance.now() >= sc.until) next(); }
+      else if (sc.mode === 'say' && !G.linesBusy() && !S.ui) next();
+    } });
+    return sc;
+  }
+  // A shot of someone speaking: the camera in front of them, at their eye level, a little off-axis.
+  const npcOf = (k) => k === 'primo' ? G.firstNpc() : who(k)?.npc;
+  const faceShot = (k, dist = 1.55, fov = 44) => {
+    let fixed = null;
+    const pos = () => { if (fixed) return fixed; const n = npcOf(k); if (!n) return G.playerAnchor.position.clone().setY(1.2); const o = n.object.getWorldPosition(new THREE.Vector3()), yaw = n.object.rotation.y, side = (k.length % 2 ? 1 : -1) * .35;
+      fixed = new THREE.Vector3(o.x + Math.sin(yaw + side) * dist, n.seated ? 1.2 : 1.55, o.z + Math.cos(yaw + side) * dist); return fixed; };
+    return { pos, look: headOf(k), fov, speed: 5 };
+  };
+  const headOf = (k) => () => { const p = k === 'primo' ? (G.firstNpc() && { npc: G.firstNpc() }) : who(k); if (!p) return null; const v = p.npc.object.getWorldPosition(new THREE.Vector3()); v.y += p.npc.seated ? 1.15 : 1.6; return v; };
+  const INTRO = {
+    walter: 'Walter. I measure. This house is exactly the size Il Bianco needs: thirteen. Fourteen, now.',
+    franco: 'Franco. I cut meat. Thirty years, and I never heard a cow go as quiet as Aurelio went.',
+    anna: 'Anna. I cook. My husband was full before any of them. I still fill his bowl, so Il Bianco has somewhere else to go.',
+    marta: 'Marta. I carve their names into the beams when they are taken. There is a beam with a fresh cut. I do not remember making it.',
+    dario: 'Dario. I keep the prayers. Il Bianco is not dying. It is being completed.',
+    sergio: 'Sergio. I have opinions. My opinion is that Il Bianco is carbon monoxide and a priest with a good voice.',
+    livia: '(Livia. She hums four notes and stops on the fifth, where there is only breath. That is Il Bianco, her eyes say.)',
+    ines: 'Ines. I was a nurse. When Il Bianco comes for one of us, I sit with them. Nobody here fills alone.',
+    gabri: 'Gabri. (He does not look up.) They say when it fills you, you finally feel seen.',
+    pino: 'Pino. I drive. On the road you can outrun Il Bianco. In here you sit and wait for it.',
+    ottavio: '(Ottavio. He cannot hear. He lays his palm on the table, as if Il Bianco might come up through the wood.)'
+  };
+  function introScene() {
+    if (S.introDone || !G.seats() || !G.firstNpc()) return false;
+    S.introDone = true; buildWorld();
+    const mine = S.seats.find(x => x.mine), T = G.seats(), V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const seatEye = V(mine.x, 1.12, mine.z), center = V(T.top[0], 1.0, T.top[1]);
+    const order = ['walter', 'franco', 'anna', 'marta', 'dario', 'sergio', 'livia', 'ines', 'gabri', 'pino', 'ottavio'].filter(k => who(k));
+    const steps = [
+      { shot: { pos: V(-3.9, 1.62, 5.7), look: center, fov: 60 }, say: 'IL PROFESSORE: Everyone. This is Tobia. The fog has closed the road; he eats with us tonight.' },
+      { say: 'IL PROFESSORE: Sit there, Tobia. At the end. Ines set your place before you knocked.' },
+      { do: () => { seatAt(mine); }, shot: { pos: seatEye, look: V(T.top[0], 1.05, T.top[1] - 2.2), fov: 62 } },
+      { say: 'IL PROFESSORE: Say your names. Say them the way you say them here.' },
+      ...order.map(k => ({ shot: faceShot(k), say: (INTRO[k].startsWith('(') ? '' : UP(k) + ': ') + INTRO[k] })),
+      { shot: faceShot('primo', 1.9, 46), say: 'IL PROFESSORE: You hear it in all of them. Thirteen chairs, and a fourteenth place. We are here for one thing. Il Bianco.' },
+      { shot: { pos: seatEye, look: headOf('primo'), fov: 60 }, choose: [['“What is Il Bianco?”', () => G.line('TOBIA: What is Il Bianco?')], ['“I only came because of the fog.”', () => { G.line('TOBIA: I only came because of the fog.'); G.line('IL PROFESSORE: Everyone comes because of the fog.'); }], ['(Say nothing.)', () => G.line('(You say nothing. Il Professore waits as if you had asked.)')]], silence: () => G.line('(You say nothing. Il Professore waits as if you had asked.)') },
+      { shot: faceShot('dario'), say: 'DARIO: The White. The sound under every sound. Switch everything off — the fridge, the rain, your own blood — and listen. It is there.' },
+      { shot: faceShot('ines', 1.7), say: 'INES: It comes in through the ears. The mouth. The nose. It fills you the way water fills a bottle. Slowly, and then all at once.' },
+      { shot: faceShot('marta'), say: 'MARTA: Aurelio was the first. He listened until there was no room left in him. We found him at this table, smiling. Full.' },
+      { shot: { pos: seatEye, look: headOf('marta'), fov: 58 }, choose: [['“Full… you mean he died.”', () => G.line('TOBIA: Full. You mean he died.')], ['“That’s an illness, not a god.”', (sc) => { G.line('TOBIA: That’s an illness, not a god.'); sc.steps.splice(sc.i + 1, 0, { shot: faceShot('sergio'), say: 'SERGIO: He’s not wrong, you know.' }, { shot: faceShot('dario'), say: '(Dario looks at Sergio for a long time. Then at you.)' }); affect('sergio', { t: .6 }); affect('dario', { g: .5 }, 'At your first dinner you called Il Bianco an illness, in front of Dario.'); }], ['(Say nothing.)', () => {}]] },
+      { shot: faceShot('primo', 1.8, 44), say: 'IL PROFESSORE: I mean finished. Nothing left to want, nothing left to hear. Every chair at this table is waiting to be filled. That is what the table is for.' },
+      { say: 'IL PROFESSORE: (He holds up a pair of orange earplugs.) I wear these so it fills me slowly. Someone has to be last. Someone has to watch everyone else fill.' },
+      { shot: { pos: seatEye, look: headOf('dario'), fov: 40 }, say: 'DARIO: (To you, quietly.) When it starts in someone, it has to come out somewhere. Usually the nose.' },
+      { shot: { pos: seatEye, look: headOf('dario'), fov: 52 }, choose: [['“I get nosebleeds.”', () => { G.line('TOBIA: I get nosebleeds.'); S.rel.dario.marked = true; G.line('(Nobody says anything. Ines passes you the bread. Dario smiles for the first time.)'); }], ['“It won’t start in me.”', () => { G.line('TOBIA: It won’t start in me.'); G.line('DARIO: It always says that, at the beginning.'); }], ['(Say nothing.)', () => {}]] },
+      { shot: { pos: seatEye, look: V(T.top[0], .85, T.top[1] + 1.4), fov: 62 }, say: 'IL PROFESSORE: Eat. It is still warm. Afterwards the guitar is on the table, if you want to make yourself useful.' },
+      { do: () => { G.flags.add('bianco-told'); G.journal({ id: 'il-bianco', title: 'Il Bianco', description: 'The White. They say it is the sound under every sound. It comes in through the ears, the mouth, the nose, and fills a person the way water fills a bottle, slowly and then all at once. When there is no room left, the person stops. They call it being full, or finished. Aurelio was the first: they found him at the table, smiling. The whole house is built around waiting for it. Il Professore wears orange earplugs so that it fills him slowly; he wants to be the last, and to watch. Dario says that when it starts in someone, it comes out through the nose.', kind: 'the house', zone: 'home' }); S.plotAt = now() + 240; } }
+    ];
+    runScene(steps, { onEnd: () => { G.camera.rotation.z = 0; G.resetLook(); } });
+    return true;
+  }
+  function seatAt(seat) { S.seated = seat; seat.entry.prompt = '[ E ] STAND UP'; G.playerAnchor.position.set(seat.x - seat.face[0] * .08, 0, seat.z - seat.face[1] * .08); }
+
+  // The Last Supper: you come in and they are arranged along one side of the table, leaning to
+  // each other in threes, Il Professore at the centre. Then every head turns to you at once.
+  const WHISPER = ['(whispers) …when he is full…', '(whispers) …Sunday. After the record…', '(whispers) …he bleeds already. You saw it at dinner…', '(whispers) …fourteen chairs. There were always going to be fourteen…', '(whispers) …who sits with him at the end…', '(whispers) …not in the house. Somewhere he will not be missed…'];
+  function plotScene() {
+    S.plotN = (S.plotN || 0) + 1; S.plotAt = now() + 420;
+    const T = G.seats(), V = (x, y, z) => new THREE.Vector3(x, y, z), cz = T.top[1], cx = T.top[0];
+    const primo = G.firstNpc(); const ps = present().filter(p => p.key !== 'primo').sort((a, b) => posOf(a).z - posOf(b).z);
+    const all = [...ps.map(p => p.npc), ...(primo ? [primo] : [])];
+    const saved = all.map(n => ({ n, pos: n.object.position.clone(), r: n.object.rotation.y, seated: n.seated, posed: n.posed, raise: n.raiseK || 0 }));
+    const hunters = H.list.filter(h => h.state === 'mask').map(h => nm(h.k));
+    const lines = [pick(WHISPER), pick(WHISPER), hunters.length ? `(${hunters[0]} leans to Il Professore’s ear. He does not answer. He only nods at the bread.)` : pick(WHISPER)];
+    const arrange = () => {
+      const half = Math.ceil(ps.length / 2), left = ps.slice(0, half), right = ps.slice(half);
+      const slot = (n, z) => { n.object.position.set(cx - 1.18, 0, z); n.object.rotation.y = Math.PI / 2; n.seated = false; n.posed = false; n.walking = false; };
+      left.forEach((p, i) => slot(p.npc, cz - .5 - (left.length - 1 - i) * .55));
+      right.forEach((p, i) => slot(p.npc, cz + .5 + i * .55));
+      if (primo) { slot(primo, cz); primo.raiseK = .22; primo.lookAt = V(cx, .8, cz); }
+      // threes, leaning in to one another, one of each three with a hand raised
+      const groups = []; for (let i = 0; i < left.length; i += 3) groups.push(left.slice(i, i + 3)); for (let i = 0; i < right.length; i += 3) groups.push(right.slice(i, i + 3));
+      groups.forEach(g => { const mid = g[Math.floor(g.length / 2)]; g.forEach((p, i) => { p.npc.lookAt = i === Math.floor(g.length / 2) ? (g[0] !== p ? posOf(g[0]).setY(1.55) : V(cx, 1.4, cz)) : posOf(mid).setY(1.58); if (i === 0 && g.length > 1) p.npc.raiseK = .35; }); });
+    };
+    const restore = () => { saved.forEach(o => { o.n.object.position.copy(o.pos); o.n.object.rotation.y = o.r; o.n.seated = o.seated; o.n.posed = o.posed; o.n.raiseK = o.raise; o.n.lookAt = null; }); };
+    const shot = { pos: V(cx + 3.3, 1.42, cz), look: V(cx - 1.0, 1.22, cz), fov: 64, speed: 6 };
+    const steps = [
+      { do: () => G.fade(true, .45) }, { wait: .6 },
+      { do: () => { arrange(); G.fade(false, .9); for (let i = 0; i < 5; i++) setTimeout(() => G.audio()?.whisper?.(1.6, (Math.random() - .5) * 1.4), i * 700); }, shot },
+      { wait: 1.2 }, { say: lines[0] }, { say: lines[1] }, { say: lines[2] },
+      { do: () => { all.forEach(n => { n.lookAt = null; n.raiseK = 0; }); S.allLookUntil = now() + 9; G.audio()?.mechanicalNoise(.3, 240, .8, .05, 0); tense(.25); } },
+      { say: '(The floor creaks under you. Every head at the table turns at the same moment.)' }, { wait: 1.6 },
+      { say: 'IL PROFESSORE: Tobia. Sit with us. We were talking about the weather.' },
+      { do: () => G.fade(true, .45) }, { wait: .6 },
+      { do: () => { restore(); G.fade(false, .8); } }
+    ];
+    S.truths.push('One evening you walked in on them arranged along one side of the table, whispering. They said they were talking about the weather.');
+    runScene(steps, { onEnd: (save) => { G.playerAnchor.position.copy(save.pos); G.camera.position.set(0, 1.63, 0); G.camera.rotation.set(save.rx, save.ry, 0); G.resetLook(); } });
+  }
+
   // ---- per frame ---------------------------------------------------------------------
   function update(dt) {
     if (!S.built && G.home() && G.seats()) buildWorld();
@@ -1049,7 +1163,7 @@ export function createSociety(G) {
     if (G.zone() === 'home' && G.canAct()) {
       let stare = 0; for (const p of present()) { if (p.key === 'primo') continue; if (standing(p.key) <= -1 && dist2(p) < 6) stare++; }
       S.tension = clamp(S.tension + dt * (stare * .006 + (S.seated?.aurelio ? .004 : 0)) - dt * .007, 0, 1.2);
-      if (S.gather.active) { const A = S.gather.active; A.t += dt; if (S.seated) A.sat = true; while (A.beats.length && A.beats[0].at <= A.t) A.beats.shift().fn(); }
+      if (S.gather.active) { const A = S.gather.active; if (!G.linesBusy() && !S.ui) A.t += dt; if (S.seated) A.sat = true; while (A.beats.length && A.beats[0].at <= A.t) A.beats.shift().fn(); }
       else if (G.welcomed() && !S.kitchen.scene) { S.gather.cd -= dt; if (S.gather.cd <= 0 && !S.ui) { S.gather.cd = 210; gatherStart(); } }
       if (S.approach) {
         // someone is suddenly close when the tissue comes down; they say nothing, and go back
@@ -1059,6 +1173,7 @@ export function createSociety(G) {
         else if (G.walk(n, a.from.x, a.from.z, 1.0, dt)) S.approach = null;
       }
       if (S.frameAt && !S.framed && now() > S.frameAt && !S.seated && !inKitchen()) frame();
+      if (S.plotAt && now() > S.plotAt && (S.plotN || 0) < 3 && !S.gather.active && !S.kitchen.scene && !S.ui && !S.seated && !G.linesBusy() && present().length >= 6) plotScene();
     } else S.tension = clamp(S.tension - dt * .004, 0, 1.2);
     S.tension = clamp(S.tension + dt * Math.max(0, G.fear() - .45) * .02, 0, 1.2);
   }
@@ -1074,6 +1189,6 @@ export function createSociety(G) {
     S, update, onKey, onEnterZone, doorGate, gazeFor, barkFor, dialogueGate, onDialogueChoice, primoAside, computeEnding, standing, tense,
     get seated() { return S.seated; }, get busy() { return B.wipe > 0; }, get distort() { return B.distort; },
     // test hooks
-    _startHunt: (k) => startHunt(k, 'test'), _face: (k) => face(hunting(k), true), _launchVan: (k) => launchVan(hunting(k)), _hunt: H, _canAct: () => G.canAct(), _gesture: gesture, _ask: ask, _startBleed: startBleed, _arrangeKitchen: arrangeKitchen, _gather: gatherStart, _affect: affect, _score: score
+    introScene, _plot: () => plotScene(), _startHunt: (k) => startHunt(k, 'test'), _face: (k) => face(hunting(k), true), _launchVan: (k) => launchVan(hunting(k)), _hunt: H, _canAct: () => G.canAct(), _gesture: gesture, _ask: ask, _startBleed: startBleed, _arrangeKitchen: arrangeKitchen, _gather: gatherStart, _affect: affect, _score: score
   };
 }

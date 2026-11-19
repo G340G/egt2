@@ -484,3 +484,24 @@ export const SOCIAL = {
     kitchen: { open: 'Hand me that. Thirty years and I still cannot find anything in this kitchen.', help: 'I told you about the priest. If Dario knows I told you, I am the next name on the beam.', pretend: '(He is wiping down the board with the flat of his palm.) Clean. Always clean.' },
     kill: 'Franco did it the way he did everything: without a reason, efficiently. He said afterwards that somebody had told him you were the one who had talked.' }
 };
+
+// =============================================================================
+// v23 — IL BIANCO. The White: the sound under every sound. It comes in through
+// the ears, the mouth, the nose, and fills a person the way water fills a bottle;
+// when there is no room left, the person stops. Aurelio was the first to be full.
+// Everyone at the table is waiting for it, or afraid of it, or both. It is not a
+// belief they hold; it is the thing they cannot stop talking about.
+// =============================================================================
+export const BIANCO = {
+  ines: ['When Il Bianco comes for you, I will be there. Nobody fills alone in this house.', 'I can hear it in some of them already. A whistle under the breath.', 'Eat. Il Bianco fills the empty ones first.'],
+  ottavio: ['(He presses his palm to the table.) I cannot hear Il Bianco. That is why it frightens me most. I will not know when it starts.', 'The record is not music. It is the shape of Il Bianco, cut into lacquer.'],
+  anna: ['My husband was full before anyone. Il Bianco took him in his sleep. He was smiling.', 'I keep his bowl full so Il Bianco has somewhere else to go.'],
+  dario: ['Il Bianco is not death. It is being completed.', 'Listen. Under the fridge, under the rain. It is there. It is always there.', 'Aurelio heard it first. We are only following.'],
+  sergio: ['Il Bianco, Il Bianco. You know what it is? Carbon monoxide and a priest with a good voice.', 'They will tell you it fills you. Ask them what it fills you with.'],
+  marta: ['I carve each one into the beams when Il Bianco takes them. There is a beam for you already. I do not remember cutting it.', 'Il Bianco is white the way a sheet is white. You only see the stain.'],
+  pino: ['On the road you can outrun Il Bianco. In this house you just sit and wait for it.', 'Twenty years of engines. Il Bianco is the only noise I cannot drive out of.'],
+  gabri: ['They say Il Bianco makes you feel seen. Completely. Do you think that is true?', 'I hear it in the fridge. A note under the note. Il Bianco.'],
+  walter: ['I measured the house. It is exactly the size Il Bianco needs. Thirteen. Fourteen with you.', 'When Il Bianco is ready, everything has to be in its place. I make sure it is.'],
+  livia: ['(She hums the four notes, then stops on the fifth, where there is only breath. That is Il Bianco, her eyes say.)', '(A napkin:) il bianco is the note after the last note'],
+  franco: ['Il Bianco. Thirty years cutting meat and I never heard a cow go so quiet.', 'You want to know what Il Bianco is? Ask Aurelio. Oh — you can’t.']
+};
