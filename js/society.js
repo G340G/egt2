@@ -54,7 +54,7 @@ export function createSociety(G) {
     rel: {}, between: {}, episodes: [], rumours: [], heardTold: [], testimony: [], confid: {}, conflicts: [], truths: [],
     belong: {}, carried: new Set(), seats: [], seated: null, placeDenied: false,
     tension: 0, gestures: 0, answers: 0, refused: 0,
-    bleed: { on: false, level: 0, distort: 0, t: 0, dur: 0, cd: 25, tissues: 4, stain: 0, wipe: 0, wipeDur: 0, wipeKind: null, seen: new Set(), drip: 0, breath: 0, hand: 0, told: false, offerCd: 0 },
+    bleed: { on: false, level: 0, distort: 0, t: 0, dur: 0, cd: 38, tissues: 4, stain: 0, wipe: 0, wipeDur: 0, wipeKind: null, seen: new Set(), drip: 0, breath: 0, hand: 0, told: false, offerCd: 0 },
     gather: { cd: 75, n: 0, active: null, primed: false },
     kitchen: { cd: 160, scene: null, protectorUsed: false },
     ui: null, allLookUntil: 0, doorAt: 0, doorWarned: 0, talkStop: 0, primoNotes: [], promised: null, ending: null, built: false, flagsSeen: new Set(), lastRumourAt: -999
@@ -397,10 +397,10 @@ export function createSociety(G) {
   }
 
   // ---- 04 epistaxis --------------------------------------------------------------
-  function tense(v) { S.tension = clamp(S.tension + v, 0, 1.2); }
+  function tense(v) { S.tension = clamp(S.tension + v * .78, 0, 1.2); }
   const B = S.bleed;
   function startBleed() {
-    B.on = true; B.t = 0; B.dur = 48 + Math.random() * 30; B.level = Math.max(B.level, .05); B.hand = 1; B.seen = new Set(); B.offered = false;
+    B.on = true; B.t = 0; B.dur = 40 + Math.random() * 24; B.level = Math.max(B.level, .05); B.hand = 1; B.seen = new Set(); B.offered = false;
     G.line(pick(['(Something warm on your lip.)', '(A drop. Your hand goes to your nose before you decide to lift it.)', '(The taste of a coin.)']));
     G.audio()?.mechanicalTone(1300, 900, .05, 'sine', .02, 0);
     if (!B.told) { B.told = true; G.journal({ id: 'epistassi', title: 'Epistassi', description: 'My nose bleeds when a room closes around me. Not when anyone touches me: when nobody does. A tissue takes a few seconds, and the house does not wait for me. A sleeve takes less, and then everyone can see it.', kind: 'symptom', zone: 'home' }); G.el('bleed-help')?.classList.add('visible'); setTimeout(() => G.el('bleed-help')?.classList.remove('visible'), 9000); }
@@ -445,7 +445,7 @@ export function createSociety(G) {
       B.t += dt;
       const ending = B.t > B.dur;
       if (!ending) B.level = Math.min(1, B.level + dt * (.022 + S.tension * .02)); else B.level = Math.max(0, B.level - dt * .06);
-      if (ending && B.level <= .01) { B.on = false; B.cd = 30; G.el('tissues')?.classList.remove('visible'); }
+      if (ending && B.level <= .01) { B.on = false; B.cd = 42; G.el('tissues')?.classList.remove('visible'); }
       G.blood.bleedT = B.level > .12 ? 1 : 0;
       // the body, close: breath, a swallow, the drip
       B.breath -= dt; if (B.breath <= 0) { B.breath = 3.6 - B.level * 1.4; const a = G.audio(); a?.mechanicalNoise(1.1, 420, .7, .025 + B.level * .035, 0); setTimeout(() => a?.mechanicalNoise(1.3, 300, .6, .02 + B.level * .03, 0), 1300); if (Math.random() < .25 + B.level * .3) setTimeout(() => { a?.mechanicalTone(150, 70, .16, 'sine', .05, 0); a?.mechanicalNoise(.05, 3000, 3, .02, 0); }, 2300); }
@@ -458,7 +458,7 @@ export function createSociety(G) {
     const want = B.wipe > 0 && B.wipeKind === 'tissue' ? B.level * .5 : B.level;
     B.distort += (want - B.distort) * Math.min(1, dt * (want > B.distort ? .35 : .18));
     B.hand = Math.max(0, B.hand - dt * .7); G.el('hand')?.style.setProperty('opacity', String(Math.sin(Math.min(1, B.hand) * Math.PI) * .9));
-    if (!B.on) { B.cd -= dt; if (B.cd <= 0 && S.tension > .5 && G.canAct() && (G.zone() === 'home' || S.tension > .8)) startBleed(); }
+    if (!B.on) { B.cd -= dt; if (B.cd <= 0 && S.tension > .56 && G.canAct() && (G.zone() === 'home' || S.tension > .8)) startBleed(); }
     if (B.on) G.el('nosebleed')?.classList.toggle('active', B.level > .12);
   }
   function noticeBlood() {
@@ -573,7 +573,7 @@ export function createSociety(G) {
     return r.grievance * (.55 + s.violence) + r.fear * s.violence * .8 + (r.marked && s.believer ? 1.4 : 0) - Math.max(0, r.trust) * 1.1 - s.care * .8;
   }
   const KILL = () => [Infinity, 6.2, 5.0, 4.0][G.difficulty()] ?? 5;
-  function candidate() { let best = null, bs = 2.4; for (const p of present()) { if (p.key === 'primo' || p.key === 'ottavio') continue; const sc = score(p.key); if (sc > bs) { bs = sc; best = p; } } return best ? { p: best, s: bs } : null; }
+  function candidate() { let best = null, bs = 2.4; for (const p of present()) { if (p.key === 'primo' || p.key === 'ottavio' || hunting(p.key)) continue; const sc = score(p.key); if (sc > bs) { bs = sc; best = p; } } return best ? { p: best, s: bs } : null; }
   function arrangeKitchen() {
     const c = candidate(); if (!c) return false;
     const P = primoPresent();
@@ -648,7 +648,7 @@ export function createSociety(G) {
   }
   function defused(sc, how) {
     const k = sc.k;
-    if (how === 'walked') { G.line(`(${nm(k)} does not follow you. Behind you, the bread knife goes back on the board.)`); S.truths.push(`In the kitchen, you walked out before ${nm(k)} decided anything.`); }
+    if (how === 'walked') { G.line(`(${nm(k)} does not follow you. Behind you, the bread knife goes back on the board.)`); S.truths.push(`In the kitchen, you walked out before ${nm(k)} decided anything.`); if (sc.kind === 'attack') setTimeout(() => startHunt(k, 'you walked out of the kitchen'), 20000); }
     else if (how === 'returned') G.line(`${UP(k)}: (A long breath out.) Get out of the kitchen.`);
     else if (how === 'knife') G.line(`(${nm(k)} looks at the knife, then at you, and leaves it where it is.)`);
     else G.line(`${UP(k)}: (Nothing for a while.) Bread. Take the bread through.`);
@@ -682,6 +682,7 @@ export function createSociety(G) {
 
   // ---- arriving, doors, gaze, barks --------------------------------------------------
   function onEnterZone(name) {
+    huntersOnEnter(name);
     if (name !== 'home') { if (S.seated) S.seated = null; closeUI(); return; }
     buildWorld();
     const cold = present().filter(p => p.key !== 'primo' && standing(p.key) <= -1).length;
@@ -723,6 +724,7 @@ export function createSociety(G) {
   }
   function barkFor(npc) {
     const k = npc.socialKey, s = SOCIAL[k]; if (!s) return null;
+    { const hb = huntBark(npc); if (hb) return hb; }
     const st = standing(k);
     if (st <= -2.2) return `(${nm(k)} does not answer.)`;
     if (st <= -1) return pick(s.cold);
@@ -732,6 +734,7 @@ export function createSociety(G) {
   // Talking to someone who has gone cold: nobody answers.
   function dialogueGate(npc) {
     const k = npc.socialKey; if (!k || k === 'primo') return null;
+    if (helpBleeding(npc)) return 'handled';
     const give = returnTo(k);
     if (give) { offer(UP(k), '', [[`Give back the ${({ photo: 'photograph', keys: 'keys', earplugs: 'earplugs' })[give]}.`, () => { S.carried.delete(give); const B = S.belong[give]; B.state = 'returned'; gesture(give + '-return'); G.line(`${UP(k)}: ${give === 'photo' ? '(He takes it without looking at it and puts it inside his jacket.)' : '(A look you cannot read.) Where were they.'}`); }], ['Say nothing about it.', () => {}]]); return 'handled'; }
     if (standing(k) <= -2.2 && npc.talkedOnce) return pick([`(${nm(k)} does not answer. ${pick(['They keep eating.', 'They look past you.', 'They get up and go to the sink.'])})`, `(You ask. ${nm(k)} turns to say something to somebody else.)`]);
@@ -785,6 +788,254 @@ export function createSociety(G) {
     S.ending = E; return E;
   }
 
+
+  // ===================================================================================
+  // v22 — THEY DECIDE. When someone has enough reasons, they stop waiting for a kitchen.
+  // They keep their face at the table for a while; then their chair is empty. They hide in
+  // the rooms you go into, follow you through doors, move only when you are not looking,
+  // and use what is in their hands. The blood in your nose makes them hard to see.
+  // ===================================================================================
+  const WEAPON = { franco: ['stab', 'the cleaver'], marta: ['stab', 'her burin'], gabri: ['stab', 'the bread knife'], anna: ['stab', 'the long kitchen knife'], dario: ['choke', 'a rosary cord'], sergio: ['choke', 'his belt'], livia: ['choke', 'a cushion'], walter: ['van', 'the van'], pino: ['van', 'the van'], ines: ['bleed', 'the white cloth she is always folding'] };
+  const HUNT = () => [Infinity, 4.4, 3.6, 2.9][G.difficulty()] ?? 3.6;
+  const MAXH = () => [0, 1, 2, 3][G.difficulty()] ?? 2;
+  const H = { list: [], checkT: 8, watchT: 70, lureT: 150, lure: null, van: null, borrowed: new Set(), cueT: 0, bloodLost: 0, heavy: false, denied: false };
+  S.hunt = H;
+  const zoneOf = (name) => G.zones()[name];
+  function hunting(k) { return H.list.find(h => h.k === k); }
+  function startHunt(k, why = '') {
+    if (hunting(k) || G.difficulty() === 0 || !WEAPON[k] || H.list.length >= MAXH()) return null;
+    const p = who(k) || G.people().find(x => x.key === k); if (!p) return null;
+    const [method, tool] = WEAPON[k];
+    const h = { k, npc: p.npc, method, tool, state: 'mask', where: 'home', t: 0, maskT: 40 + Math.random() * 50, seenT: 0, faced: 0, cd: 0, why };
+    keepHome(p.npc); H.list.push(h);
+    S.truths.push(`${nm(k)} decided you had to disappear${why ? ': ' + why : ''}.`);
+    return h;
+  }
+  function endHunt(h, note) { H.list = H.list.filter(x => x !== h); h.npc.hunting = false; returnHome(h.npc); dropEntry(h); if (note) S.truths.push(note); }
+  function keepHome(n) { if (!n._home) n._home = { x: n.object.position.x, z: n.object.position.z, y: n.object.position.y, r: n.object.rotation.y, seated: !!n.seated, parent: n.object.parent }; }
+  function returnHome(n) { const h = n._home; if (!h) return; if (n.object.parent !== h.parent) { n.object.parent?.remove(n.object); h.parent.add(n.object); } n.object.position.set(h.x, h.y, h.z); n.object.rotation.y = h.r; n.seated = h.seated; n.walking = false; n.object.visible = true; n.borrowed = false; H.borrowed.delete(n); }
+  function borrow(n, zoneName, x, z, yaw) { keepHome(n); const zg = zoneOf(zoneName).group; if (n.object.parent !== zg) { n.object.parent?.remove(n.object); zg.add(n.object); } n.object.position.set(x, 0, z); n.object.rotation.y = yaw; n.seated = false; n.posed = false; n.walking = false; n.object.visible = true; n.borrowed = true; H.borrowed.add(n); }
+  function offstage(h) { h.where = null; h.state = 'away'; h.npc.object.visible = false; h.npc.walking = false; dropEntry(h); }
+  function solidAt(Z, x, z, m = .3) { return Z.solids.some(o => x + m > o.minX && x - m < o.maxX && z + m > o.minZ && z - m < o.maxZ); }
+  function los(Z, a, b) { for (let i = 1; i < 10; i++) { const x = a.x + (b.x - a.x) * i / 10, z = a.z + (b.z - a.z) * i / 10; if (solidAt(Z, x, z, 0)) return false; } return true; }
+  // A place to wait: out of the line of sight from where you came in, near something to stand behind.
+  function hidingSpot(Z, from, near = [7, 15]) {
+    const b = Z.bounds; let best = null, bs = -1e9;
+    for (let i = 0; i < 60; i++) {
+      const x = b.minX + 1 + Math.random() * (b.maxX - b.minX - 2), z = b.minZ + 1 + Math.random() * (b.maxZ - b.minZ - 2);
+      if (solidAt(Z, x, z, .45)) continue;
+      const d = Math.hypot(x - from.x, z - from.z); if (d < 4) continue;
+      let sc = -Math.abs(d - (near[0] + near[1]) / 2) * .4; if (!los(Z, from, { x, z })) sc += 5; if (solidAt(Z, x, z, 1.1)) sc += 2;
+      if (sc > bs) { bs = sc; best = { x, z }; }
+    }
+    return best;
+  }
+  // Can Tobia actually see them? Distance, the cone of his eyes, walls, the torch, and the blood.
+  function visRange() { return (G.flashlight() ? 13 : 7.5) * (1 - .6 * B.distort) * (B.wipe > 0 ? 0 : 1); }
+  function sees(h) {
+    const Z = zoneOf(G.zone()), o = h.npc.object.position, p = playerPos(), d = Math.hypot(o.x - p.x, o.z - p.z);
+    if (d > visRange()) return false;
+    G.camera.getWorldDirection(tmp2); const dot = (tmp2.x * (o.x - p.x) + tmp2.z * (o.z - p.z)) / (Math.hypot(tmp2.x, tmp2.z) * (d || 1));
+    if (dot < (d < 2 ? .35 : .72)) return false;
+    return los(Z, p, o);
+  }
+  function addEntry(h) { if (h.entry) return; const Z = zoneOf(h.where); h.entry = { id: 'hunter-' + h.k, type: 'social', object: h.npc.object, point: h.npc.object.position, radius: 2.6, prompt: '[ E ] SPEAK — ' + UP(h.k), run: () => face(h, true) }; h.entryZone = Z; Z.interactables.push(h.entry); }
+  function dropEntry(h) { if (!h.entry) return; const L = h.entryZone.interactables, i = L.indexOf(h.entry); if (i >= 0) L.splice(i, 1); h.entry = null; }
+  // ---- where they are when you walk in ----
+  function huntersOnEnter(name) {
+    // bodies borrowed for a room you have left go back to the house
+    if (H.watcher) H.watcher = null;
+    for (const n of [...H.borrowed]) if (!H.list.some(h => h.npc === n && h.where === name)) { const h = H.list.find(x => x.npc === n); if (h) offstage(h); else returnHome(n); }
+    if (name === 'home') { for (const h of H.list) if (h.state !== 'mask') { h.npc.object.visible = false; } }
+    const lure = H.lure && H.lure.zone === name && now() < H.lure.until ? H.lure : null; if (lure) H.lure = null;
+    for (const h of H.list) {
+      if (h.state === 'mask') continue;
+      const Z = zoneOf(name); if (!Z) continue;
+      if (lure && lure.trap && lure.k === h.k) { ambush(h, name, lure); continue; }
+      if (h.method === 'van' && name === 'road') { h.where = null; h.state = 'away'; h.vanAt = now() + 12 + Math.random() * 25; continue; }
+      const p = playerPos(), chance = .5 + Math.min(.3, S.rel[h.k].grievance * .04) + (B.on ? .15 : 0);
+      if (Math.random() < chance) { const sp = hidingSpot(Z, p); if (sp) { place(h, name, sp.x, sp.z, Math.random() * 6.28); h.state = 'hide'; continue; } }
+      h.where = null; h.state = 'follow'; h.followAt = now() + 9 + Math.random() * 18; h.followZone = name;
+    }
+    if (lure && !lure.trap) friendWaits(lure, name);
+  }
+  function place(h, zone, x, z, yaw) { if (zone === 'home') { const n = h.npc; if (n.object.parent !== n._home.parent) returnHome(n); n.object.position.set(x, 0, z); n.object.rotation.y = yaw; n.seated = false; n.object.visible = true; } else borrow(h.npc, zone, x, z, yaw); h.where = zone; h.t = 0; h.seenT = 0; addEntry(h); }
+  // They come in after you, through the same door.
+  function follow(h) { const Z = zoneOf(G.zone()), sp = Z.spawn; place(h, G.zone(), sp.x + (Math.random() - .5), sp.z + (Math.random() - .5), 0); h.state = 'stalk'; G.audio()?.doorCreak?.(); if (Math.random() < .5) setTimeout(() => G.line(pick(['(Behind you, the door. Somebody else has come in.)', '(A latch. Footsteps that stop when yours stop.)'])), 400); }
+  function ambush(h, zone, lure) {
+    const Z = zoneOf(zone), sp = Z.spawn;
+    if (h.method === 'van' && zone === 'road') { h.vanAt = now() + 3; h.state = 'away'; h.lured = lure; return; }
+    place(h, zone, sp.x + (Math.random() - .5) * 2, sp.z + 2.2, Math.PI); h.state = 'stalk'; h.lured = lure; h.boldUntil = now() + 6;
+  }
+  // ---- per frame ----
+  function updateHunters(dt) {
+    if (G.difficulty() === 0) return;
+    H.checkT -= dt;
+    if (H.checkT <= 0) { H.checkT = 3; for (const k of keys) { if (k === 'ottavio' || hunting(k)) continue; if (score(k) >= HUNT()) startHunt(k, (S.rel[k].causes.slice(-1)[0]?.text || '').replace(/\.$/, '')); } }
+    const act = G.canAct() || B.wipe > 0;
+    for (const h of [...H.list]) {
+      h.t += dt; h.cd = Math.max(0, h.cd - dt);
+      if (h.state === 'mask') {
+        // still at the table, still pleasant; then one evening the chair is empty
+        if (G.zone() !== 'home') h.maskT -= dt * 2; else h.maskT -= dt;
+        if (h.maskT <= 0 && !(G.zone() === 'home' && dist2({ npc: h.npc }) < 9)) { h.npc.hunting = true; if (G.zone() === 'home') { place(h, 'home', -9.0, -7.6, 0); h.state = 'hide'; } else offstage(h); }
+        continue;
+      }
+      if (h.state === 'follow' && now() >= h.followAt) { if (G.zone() === h.followZone && act && G.zone() !== 'road' && !(h.method === 'van')) follow(h); else h.state = 'away'; }
+      if (h.method === 'van' && G.zone() === 'road' && h.vanAt && now() >= h.vanAt && !H.van && act) { h.vanAt = 0; launchVan(h); }
+      if (h.where !== G.zone() || !act) { if (h.npc.walking) h.npc.walking = false; continue; }
+      const n = h.npc, o = n.object.position, p = playerPos(), d = Math.hypot(o.x - p.x, o.z - p.z), seen = sees(h);
+      const others = G.zone() === 'home' ? present().filter(x => x.key !== h.k && !hunting(x.key) && dist2(x) < 6.5).length : 0;
+      if (seen) { h.seenT += dt; n.walking = false; G.turn(n, p.x, p.z, dt, 2); if (h.state === 'stalk' && d < 3.2 && !h.faced) face(h, false); if (h.seenT > 6 && d > 5 && h.state !== 'hide') { reHide(h); } continue; }
+      h.seenT = 0;
+      if (d < 9) tense(dt * .012);
+      if (h.state === 'hide' && (d < 5.5 || (h.t > 25 && Math.random() < dt * .05))) h.state = 'stalk';
+      if (h.state === 'stalk' || h.state === 'faced') {
+        if (others) { n.walking = false; continue; }  // nobody does it in front of the others
+        const sp = (1.05 + Math.min(.6, S.rel[h.k].grievance * .05)) * (B.wipe > 0 ? 2.2 : 1) * (now() < (h.boldUntil || 0) ? 1.5 : 1);
+        step(h, p.x, p.z, sp, dt);
+        if (d < 2.7) { H.cueT -= dt; if (H.cueT <= 0) { H.cueT = 2.2; G.audio()?.footstep?.('wood', false, Math.random() < .5 ? -1 : 1); if (Math.random() < .4) G.audio()?.mechanicalNoise(.8, 380, .7, .03, 0); } }
+        if (d < 1.0 && h.cd <= 0) { strike(h); return; }
+      }
+    }
+    updateVan(dt); updateLures(dt); updateWatchers(dt); updateBleedOut(dt);
+  }
+  function step(h, tx, tz, sp, dt) {
+    const Z = zoneOf(h.where), o = h.npc.object.position, dx = tx - o.x, dz = tz - o.z, d = Math.hypot(dx, dz) || 1, st = sp * dt;
+    let nx = o.x + dx / d * st, nz = o.z + dz / d * st, moved = false;
+    if (!solidAt(Z, nx, o.z, .25)) { o.x = nx; moved = true; } if (!solidAt(Z, o.x, nz, .25)) { o.z = nz; moved = true; }
+    if (!moved) { const sx = o.x - dz / d * st, sz = o.z + dx / d * st; if (!solidAt(Z, sx, sz, .25)) { o.x = sx; o.z = sz; } }
+    h.npc.walking = true; G.turn(h.npc, tx, tz, dt, 5);
+  }
+  function reHide(h) { const Z = zoneOf(h.where), sp = hidingSpot(Z, playerPos(), [9, 16]); if (!sp) return; h.state = 'hide'; h.t = 0; h.npc.walking = false; h.npc.object.position.set(sp.x, 0, sp.z); /* when you look back, they are somewhere else */ }
+  // Face to face, they are ordinary. It is your move.
+  function face(h, asked) {
+    if (S.ui) return; h.faced = 1; h.state = 'faced';
+    const n = h.npc, give = returnTo(h.k), cause = (S.rel[h.k].causes.slice().sort((a, b) => b.w - a.w)[0]) || { text: '' };
+    const lie = { franco: 'Looking for the lamp oil. You?', marta: 'I came to look at the beams in here. The light is better.', gabri: 'I was just walking. Can’t I walk?', anna: 'Ines sent me to find you. Dinner.', dario: 'I was praying. You interrupted.', sergio: 'Thought I heard you. Wanted a smoke, that’s all.', livia: '(She hums the four notes and smiles.)', walter: 'Measuring. Somebody has to.', pino: 'Getting something from the van.', ines: 'There you are. You look pale. Come here.' }[h.k];
+    G.lineNow(`${UP(h.k)}: ${lie}`);
+    const opts = [];
+    if (give) opts.push([`Give back the ${({ photo: 'photograph', keys: 'keys', earplugs: 'earplugs' })[give]}.`, () => { S.carried.delete(give); affect(h.k, { g: -3 }); endHunt(h, `You gave ${nm(h.k)} back the ${give}. ${nm(h.k)} went back to the table.`); G.line(`${UP(h.k)}: (A long look.) Go and eat something.`); }]);
+    if (S.carried.has('knife')) opts.push(['(Let them see the knife.)', () => { affect(h.k, { f: 1.4 }); h.cd = 30; G.line(`(${nm(h.k)} sees it, and smiles, and steps back into the dark.)`); setTimeout(() => reHide(h), 1500); }]);
+    opts.push(['“What are you really doing here?”', () => { G.line('TOBIA: What are you really doing here?'); setTimeout(() => { G.line(`${UP(h.k)}: ${Math.random() < .5 || !cause.text ? lie : cause.text}`); setTimeout(() => offer(UP(h.k), '', [
+      ['“I’m sorry.”', () => { if (SOCIAL[h.k].care >= .45 && S.rel[h.k].grievance < 7) { affect(h.k, { g: -3 }); endHunt(h, `You apologised to ${nm(h.k)} in time.`); G.line(`${UP(h.k)}: (Nothing for a long time.) Go back inside.`); } else { h.cd = 0; h.state = 'stalk'; h.boldUntil = now() + 4; } }],
+      ['“That isn’t what happened.”', () => { if (/\(you had not\)/.test(cause.text) && SOCIAL[h.k].distorts < .55) { affect(h.k, { g: -3.5 }); endHunt(h, `You told ${nm(h.k)} the truth about a story somebody had told wrong. ${nm(h.k)} believed you.`); G.line(`${UP(h.k)}: …Then who told me.`); } else { h.state = 'stalk'; h.boldUntil = now() + 4; } }],
+      ['(Back away.)', () => { h.state = 'stalk'; h.cd = 6; }]], { timeout: 6, onTimeout: () => { h.state = 'stalk'; h.boldUntil = now() + 5; }, leave: () => { h.state = 'stalk'; h.cd = 5; } }), 2200); }, 1300); }]);
+    opts.push(['(Back away.)', () => { h.state = 'stalk'; h.cd = 6; }]);
+    setTimeout(() => offer(UP(h.k), '', opts, { timeout: 7, onTimeout: () => { h.state = 'stalk'; h.boldUntil = now() + 5; }, leave: () => { h.state = 'stalk'; h.cd = 4; } }), 900);
+    setTimeout(() => { h.faced = 0; }, 25000);
+  }
+  // ---- the deaths ----
+  const DEATH = {
+    stab: (k, tool) => `${nm(k)} came from behind with ${tool}. You heard them only when they were already close: the blood in your nose had been louder than their feet.`,
+    choke: (k, tool) => `${nm(k)} put ${tool} around your throat from behind and leaned back with their whole weight, and talked to you quietly the whole time, the way you talk to an animal.`,
+    van: (k) => `The van came out of the fog with its lights off. ${nm(k)} did not brake. Afterwards ${nm(k)} said it was the fog; nobody on the provinciale could see anything that night.`,
+    bleed: (k) => `You bled out. Somebody had taken the tissues from your pocket, and when you asked, nobody had one. ${nm(k)} stepped over you to get to the sink.`
+  };
+  function strike(h, method = h.method) {
+    G.audio()?.killSting?.(); G.glitch?.(2);
+    // on foot, the drivers use their hands and Ines uses her cloth
+    const m = method === 'van' || method === 'bleed' ? 'choke' : method, tool = method === 'van' ? 'their hands' : h.tool;
+    die(h.k, m, tool, h.lured);
+  }
+  function die(k, method, tool, lured) {
+    const r = S.rel[k], lines = [];
+    if (lured) lines.push(`${nm(lured.from)} told you ${lured.what}. ${lured.from === k ? 'It was not true.' : `${nm(lured.from)} knew ${nm(k)} was waiting.`}`);
+    lines.push(...r.causes.slice().sort((a, b) => b.w - a.w).slice(0, 5).map(c => c.text));
+    lines.push(...S.truths.filter(t => /decided you had to disappear|took|tissues/.test(t)).slice(-3));
+    if (B.distort > .3) lines.push('Your nose was bleeding. You did not see them until it was too late.');
+    const empty = keys.filter(x => x !== k && standing(x) > 1.2);
+    lines.push(empty.length ? `${empty.map(nm).join(', ')} would have stopped it. Nobody was near you.` : 'Nobody would have stopped it.');
+    S.ending = { id: 'assassination', title: { stab: 'The Assassination', choke: 'The Assassination', van: 'The Road', bleed: 'The Blood' }[method] || 'The Assassination', small: 'ENDING · ' + ({ van: 'RUN DOWN', bleed: 'BLED OUT', choke: 'STRANGLED', stab: 'STABBED' }[method] || 'THE ASSASSINATION'), copy: (DEATH[method] || DEATH.stab)(k, tool) + ' Il Professore had his earplugs in. When they told him, he asked who had been with you, and wrote the name down.', voice: 'There was no monster. There was a reason, and nobody near you.', ledger: [...new Set(lines)].slice(0, 8) };
+    G.end(S.ending, true);
+  }
+  // ---- the van ----
+  function launchVan(h) {
+    const Z = zoneOf('road'), p = playerPos(); G.camera.getWorldDirection(tmp2);
+    const back = new THREE.Vector3(-tmp2.x, 0, -tmp2.z).normalize();
+    const v = G.buildVan(Z.group); v.position.set(p.x + back.x * 46, 0, p.z + back.z * 46); v.traverse(o => { if (o.isSpotLight) o.intensity = 0; });
+    H.van = { v, h, sp: 4, aim: new THREE.Vector3(p.x, 0, p.z), t: 0, passed: false };
+    G.audio()?.mechanicalTone(55, 90, 6, 'sawtooth', .03, 0);
+  }
+  function updateVan(dt) {
+    const V = H.van; if (!V) return;
+    if (G.zone() !== 'road') { V.v.parent?.remove(V.v); H.van = null; return; }
+    V.t += dt; const p = playerPos(), o = V.v.position;
+    if (!V.passed) V.aim.lerp(new THREE.Vector3(p.x, 0, p.z), Math.min(1, dt * .9));
+    V.sp = Math.min(19, V.sp + dt * 7);
+    const dx = V.aim.x - o.x, dz = V.aim.z - o.z, d = Math.hypot(dx, dz) || 1;
+    if (!V.dir) V.dir = new THREE.Vector3(dx / d, 0, dz / d);
+    if (!V.passed) V.dir.lerp(new THREE.Vector3(dx / d, 0, dz / d), Math.min(1, dt * 1.6)).normalize();
+    o.addScaledVector(V.dir, V.sp * dt); V.v.rotation.y = Math.atan2(V.dir.x, V.dir.z) + Math.PI;
+    if (V.t > 1.2 && Math.random() < dt * 2) G.audio()?.mechanicalTone(70 + V.sp * 4, 60 + V.sp * 4, .4, 'sawtooth', .02 + Math.min(.05, 2 / Math.max(2, Math.hypot(p.x - o.x, p.z - o.z))), 0);
+    const pd = Math.hypot(p.x - o.x, p.z - o.z);
+    if (pd < 1.7 && !V.passed) { V.v.traverse(x => { if (x.isSpotLight) x.intensity = 90; }); die(V.h.k, 'van', V.h.tool, V.h.lured); return; }
+    if (!V.passed && (V.dir.x * (p.x - o.x) + V.dir.z * (p.z - o.z)) < -1) { V.passed = true; G.line(pick(['(It goes past close enough to move your coat. The engine note does not change. No brake lights.)', '(Wind, metal, then the fog again. It did not stop.)'])); tense(.3); S.truths.push(`${nm(V.h.k)} drove at you on the road and missed.`); V.h.vanAt = now() + 90 + Math.random() * 60; }
+    if (V.t > 14) { V.v.parent?.remove(V.v); H.van = null; }
+  }
+  // ---- lures: an errand that might be a trap, or might be a friend ----
+  const PLACES = { cellar: 'the cellar', darkroom: 'the dark room', abattoir: 'the slaughterhouse', road: 'the road', church: 'the church', ruin: 'the empty house', forest: 'the canal' };
+  function updateLures(dt) {
+    if (G.zone() !== 'home' || S.ui || !G.canAct() || S.gather.active) return;
+    H.lureT -= dt; if (H.lureT > 0) return; H.lureT = 120 + Math.random() * 90;
+    const hs = H.list.filter(h => h.state !== 'away' || true);
+    const trap = hs.length && Math.random() < .7;
+    let from, k, zone;
+    if (trap) { const h = pick(hs); k = h.k; zone = h.method === 'van' ? 'road' : pick(['cellar', 'darkroom', 'abattoir', 'church', 'ruin']); const allies = present().filter(p => p.key !== 'primo' && (p.key === k || S.between[p.key + '>tobia'] || standing(p.key) < -1)); from = allies.length ? pick(allies).key : null; if (!from) return; }
+    else { const friends = present().filter(p => p.key !== 'primo' && standing(p.key) > .8 && !hunting(p.key)); if (!friends.length) return; from = pick(friends).key; zone = pick(['cellar', 'road', 'church']); }
+    if (!zoneOf(zone)) return;
+    const reason = pick(['Il Professore wants you', 'Sergio is waiting for you', 'Ines left something for you', 'Somebody is asking for you', 'Pino says the van is leaving from there']);
+    const what = `${reason} in ${PLACES[zone]}`;
+    G.lineNow(`${UP(from)}: ${reason} in ${PLACES[zone]}. ${pick(['Now.', 'Alone, he said.', 'Go on, before it gets dark.', 'I would go if I were you.'])}`);
+    setTimeout(() => offer(UP(from), '', [
+      ['“All right.”', () => { H.lure = { zone, trap, k, from, what, until: now() + 140 }; }],
+      ['“Who told you that?”', () => { G.line(`${UP(from)}: ${pick(['Does it matter?', 'He did. Who else.', '(A shrug.) I am only saying it.'])}`); H.lure = { zone, trap, k, from, what, until: now() + 140 }; }],
+      ['“I’m staying here.”', () => { if (!trap) affect(from, { t: -.3 }); }]], { timeout: 8, onTimeout: () => {} }), 900);
+  }
+  function friendWaits(lure, zone) {
+    const f = lure.from; S.truths.push(`${nm(f)} really did send you to ${PLACES[zone]}, to warn you.`);
+    const hs = H.list.map(h => nm(h.k));
+    setTimeout(() => G.line(hs.length ? `(On the floor by the door, a folded napkin in ${nm(f)}’s handwriting:) ${hs[0]} is looking for you. Do not be alone.` : `(A tissue packet on the floor by the door, and nobody here. ${nm(f)} must have left it.)`), 1500);
+    if (!hs.length) { B.tissues++; showPacket(3); }
+  }
+  // ---- watchers: people in the fog who may be nothing at all ----
+  function updateWatchers(dt) {
+    if (G.zone() === 'home' || !G.canAct()) return;
+    H.watchT -= dt; if (H.watchT > 0 || H.watcher) { if (H.watcher) tickWatcher(dt); return; }
+    H.watchT = 50 + Math.random() * 70;
+    const cands = G.people().filter(p => p.key !== 'primo' && !hunting(p.key) && !p.npc.borrowed); if (!cands.length) return;
+    const p = pick(cands), Z = zoneOf(G.zone()), sp = hidingSpot(Z, playerPos(), [12, 20]); if (!sp) return;
+    const pp = playerPos(); borrow(p.npc, G.zone(), sp.x, sp.z, Math.atan2(pp.x - sp.x, pp.z - sp.z));
+    H.watcher = { n: p.npc, t: 0 };
+  }
+  function tickWatcher(dt) {
+    const W = H.watcher, o = W.n.object.position, p = playerPos(); W.t += dt; G.turn(W.n, p.x, p.z, dt, 1.5);
+    if (Math.hypot(o.x - p.x, o.z - p.z) < 6.5 || W.t > 18) { W.n.object.visible = false; returnHome(W.n); H.watcher = null; }
+  }
+  // ---- no more tissues ----
+  function updateBleedOut(dt) {
+    const ines = hunting('ines');
+    if (!H.denied && (ines || H.list.length >= 2) && B.tissues > 0 && B.wipe > 0 && B.wipeKind === 'tissue') {
+      H.denied = true; S.truths.push(`${ines ? 'Ines' : 'Somebody'} took the tissues out of your coat while you were wiping your nose.`);
+      setTimeout(() => { B.tissues = 0; showPacket(4); G.line('(Your pocket is empty. The packet was there a minute ago.)'); H.heavy = true; if (!B.on) startBleed(); B.dur = 9999; }, 4500);
+    }
+    if (H.heavy && B.on) {
+      H.bloodLost += dt * B.level * .011;
+      G.el('bleedout')?.style.setProperty('opacity', String(Math.min(.92, H.bloodLost * 1.1)));
+      if (H.bloodLost > .5 && !H.warned) { H.warned = true; G.line(pick(['(It is not stopping. Your hands are cold.)', '(The room tilts when you turn your head.)'])); }
+      if (H.bloodLost >= 1) die(ines ? 'ines' : (H.list[0]?.k || 'ines'), 'bleed');
+    }
+  }
+  // Asking for help when it will not stop: only someone who still cares will give it.
+  function helpBleeding(npc) {
+    if (!H.heavy) return false; const k = npc.socialKey;
+    if (hunting(k) || standing(k) < .3) { G.line(`(${nm(k)} looks at the blood, and at you, and turns back to the table.)`); return true; }
+    H.heavy = false; B.dur = B.t + 6; B.tissues += 1; showPacket(3); G.el('bleedout')?.style.setProperty('opacity', '0'); H.bloodLost *= .6;
+    G.line(`${UP(k)}: ${pick(['Head forward. Pinch here. Hold it. Hold it.', 'Here. Keep it. Do not let anyone see you have it.'])}`); affect(k, { t: .5 }); S.truths.push(`${nm(k)} stopped your bleeding when nobody else would.`);
+    return true;
+  }
+  function huntBark(npc) { const h = hunting(npc.socialKey); if (h && h.state === 'mask') return pick(SOCIAL[h.k].warm); return null; }
+
   // ---- per frame ---------------------------------------------------------------------
   function update(dt) {
     if (!S.built && G.home() && G.seats()) buildWorld();
@@ -792,7 +1043,7 @@ export function createSociety(G) {
     // rumours travel whether or not Tobia is in the room
     for (const r of S.rumours) if (!r.dead && !r.done && now() >= r.at) { r.done = true; tellRumour(r); }
     S.rumours = S.rumours.filter(r => !r.done && !r.dead);
-    updateUI(dt); updateBleed(dt); updateKitchen(dt);
+    updateUI(dt); updateBleed(dt); updateKitchen(dt); updateHunters(dt);
     if (S.seated) { G.camera.position.y = 1.12; if (G.zone() !== 'home') S.seated = null; }
     // tension: hostile eyes, the room, the body
     if (G.zone() === 'home' && G.canAct()) {
@@ -823,6 +1074,6 @@ export function createSociety(G) {
     S, update, onKey, onEnterZone, doorGate, gazeFor, barkFor, dialogueGate, onDialogueChoice, primoAside, computeEnding, standing, tense,
     get seated() { return S.seated; }, get busy() { return B.wipe > 0; }, get distort() { return B.distort; },
     // test hooks
-    _canAct: () => G.canAct(), _gesture: gesture, _ask: ask, _startBleed: startBleed, _arrangeKitchen: arrangeKitchen, _gather: gatherStart, _affect: affect, _score: score
+    _startHunt: (k) => startHunt(k, 'test'), _face: (k) => face(hunting(k), true), _launchVan: (k) => launchVan(hunting(k)), _hunt: H, _canAct: () => G.canAct(), _gesture: gesture, _ask: ask, _startBleed: startBleed, _arrangeKitchen: arrangeKitchen, _gather: gatherStart, _affect: affect, _score: score
   };
 }

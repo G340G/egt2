@@ -385,6 +385,23 @@ export function personalize(P, X, tex = {}) {
 // v12: a fitted black leather jacket, built to read from every side: stand collar and
 // asymmetric lapels, an off-centre zip, waistband and buckle, epaulettes, a back yoke
 // and centre seam, sleeve seams and zipped cuffs. All parts hug the body; none is a flat panel.
+// A white shirt in the open front of a jacket: a V of cotton lying on the chest curve, over the
+// lapels' inner edge, with a soft collar and three small buttons. Not a flat panel.
+export function shirtUnderJacket(P, map = null) {
+  const k = P.k, W = P.spec.w, R = 0.209 * W, g = new THREE.BufferGeometry(), pos = [], uv = [], idx = [], NU = 10, NV = 12;
+  for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) {
+    const v = j / NV, u = i / NU * 2 - 1, half = THREE.MathUtils.lerp(0.07, 0.3, v), th = u * half, y = THREE.MathUtils.lerp(0.05, 0.32, v) * k;
+    const rr = R * (1 + 0.04 * THREE.MathUtils.smoothstep(v, 0.55, 1)) * (1 - 0.02 * Math.abs(u)); pos.push(Math.sin(th) * rr, y, Math.cos(th) * rr * 0.84); uv.push(i / NU, v);
+  }
+  for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const cot = new THREE.MeshStandardMaterial({ color: map ? 0xffffff : 0xe8e4da, map, roughness: 0.85, side: THREE.DoubleSide });
+  const front = new THREE.Mesh(g, cot); P.chest.add(front);
+  for (const sd of [-1, 1]) { const col = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.05, 3), cot); col.position.set(sd * 0.032, 0.318 * k, 0.15 * W); col.rotation.set(1.2, 0, sd * 2.6); col.scale.z = 0.35; P.chest.add(col); }
+  const btn = new THREE.MeshStandardMaterial({ color: 0xcfcac0, roughness: 0.4 });
+  for (let i = 0; i < 3; i++) { const y = (0.27 - i * 0.07) * k; const b = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 8), btn); b.rotation.x = Math.PI / 2; b.position.set(0, y, R * 0.84 + 0.002); P.chest.add(b); }
+  return front;
+}
 export function leatherJacket(P) {
   const k = P.k, W = P.spec.w, chest = P.chest, spine = P.spine;
   const hide = new THREE.MeshStandardMaterial({ color: 0x0b0b0b, roughness: 0.36, metalness: 0.12 });
