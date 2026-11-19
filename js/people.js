@@ -413,3 +413,74 @@ export const CORRUPTION = {
   'the widow': { kind: 'internal', rings: .5, smear: 0, note: 'Tired, not rotten. She is the only one here who is grieving.' }
 };
 SUBCULTURE.walter = { ...(SUBCULTURE.walter || {}), leather: true };
+
+// =============================================================================
+// v21 — THE ROOM. Nobody hunts Tobia. Each person carries a temperament the
+// player never sees: how devoted they are to Il Primo, how far they could go,
+// how much they already care, how faithfully they repeat what they saw, and to
+// whom they repeat it. The kitchen lines are deliberately interchangeable: the
+// same ordinary sentence opens an attack, a plea, or nothing at all.
+//   loyalty   devotion to Il Primo and the rite (0–1)
+//   violence  capacity to act with their hands (0–1)
+//   care      how much they start out caring for a stranger (0–1)
+//   distorts  how much a story changes when they retell it (0–1)
+//   confidant the one person they tell things to
+//   protects  the people they would step in for
+// =============================================================================
+export const SOCIAL = {
+  ines: { loyalty: .5, violence: .3, care: .72, distorts: .15, confidant: 'gabri', protects: ['gabri', 'tobia'],
+    cold: ['(She sets a cup down near you, not in front of you.)', 'Later.', '(She keeps folding the cloth and does not look up.)'],
+    warm: ['You are not eating. Eat.', 'Sit by me if the room is too loud.', 'Tip your head forward, not back. Always forward.'],
+    kitchen: { open: 'Hold this for me. No — by the handle.', help: 'Take Gabri with you when you go. Do not tell me where. If I know, I will tell them.', pretend: '(She cuts bread. She does not look up.) Bread. Take the end piece, nobody wants it.' },
+    kill: 'Ines had made it gentle. That was the worst part: there was no struggle, because she had thought about it for a long time and decided you should not be afraid. Her hand was steady on the back of your neck the whole way down.' },
+  ottavio: { loyalty: .4, violence: .05, care: .45, distorts: .1, confidant: 'walter', protects: ['livia'], deaf: true,
+    cold: ['(He watches your mouth, then turns back to the keys.)', '(He does not lift his palm from the wall.)'],
+    warm: ['(He takes your hand and lays it flat on the lid while he plays. You feel the note before you hear it.)', 'You walk more quietly than the others. I notice.'],
+    kitchen: { open: '(He points at the bread knife, then at the loaf, then at you.)', help: '(He writes on the back of a bill:) Walter has the keys on the dresser. I cannot drive. You can.', pretend: '(He is drinking water at the sink. He raises the glass to you.)' },
+    kill: 'Ottavio could not hear you. He said afterwards he had felt you come in through the floor.' },
+  anna: { loyalty: .6, violence: .2, care: .45, distorts: .3, confidant: 'ines', protects: [],
+    cold: ['(She ladles soup for everyone at the table. Your bowl stays where it is.)', 'It is not for you.'],
+    warm: ['There is more. There is always more.', 'He used to sit where you sit. No. He did not. I do not know why I said that.'],
+    kitchen: { open: 'Pass me that. The knife, the long one.', help: 'If they take the car on Sunday, make sure there is a place for me. I will not ask twice.', pretend: '(She stirs the pot.) Salt. Ines says too much salt.' },
+    kill: 'Anna said she had only wanted the place to be set properly. One place too many. She had counted them every evening for forty years.' },
+  dario: { loyalty: .95, violence: .72, care: .15, distorts: .5, confidant: 'walter', protects: [], believer: true,
+    cold: ['(He finishes his prayer before he looks at you, and then he does not.)', 'The White does not need you to talk.', '(He moves his glass so it is no longer near yours.)'],
+    warm: ['You listen. That is rare here.', 'Sit. The prayer is shorter if you sit.'],
+    kitchen: { open: 'Close the door behind you. The draught.', help: 'If he wants me to do something, and I do not want to, what am I? Tell me what I am.', pretend: '(He is lining up the knives in the drawer by length.) Everything has an order.' },
+    kill: 'Dario prayed first. He believed the room had marked you, that the blood was the sign. He did it the way he had been taught to do everything: carefully, and in the right order.' },
+  sergio: { loyalty: .1, violence: .15, care: .66, distorts: .2, confidant: 'franco', protects: ['tobia'],
+    cold: ['(He lights a cigarette and offers the pack to the man on his other side.)', 'Not now, kid.'],
+    warm: ['Here. Take one. Do not tell Ines.', 'Keep your head down at dinner. Not too far down.'],
+    kitchen: { open: 'Lighter. Have you seen my lighter? Look on the table.', help: 'Pino is going on Sunday. If you go with him, go. Do not wait for me to be brave.', pretend: '(He is reading the back of a seed packet.) Sixty days to harvest. Imagine.' },
+    kill: 'Sergio, of all of them. He said he had done it so that someone else would not do it worse.' },
+  marta: { loyalty: .55, violence: .45, care: .35, distorts: .72, confidant: 'livia', protects: [],
+    cold: ['(She goes on carving. The burin squeals.)', 'I have cut you already. Up there. I do not remember what you did.'],
+    warm: ['I could carve you. Small. Somewhere they would not look.', 'You have a good face for wood.'],
+    kitchen: { open: 'Hold the board still. Still.', help: 'There is a beam with your name already on it. Help me take it down before he reads it.', pretend: '(She is sharpening the burin on the back step of the stove.) It goes blunt on the old wood.' },
+    kill: 'Marta remembered it differently each time she told it. In every version you had done something to her first.' },
+  pino: { loyalty: .2, violence: .2, care: .5, distorts: .2, confidant: 'dario', protects: [], leaving: true,
+    cold: ['We have arranged the cars for Sunday. (He counts with his finger. He does not count you.)', 'No room. Sorry.'],
+    warm: ['Before dawn. You do not look back. Remember that.', 'The van has three seats. I only need one.'],
+    kitchen: { open: 'Is that the good knife? Give it here, I’ll do the bread.', help: 'I am going. Tonight, maybe. There is a seat. Come or do not, but do not tell Walter.', pretend: '(He is filling a thermos for the road.) Long drive. Long drive.' },
+    kill: 'Pino did it quickly, and then he drove all night. He said he had to be sure you would not come after him.' },
+  gabri: { loyalty: .5, violence: .62, care: .5, distorts: .4, confidant: 'ines', protects: ['ines'],
+    cold: ['(He turns his chair so the fridge light is on his back.)', 'Why are you looking at me.'],
+    warm: ['You can sit here. The light is enough for two.', 'Ines likes you. That means something. Probably.'],
+    kitchen: { open: 'Move. You are in the light.', help: 'Take me with you. I can carry things. I do not eat much.', pretend: '(He is drinking milk from the carton in the fridge light.) What.' },
+    kill: 'Gabri was nineteen. He said nobody had ever looked at him, and then you had looked at the wrong thing.' },
+  walter: { loyalty: .86, violence: .8, care: .2, distorts: .25, confidant: 'dario', protects: [], driver: true,
+    cold: ['The cars are full.', '(He measures the distance between you and the door with his eyes.)'],
+    warm: ['You can ride up front, if you like. You do not talk.', 'Good boots. Keep them dry.'],
+    kitchen: { open: 'Stand there. No — there. Out of the way.', help: 'If he gives me a task I cannot do, I want someone to know I could not.', pretend: '(He is oiling the hinge on the cupboard.) It squeaks. It should not squeak.' },
+    kill: 'Walter laid it out like a charge: the right place, the right moment, nobody in the line of fire. He said afterwards it had not been a task. Nobody had given it to him.' },
+  livia: { loyalty: .45, violence: .05, care: .56, distorts: .3, confidant: 'marta', protects: ['tobia'], mute: true,
+    cold: ['(She hums four notes and looks away on the fourth.)', '(She writes something on a napkin and folds it before you can read it.)'],
+    warm: ['(She hums the four notes, and on the fourth she smiles at you.)', '(A napkin, pushed across the table:) eat'],
+    kitchen: { open: '(She hands you the bread knife, handle first.)', help: '(A napkin:) when they go, take Marta. she forgets the way', pretend: '(She is washing one glass, again and again.)' },
+    kill: 'Livia could not say it afterwards. She wrote it on a napkin, and the napkin was in your hand when they found you.' },
+  franco: { loyalty: .5, violence: .66, care: .3, distorts: .35, confidant: 'sergio', protects: ['anna'],
+    cold: ['(He keeps cutting. The cleaver comes down very evenly.)', 'Ask someone else.'],
+    warm: ['Here. The good piece. Do not tell Anna.', 'You stand like a butcher. That is a compliment.'],
+    kitchen: { open: 'Hand me that. Thirty years and I still cannot find anything in this kitchen.', help: 'I told you about the priest. If Dario knows I told you, I am the next name on the beam.', pretend: '(He is wiping down the board with the flat of his palm.) Clean. Always clean.' },
+    kill: 'Franco did it the way he did everything: without a reason, efficiently. He said afterwards that somebody had told him you were the one who had talked.' }
+};

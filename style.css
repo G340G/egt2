@@ -170,3 +170,31 @@ img[data-logo]{opacity:0;transition:opacity .4s}img[data-logo].ready{opacity:1}
 .logo-title img{height:auto!important;width:min(560px,78vw)}
 .brand-logo{height:auto!important;width:112px;margin:-2px 6px -2px 0}
 .ending-last img{height:auto!important;width:min(380px,60vw)}
+
+/* v21 — the room: answers that do not stop the world, a packet of tissues, a hand over the face */
+.social{position:absolute;left:50%;bottom:calc(9% + 132px);transform:translateX(-50%);width:min(620px,calc(100vw - 32px));opacity:0;transition:opacity .25s;pointer-events:none}
+.social.visible{opacity:1}
+.social-title{font-size:9px;letter-spacing:.25em;color:var(--paper-dim,#b8b0a0);margin-bottom:6px}
+.social-line{font-family:'IM Fell English',serif;font-size:17px;line-height:1.35;color:#e2ded4;margin-bottom:9px;text-shadow:0 1px 3px #000}
+.social-opts{display:flex;flex-direction:column;gap:5px}
+.social-opts button{pointer-events:auto;text-align:left;padding:8px 11px;background:rgba(4,5,5,.72);border:1px solid rgba(255,255,255,.12);font:inherit;font-size:11px;line-height:1.4;color:#d2ccbf;cursor:pointer}
+.social-opts button:hover{border-color:rgba(220,210,190,.4)}
+.social-opts button b{font-weight:400;color:rgba(220,210,190,.55);margin-right:10px}
+.social-time{display:block;height:1px;margin-top:8px;background:rgba(220,210,190,.35);transform-origin:left;transition:transform .1s linear}
+.tissues{position:absolute;left:27px;bottom:150px;opacity:0;transition:opacity .8s}
+.tissues.visible{opacity:.85}
+.tissues .pack{position:relative;display:block;width:58px;height:30px;border:1px solid rgba(220,214,200,.45);border-radius:3px 3px 6px 6px;background:rgba(232,226,212,.06)}
+.tissues .pack.empty{transform:rotate(-8deg) scaleY(.7);border-style:dashed;opacity:.6}
+.tissues .pack s{position:absolute;top:-7px;width:16px;height:12px;background:#ebe6da;border-radius:40% 40% 2px 2px;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.bleed-help{position:absolute;left:50%;top:calc(50% + 64px);transform:translateX(-50%);font-size:8px;letter-spacing:.2em;color:rgba(220,200,180,.6);opacity:0;transition:opacity 1s;white-space:nowrap}
+.bleed-help.visible{opacity:1}
+#hand{position:fixed;inset:0;z-index:11;pointer-events:none;opacity:0;background:radial-gradient(ellipse 22% 30% at 58% 104%,rgba(40,24,18,.95),rgba(40,24,18,.6) 55%,transparent 75%)}
+#wipe{position:fixed;inset:0;z-index:11;pointer-events:none;opacity:0}
+#wipe.active{animation:wipe-cover var(--dur,3.4s) ease-in-out forwards}
+#wipe.tissue{background:radial-gradient(ellipse 60% 48% at 50% 78%,#eeeae0 0,#e2ddd0 38%,rgba(214,208,194,.96) 58%,rgba(10,8,6,.92) 80%);}
+#wipe.tissue::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 48% 70%,rgba(150,22,12,.75) 0,rgba(150,22,12,.35) 5%,transparent 9%),radial-gradient(circle at 54% 74%,rgba(120,16,10,.6) 0,transparent 5%),repeating-linear-gradient(115deg,transparent 0 22px,rgba(0,0,0,.05) 22px 24px);opacity:0}
+#wipe.tissue.active::after{animation:wipe-blot var(--dur,3.4s) ease-in forwards}
+#wipe.sleeve{background:radial-gradient(ellipse 80% 40% at 30% 70%,rgba(32,30,28,.98),rgba(32,30,28,.9) 50%,transparent 78%)}
+@keyframes wipe-cover{0%{opacity:0;transform:translateY(30%)}22%{opacity:1;transform:none}80%{opacity:1;transform:none}100%{opacity:0;transform:translateY(25%)}}
+@keyframes wipe-blot{0%,30%{opacity:0}70%,100%{opacity:1}}
+.ending-ledger .ledger-head{font-size:9px;letter-spacing:.22em;color:var(--gold,#c19a5a);margin-bottom:8px}
