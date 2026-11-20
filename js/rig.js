@@ -351,8 +351,25 @@ export function personalize(P, X, tex = {}) {
   if (e.has('beard-full') || e.has('beard-grey')) { const bm = e.has('beard-grey') ? M(0xa29d93, 1) : hairM; add(new THREE.Mesh(beardGeometry(P.headGeo, 1.05, 0.67), bm), head, 0, 0.11, 0); const mo = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.0045, 0.026, 3, 8), bm), head, 0, 0.069, surfaceZ(P.headGeo, 0, 0.069 - 0.11) + 0.004); mo.rotation.z = Math.PI / 2; mo.scale.set(1, 1, 0.7); }
   if (e.has('stubble')) add(new THREE.Mesh(beardGeometry(P.headGeo, 1.012, 0.64), M(new THREE.Color(s.skin).multiplyScalar(0.62).getHex(), 1, { transparent: true, opacity: 0.6 })), head, 0, 0.11, 0);
   if (e.has('moustache')) { const mo = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.0045, 0.026, 3, 8), M(0x9a948a, 1)), head, 0, 0.069, surfaceZ(P.headGeo, 0, 0.069 - 0.11) + 0.004); mo.rotation.z = Math.PI / 2; }
-  if (e.has('glasses-round')) { const g = M(0x2b2620, 0.4, { metalness: 0.5 }); for (const sd of [-1, 1]) add(new THREE.Mesh(new THREE.TorusGeometry(0.016, 0.0018, 5, 18), g), head, sd * 0.034, 0.132, surfaceZ(P.headGeo, sd * 0.034, 0.022) + 0.01); add(new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.002, 0.002), g), head, 0, 0.136, surfaceZ(P.headGeo, 0, 0.026) + 0.011); }
-  if (e.has('shades')) { const g = M(0x050505, 0.12, { metalness: 0.6 }); for (const sd of [-1, 1]) { const ex = sd * 0.034, l = add(new THREE.Mesh(new THREE.CircleGeometry(0.016, 18), g), head, ex, 0.132, surfaceZ(P.headGeo, ex, 0.022) + 0.009); l.scale.set(1.25, 0.85, 1); } add(new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.003, 0.003), g), head, 0, 0.136, surfaceZ(P.headGeo, 0, 0.026) + 0.01); for (const sd of [-1, 1]) { const arm = add(new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.003, 0.09), g), head, sd * 0.078, 0.134, 0.035); arm.rotation.y = sd * 0.15; } }
+  // Glasses sit on the face itself: lenses just in front of the eyes, a bridge on the nose, arms
+  // running back to the ears. Measured from the sculpted head, so nothing cuts through the skin.
+  if ((e.has('glasses-round') || e.has('shades')) && P.headGeo) {
+    const hg = P.headGeo, ey = 0.132, sf = (x) => surfaceZ(hg, x, ey - 0.11), ex = 0.034, ez = Math.max(sf(ex), sf(-ex)), nz = sf(0);
+    const earX = (P.ears?.[1]?.position.x ?? 0.085), dark = e.has('shades');
+    const frame = dark ? M(0x070707, 0.25, { metalness: 0.3 }) : M(0x2b2620, 0.4, { metalness: 0.55 });
+    const lensM = dark ? new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.08, metalness: 0.6, side: THREE.DoubleSide }) : new THREE.MeshStandardMaterial({ color: 0xcfd6d4, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false });
+    const g = new THREE.Group(); g.position.set(0, ey, 0); head.add(g);
+    for (const sd of [-1, 1]) {
+      const lz = ez + 0.014, r = dark ? 0.021 : 0.018;
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(r, 20), lensM); lens.position.set(sd * ex, 0, lz); lens.scale.set(dark ? 1.18 : 1, dark ? 0.86 : 1, 1); lens.rotation.y = sd * 0.12; g.add(lens);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(r, dark ? 0.0028 : 0.0022, 6, 20), frame); rim.position.copy(lens.position); rim.scale.copy(lens.scale); rim.rotation.y = lens.rotation.y; g.add(rim);
+      // arm: from the outer edge of the lens back along the side of the head to the ear
+      const a0 = new THREE.Vector3(sd * (ex + r * (dark ? 1.15 : 1)), 0.002, lz - 0.004), a1 = new THREE.Vector3(sd * (earX + 0.004), -0.004, -0.004), len = a0.distanceTo(a1);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.0028, 0.0035, len), frame); arm.position.copy(a0).add(a1).multiplyScalar(0.5); arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), a1.clone().sub(a0).normalize()); g.add(arm);
+    }
+    const br = new THREE.Mesh(new THREE.TorusGeometry(0.009, 0.0022, 5, 10, Math.PI), frame); br.position.set(0, 0.004, Math.max(ez + 0.012, nz + 0.004)); g.add(br);
+    g.traverse(o => { o.castShadow = false; });
+  }
   if (e.has('sunglasses-up')) { const g = M(0x0a0a0a, 0.2, { metalness: 0.4 }); for (const sd of [-1, 1]) add(new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.018, 0.006), g), head, sd * 0.03, 0.22, 0.06).rotation.x = -0.7; }
   if (e.has('cap')) { const cm = tex.fabric ? new THREE.MeshStandardMaterial({ map: tex.fabric('knit', 0x1a1a1a), roughness: 1 }) : M(0x1a1a1a, 1); add(new THREE.Mesh(hairCapGeometry(0.1, 1.1, 0.64, 0.56, 0, Math.random), cm), head, 0, 0.11, 0); }
   if (e.has('earring')) add(new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.002, 5, 10), M(0xcfd4d8, 0.2, { metalness: 1 })), head, (P.ears?.[1]?.position.x ?? 0.09) + 0.004, 0.08, 0.005);
