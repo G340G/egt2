@@ -44,6 +44,12 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 25.1 — the car will not start
+
+- **Leaving no longer ends at a van across the lane.** When Tobia tries to drive away from the farmhouse, the car turns over and will not catch. Under the bonnet the black cap is loose and the rotor arm is gone; somebody has had it (the same part as Pino's van).
+- **Walter's van is still there, as a presence, not an obstacle.** It is parked on the grass verge beside the lane, facing away down the road, headlights on, nobody in it. Tobia looks round at it before he gives up.
+- **One van only.** If Walter or Pino comes for Tobia on the road, it is the van already in the scene that pulls out (the one on the verge, or Pino's in the yard), and it goes back to where it was parked if it misses. A new van is brought out of the fog only if neither is there. Reversing out and then being run down can no longer produce two identical vans.
+
 ## Version 25 — the click
 
 The followers are back, and now they are earned. Each one is a particular person whom Tobia's own words and gestures made decide, sometimes in a second, that he has to disappear.
