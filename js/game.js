@@ -18,10 +18,10 @@ function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringif
 // 2 = hard: contact is fatal. 3 = nightmare: faster pursuers, fear rises quicker.
 // v21: nobody hunts Tobia. Difficulty is how readily the people around him act on what they believe.
 const DIFFICULTY_INFO = [
-  { name: '0 · PASTORALE', text: 'Nobody will come for you. The room still decides who it keeps. Five tissues.' },
-  { name: '1 · ASCOLTO', text: 'One of them at a time may decide you must disappear, and only for many reasons. Five tissues.' },
-  { name: '2 · MESSA', text: 'Up to two may come for you, for what they believe you did. Four tissues.' },
-  { name: '3 · IL BIANCO', text: 'Up to three, for less. Three tissues. Nowhere is safe.' }
+  { name: '0 · PASTORALE', text: 'People still come to hate you, but when the moment comes, none of them can go through with it. Five tissues.' },
+  { name: '1 · ASCOLTO', text: 'What you do to people can make one of them decide you must disappear. More time to answer. Five tissues.' },
+  { name: '2 · MESSA', text: 'What you do to people can make them decide you must disappear. Four tissues.' },
+  { name: '3 · IL BIANCO', text: 'The same, with three tissues, and the body gives way sooner.' }
 ];
 function noEnemies() { return true; }
 function lethalContact() { return false; }
@@ -649,7 +649,7 @@ function makeNPC(group,x,z,name,coatColor=0x272725,variant=0){
   const seam=new THREE.Mesh(new THREE.CylinderGeometry(.012,.02,.52,5),M.rust);seam.position.set(.25,.72,.19);seam.rotation.z=-.18;root.add(seam);garnish.push(seam);
   root.rotation.z=-.025;root.scale.set(1.04,1.08,.94);
  }
- const displayName=name==='The First'?'Il Professore':name;
+ const displayName=name==='The First'?'Il Primo':name;
  const npc={head,id:'npc_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_'),type:'npc',object:root,point:root.position,radius:3.4,prompt:'[ E ] SPEAK — '+displayName.toUpperCase(),name,displayName,phase:Math.random()*7,coat:cloth,leftArm,rightArm,photoFace,photoKey,leftForearm,rightForearm,legs,lowerLegs,shoes,eyes,lids,blinkTimer:1.8+Math.random()*4,blinkAmount:0,walking:false,cultist:false,fate:'present',profile,isFirst};
  dressPersona(npc,{root,cloth,trim,hair,skin,boot,hx:first?-.055:0,sleeves,garnish,female});
  if(npc.persona)attachRig(npc);
@@ -1331,7 +1331,7 @@ function buildRoad() {
   // The farmhouse's false golden window.
   addLight(z.group,0xffb35d,2.1,18,0,2.0,-7,{decay:1.5});
   const firstPrimo=makeNPC(z.group,-2.15,-5.45,'The First',0x4b463d,1);
-  firstPrimo.isOpeningPrimo=true;firstPrimo.radius=4.0;firstPrimo.prompt='[ E ] SPEAK — IL PROFESSORE';
+  firstPrimo.isOpeningPrimo=true;firstPrimo.radius=4.0;firstPrimo.prompt='[ E ] SPEAK — IL PRIMO';
   if (firstPrimo.head) firstPrimo.head.material = headMaterial();
   firstPrimo.dialogue={line:'You made it. I am glad. The road is unpleasant once the fog comes down. Come under the porch a moment; you must be cold.',choices:['Thank you. Have you been waiting long?','Do you know why I was called here?','Who are the people inside?'],replies:['Not long. I kept the lamp on because a person should not have to arrive at a dark door. That is all.','Only what the letter told me. You tune pianos, and you notice when a note is almost right. We have a room that needs that kind of attention.','Neighbours, mostly. They have been keeping one another company. It is easier to be here when somebody remembers to leave a place for you.']};
   const windowGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.1), new THREE.MeshBasicMaterial({ color: 0xc08a4a, transparent: true, opacity: .48 })); windowGlow.position.set(3.8, 3.0, -8.35); z.group.add(windowGlow);
@@ -1421,7 +1421,7 @@ function buildHome() {
   addDistantRitual(z.group, -4.2, -30);
   addDistantRitual(z.group, 4.5, -34);
   addBox(z.group,2.1,2.25,-8.72,1.0,.75,.08,M.gold);addBox(z.group,2.1,2.25,-8.66,.82,.58,.025,M.darkWall);
-  // ---- Characters. Twelve followers live here; Don Remo keeps the church; il Professore enters last.
+  // ---- Characters. Twelve followers live here; Don Remo keeps the church; il Primo enters last.
   const T = storyRef.tableSeats;
   const ines = registerCultist(makeNPC(z.group,-4.45,4.3,'Ines',0x52483d,0),{
     line:'Sit. The fog has closed the roads, so you will eat with us. I was a nurse for thirty years. In this house nobody dies alone.',
@@ -1437,7 +1437,7 @@ function buildHome() {
   seatNPC(ottavio, 8.15, -3.35, -Math.PI / 2);
   const anna=addCultist(z,0,0,'Anna',0x4a4035,0,'I cook for the dead. My husband has been gone forty years and his bowl is still filled every evening. Eat. It is still warm.',['Will he come back?','Why keep filling his bowl?'],['No. That is why the bowl must be ready.','If I stop, the table will know he is gone. I cannot be the one to tell it.']);
   seatNPC(anna, T.west[2][0], T.west[2][1], Math.PI / 2);
-  const dario=addCultist(z,0,0,'Dario',0x302d28,1,'I was a seminarian. I am the only one here who still believes — in The White, in the Mass, in all of it. That is why they look away from me.',['Who leads the rite?','You believe too much.'],['Nobody leads. The Professore only tells each of us where to stand.','That is what he says. I would rather be hated for believing than loved for pretending.']);dario.isLeader=true;
+  const dario=addCultist(z,0,0,'Dario',0x302d28,1,'I was a seminarian. I am the only one here who still believes — in The White, in the Mass, in all of it. That is why they look away from me.',['Who leads the rite?','You believe too much.'],['Nobody leads. Il Primo only tells each of us where to stand.','That is what he says. I would rather be hated for believing than loved for pretending.']);dario.isLeader=true;
   seatNPC(dario, T.east[0][0], T.east[0][1], -Math.PI / 2);
   const sergio=addCultist(z,0,0,'Sergio',0x4a443a,0,'I stopped believing years ago. I stayed for the company. At my age you do not leave a table where somebody remembers your name.',['Then why not leave?','What happened in 1977?'],['Loneliness is a door that opens inward. You walk through it and you are still in the same room.','Thirteen voices in a frescoed church. A heater in the corner. Nobody heard the record. I was nineteen and I was outside, smoking.']);
   seatNPC(sergio, T.east[2][0], T.east[2][1], -Math.PI / 2);
@@ -1708,7 +1708,7 @@ function buildDarkroom(){
   const heaterPoint=new THREE.Vector3(-7.4,1.15,8.8);
   addLoreProp(z,'dark-heater','The radiant heater','A portable LPG radiant heater: perforated steel hood, ceramic burner panels, a lower guard and four small castors. The gas hose is still attached. A maintenance tag reads: FLUE / AIR INTAKE — BLOCKED. The report never names carbon monoxide. It records a room that was not ventilated, thirteen bodies and a clock stopped at 03:17.','dark-heater',heater,heaterPoint,'[ E ] EXAMINE THE HEATER');
   const plugCase=buildEarplugCase(z.group,6.1,.78,3.1);
-  addLoreProp(z,'dark-earplugs','The earplug case','A small brass case contains two soft wax plugs. The lid is engraved with a single initial: C. A note inside says: “Wear them before the first revolution. Stay to watch.” Il Professore watched every collapse and never had to hear one.','dark-earplugs',plugCase,new THREE.Vector3(6.1,1.05,3.1),'[ E ] OPEN THE EARPLUG CASE');
+  addLoreProp(z,'dark-earplugs','The earplug case','A small brass case contains two soft wax plugs. The lid is engraved with a single initial: C. A note inside says: “Wear them before the first revolution. Stay to watch.” Il Primo watched every collapse and never had to hear one.','dark-earplugs',plugCase,new THREE.Vector3(6.1,1.05,3.1),'[ E ] OPEN THE EARPLUG CASE');
   const book=buildPaperback(z.group,-1.7,.77,-1.8);
   addLoreProp(z,'dark-book','The paperback','A battered Nietzsche paperback. It is almost entirely underlined. The margins contain only durations: 4.2 seconds, 7.1 seconds, 11 seconds. “Man would rather will nothingness than not will.” The sentence is copied as an instruction. No sentence in the book tells anyone to push.','dark-book',book,new THREE.Vector3(-1.7,1.0,-1.8),'[ E ] READ THE PAPERBACK');
   const recorder=buildReelRecorder(z.group,-1.8,0,-8.6);
@@ -1735,7 +1735,7 @@ function buildDarkroom(){
   returnDoor.prompt='[ E ] RETURN TO THE CELLAR';
   z.mist=addFog(z.group,18,26,0x151613,156);z.fog=new THREE.FogExp2(z.fogColor,z.density);
   z.solids.push({minX:-10,maxX:-9.7,minZ:-12,maxZ:12},{minX:9.7,maxX:10,minZ:-12,maxZ:12},{minX:-10,maxX:-1.4,minZ:11.7,maxZ:12},{minX:1.4,maxX:10,minZ:11.7,maxZ:12},{minX:-10,maxX:10,minZ:-12.2,maxZ:-12});
-  // Il Professore is a moving absence. The light catches him; the dark lets him move.
+  // Il Primo is a moving absence. The light catches him; the dark lets him move.
   const hunter=makeNPC(z.group,7.7,-9.5,'The First',0x171614,1);
   const idx=z.interactables.findIndex(item=>item===hunter);if(idx>=0)z.interactables.splice(idx,1);
   hunter.object.visible=false;hunter.object.scale.set(.92,1.04,.86);hunter.object.rotation.y=Math.PI;
@@ -1767,7 +1767,7 @@ function enterZone(name, spawn) {
   scene.fog = zone.fog || new THREE.FogExp2(zone.fogColor, zone.density);
   scene.background.set(zone.fogColor);
   $('location').textContent = ({ road: 'FOG ROAD', home: 'THE HOUSE / THIRTEEN PLACES', church: 'THE DECONSECRATED CHURCH', ruin: 'THE EMPTY HOUSE', cellar: 'THE CELLAR / 14-B', darkroom: 'THE DARK ROOM / 14-B', abattoir: 'THE SLAUGHTERHOUSE / THE VOID ROOM', forest: 'THE CANAL FOREST' })[name];
-  glitchPulse = Math.max(glitchPulse, .42); audio?.stinger(.32); audio?.setZone(name); if(name==='abattoir'){fear=Math.min(1,fear+.19);audio?.mechanicalEvent('hoist');} if(name==='church' && collected.size>=2 && !scenePlayed) showToast('THE BELL ROPE IS WET.'); if(name==='cellar'||name==='darkroom'){fear=Math.min(1,fear+.18);} if(name==='darkroom'){darkroomHunt.active=!noEnemies()&&!storyFlags.has('darkroom-cleared');if(noEnemies()&&storyRef.darkroomHunter?.object)storyRef.darkroomHunter.object.visible=false;if(!storyFlags.has('darkroom-entered')){storyFlags.add('darkroom-entered');darkroomHunt.elapsed=0;darkroomHunt.reappear=3.2;startMonologue(['Il Professore: The lamp is not a weapon. It is a question you can only ask in one direction.','Voice: The room is full. You cannot see what it contains.','Il Professore: Find what the tape cannot carry. Do not mistake being watched for being seen.'],13);}}
+  glitchPulse = Math.max(glitchPulse, .42); audio?.stinger(.32); audio?.setZone(name); if(name==='abattoir'){fear=Math.min(1,fear+.19);audio?.mechanicalEvent('hoist');} if(name==='church' && collected.size>=2 && !scenePlayed) showToast('THE BELL ROPE IS WET.'); if(name==='cellar'||name==='darkroom'){fear=Math.min(1,fear+.18);} if(name==='darkroom'){darkroomHunt.active=!noEnemies()&&!storyFlags.has('darkroom-cleared');if(noEnemies()&&storyRef.darkroomHunter?.object)storyRef.darkroomHunter.object.visible=false;if(!storyFlags.has('darkroom-entered')){storyFlags.add('darkroom-entered');darkroomHunt.elapsed=0;darkroomHunt.reappear=3.2;startMonologue(['Il Primo: The lamp is not a weapon. It is a question you can only ask in one direction.','Voice: The room is full. You cannot see what it contains.','Il Primo: Find what the tape cannot carry. Do not mistake being watched for being seen.'],13);}}
   showToast(({ road: 'THE ROAD IS NOT WHERE YOU LEFT IT', home: 'NO ONE ASKED YOUR NAME', church: 'THE NAVE IS LONGER FROM THE INSIDE', ruin: 'SOMEONE IS WAITING BY THE TELEPHONE', cellar: 'THE ROOM HAS KEPT ITS HEAT', darkroom: 'THE DARK HAS BEEN ARRANGED BY HAND', forest: 'THE FOREST KEEPS YOUR POSITION', abattoir: 'HERE THE FLESH HAS A LONG MEMORY' })[name]);
   placeStalker(name); showChapterCard(name); resetTensionFor(name); society?.onEnterZone(name);
 }
@@ -2020,7 +2020,7 @@ class AmbientSound {
     this.noiseGain.gain.setTargetAtTime(({road:.13,forest:.14,home:.2,church:.17,ruin:.26,cellar:.32,darkroom:.34,abattoir:.38})[name]??.18,this.ctx.currentTime,1.5);
 
     // Music follows the location and the story phase. The cellar gets its own
-    // score only on the return after the Professore's tea scene, before the final listen.
+    // score only on the return after Il Primo's tea scene, before the final listen.
     let desiredTrack = null;
     if (!gameEnded && (name === 'road' || name === 'forest')) desiredTrack = 'mysterious';
     else if (!gameEnded && name === 'home') desiredTrack = 'creeps';
@@ -2227,7 +2227,8 @@ function showToast(text) {
 const LINES = { queue: [], until: 0, timer: null };
 // v23: conversations are paced to be read. One line at a time, slower, and nothing new is said
 // while a modal conversation or a choice is open: the room waits for Tobia's answer.
-function readMs(text) { return Math.max(3400, 1800 + String(text).replace(/^[^:]+:\s*/, '').length * 52); }
+let LINE_SPEED = 1;
+function readMs(text) { return LINE_SPEED * Math.max(3400, 1800 + String(text).replace(/^[^:]+:\s*/, '').length * 52); }
 function convoHeld() { return dialogueOpen || !!society?.S?.ui || !!bench; }
 function presentLine(render, text, action = null) {
   const now = performance.now();
@@ -2332,7 +2333,7 @@ function speakVoice(text, npcName = '') {
 function openDialogue(npc) {
   if (dialogueOpen) return;
   { const g = society?.dialogueGate(npc); if (g === 'handled') return; if (g) { storyLine(g); return; } }
-  if (npc.isHomeFirst) { const j = jobFor(npc); if (j) offerJob(npc, j); else storyLine('IL PROFESSORE: ' + (primoAside() || 'Sit wherever the room puts you. You will know which chair.')); return; }
+  if (npc.isHomeFirst) { const j = jobFor(npc); if (j) offerJob(npc, j); else storyLine('IL PRIMO: ' + (primoAside() || 'Sit wherever the room puts you. You will know which chair.')); return; }
   if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { const j = jobFor(npc); if (j) { offerJob(npc, j); return; } openSecondDialogue(npc); return; }
   clearLines(); dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
   $('speaker').textContent = (npc.displayName||npc.name).toUpperCase(); $('subtitle').textContent = npc.dialogue?.line || 'No answer. Only the sound of clothes.'; speakVoice(npc.dialogue?.line || 'No answer.',npc.name);
@@ -2425,8 +2426,8 @@ function beginListening(){
   if(!storyFlags.has('altar-lit')){showToast('THE ALTAR IS STILL DARK. LIGHT ALL THREE CANDLES FIRST.');return;}
   if(!storyFlags.has('darkroom-cleared')){showToast('THE DARK ROOM HAS NOT BEEN SEARCHED. FIND THE SIX RECORDS OF WHAT HAPPENED.');return;}
   if(!storyFlags.has('church-collapsed')){showToast('THE CHURCH IS STILL STANDING. GO OUT TO THE ROAD AND WATCH IT.');return;}
-  if(!storyFlags.has('escaped-forest')){showToast('YOU HAVE NOT BEEN TO THE FOREST. IL PROFESSORE IS WAITING WITH THE CAR AT THE SLAUGHTERHOUSE.');return;}
-  if(!storyFlags.has('first-tea')){showToast('IL PROFESSORE IS STILL IN THE SLAUGHTERHOUSE. ASK HIM ABOUT THE EARPLUGS.');return;}
+  if(!storyFlags.has('escaped-forest')){showToast('YOU HAVE NOT BEEN TO THE FOREST. IL PRIMO IS WAITING WITH THE CAR AT THE SLAUGHTERHOUSE.');return;}
+  if(!storyFlags.has('first-tea')){showToast('IL PRIMO IS STILL IN THE SLAUGHTERHOUSE. ASK HIM ABOUT THE EARPLUGS.');return;}
   if(!storyFlags.has('carcasses-decided')){showToast('THE BODIES ARE STILL WAITING. DECIDE WHAT TO DO WITH THE HOOKS FIRST.');return;}
   storyFlags.add('listened-to-white');
   audio?.stopMusic('dot', 2.4);
@@ -2453,7 +2454,7 @@ function finishListening(){
   storyScene={type:'ending',t:0,dur:22,i:0,switched:false,lines:[
     [.6,'Voice: The room does not become empty. It lends its emptiness to the weather.'],
     [4.8,'Voice: The fog is not a veil. It is what remains when a name stops insisting on its outline.'],
-    [9.4,'Il Professore: You see? Nothing has been taken from you. You are only returning what you have been calling yourself.'],
+    [9.4,'Il Primo: You see? Nothing has been taken from you. You are only returning what you have been calling yourself.'],
     [14.2,'Voice: The reeds bend toward the hollow. The trees make room without asking what has left.'],
     [19,'Tobia: I heard the room. I cannot tell you whether The White was the room, or what remained inside the machine.']
   ]};audio?.voidBloom();
@@ -2488,7 +2489,7 @@ function resolveEnding(choice) {
   clearSavedEvidence();
   const choices={
     testimony:{title:'The Names Took Root',copy:'You spoke the thirteen names as people call to one another from a window. In the forest, thirteen leaves stopped against the wind. They did not return. But for the first time they were no longer only erased shapes. The fog let the light pass without dissolving them.',small:'ENDING IV / TESTIMONY',voice:'Aurelio. Ines. Dario. Sergio. You are not the record. You were here.'},
-    fill:{title:'The Place Learned Your Name',copy:'You let Il Professore call you by name, and you stopped correcting him. The figure in the forest filled its coat with your absence. The house remains lit: someone must open the door for the next arrival.',small:'ENDING I / FILLING',voice:'They did not take you away. They convinced you to leave your place.'},
+    fill:{title:'The Place Learned Your Name',copy:'You let Il Primo call you by name, and you stopped correcting him. The figure in the forest filled its coat with your absence. The house remains lit: someone must open the door for the next arrival.',small:'ENDING I / FILLING',voice:'They did not take you away. They convinced you to leave your place.'},
     expose:{title:'The Room Gave Back Its Breath',copy:'You opened the windows. Air entered from the forest and crossed the house without asking permission. The fog carried the dust outside, but left a dry outline on the floor: the place you occupied. There is no salvation in the void; there is at least room to breathe.',small:'ENDING II / AIR',voice:'The room was saturated. Truth cannot return the dead, but it can return air.'},
     preserve:{title:'The Fog Preserved the Shape',copy:'You touched nothing. The windows remain closed, the trees move out of time, and the platter keeps turning without tape. The figure that resembles you remains among the trunks, intact only because nobody looks at it long enough.',small:'ENDING III / PRESERVATION',voice:'You did not choose. Even the fog knows how to preserve a shape.'}
   };
@@ -2846,7 +2847,7 @@ function lightCandle(c){
    storyFlags.add('altar-lit');storyFlags.add('primo-alerted');storyFlags.add('cemetery-bait');
    fear=Math.min(1,fear+.20);audio?.killSting();audio?.mechanicalEvent('bell');
    if(storyRef.cemeteryShooter)storyRef.cemeteryShooter.visible=true;
-   storyLine('Il Professore: Go to the cemetery beside the industries. The missing name is waiting there.');
+   storyLine('Il Primo: Go to the cemetery beside the industries. The missing name is waiting there.');
    placeStalker(currentZone);showToast('THREE FLAMES. A NEW INSTRUCTION ARRIVES FROM THE FACTORIES.');
  }
  updateMissions();
@@ -2970,7 +2971,7 @@ function buildStoryExtras() {
   const shovel=addTool(zones.ruin.group,4.2,-4.6,'shovel','Shovel','The handle is damp and smooth, as if many hands have gripped it in the dark.');shovel.requiresFlag='heard-dario-plan';shovel.blockedHint='Listen through the thin wall before taking the shovel.';
   syncDigSite();
 }
-// The approaching Il Professore: he walks toward you whenever you are not looking at him.
+// The approaching Il Primo: he walks toward you whenever you are not looking at him.
 function stalkerEligible(name) {
   if (!['home', 'church', 'ruin', 'abattoir', 'cellar'].includes(name)) return false;
   if (storyFlags.has('porch-primo-gone') && (name === 'abattoir' || difficultyTier() >= 2)) return true;
@@ -3003,7 +3004,7 @@ function updatePresenceOld(dt, t) {
   if (!active) { presence = Math.max(0, presence - dt * .8); return; }
   const p = playerAnchor.position;
   const dx = stalker.position.x - p.x, dz = stalker.position.z - p.z, dist = Math.hypot(dx, dz) || .001;
-  // Static-enemy test mode: Il Professore remains fixed at his room-entry position.
+  // Static-enemy test mode: Il Primo remains fixed at his room-entry position.
   // Keep the proximity atmosphere, warning, and contact check without pursuit.
   stalker.rotation.z = 0;
   const target = THREE.MathUtils.clamp(1 - (dist - 1.2) / 8, 0, 1);
@@ -3025,9 +3026,9 @@ const MISSIONS=[
  {id:'widow',text:'Question the Widow in the ruined house about the 1977 recording.',when:()=>storyFlags.has('grave-revealed'),done:()=>storyFlags.has('talked-widow')},
  {id:'remo',text:'Speak with Don Remo in the church. Ask him why he still wears the collar.',when:()=>collected.size>=2,done:()=>storyFlags.has('talked-remo')},
  {id:'candles',text:'Light all three altar candles. The flames are part of the way forward.',when:()=>collected.size>=2,done:()=>storyFlags.has('altar-lit')},
- {id:'cemetery',text:'Il Professore wants you in the cemetery east of the road, past the signpost, by the factory. Red grave lights mark the way. Something glints on the factory roof.',when:()=>storyFlags.has('cemetery-bait'),done:()=>storyFlags.has('cemetery-shot')},
+ {id:'cemetery',text:'Il Primo wants you in the cemetery east of the road, past the signpost, by the factory. Red grave lights mark the way. Something glints on the factory roof.',when:()=>storyFlags.has('cemetery-bait'),done:()=>storyFlags.has('cemetery-shot')},
   {id:'pino-field',text:'Follow Pino into the wheat field. The combine is still running.',when:()=>storyFlags.has('pino-sent'),done:()=>storyFlags.has('pino-collapsed')},
-  {id:'bell-rope',text:'Go to the bell rope in the church nave. Il Professore says your hands are steady.',when:()=>storyFlags.has('station-dario')&&storyFlags.has('talked-remo'),done:()=>storyFlags.has('dario-bell-death')},
+  {id:'bell-rope',text:'Go to the bell rope in the church nave. Il Primo says your hands are steady.',when:()=>storyFlags.has('station-dario')&&storyFlags.has('talked-remo'),done:()=>storyFlags.has('dario-bell-death')},
   {id:'pastorale',text:'After the forest, follow the waterline and recover three pastoral intervals.',when:()=>storyFlags.has('escaped-forest'),done:()=>storyFlags.has('pastorale-complete')},
   {id:'carcasses',text:'Inspect the suspended carcasses. Decide whether to release them or leave them hanging.',when:()=>currentZone==='abattoir',done:()=>storyFlags.has('carcasses-decided')}
 ];
@@ -3035,18 +3036,18 @@ function currentMissionText(){
  if(storyFlags.has('altar-lit')&&collected.size>=7&&!storyFlags.has('church-collapsed'))return currentZone==='road'?'STAND IN THE ROAD AND LOOK AT THE CHURCH.':'GO OUT TO THE ROAD. SOMETHING IS GOING TO HAPPEN TO THE CHURCH, AND YOU HAVE TO SEE IT.';
  if(storyFlags.has('escaped-forest')&&!storyFlags.has('pastorale-complete')&&currentZone==='road')return 'FOLLOW THE WATERLINE. FIND THE THREE PASTORAL INTERVALS — '+['water','grain','reeds'].filter(k=>storyFlags.has('pastorale-'+k)).length+' / 3.';
  if(storyFlags.has('pino-sent')&&!storyFlags.has('pino-collapsed')&&currentZone==='road')return 'PINO WENT TOWARD THE WHEAT FIELD. FOLLOW THE ENGINE.';
-  if(currentZone==='church'&&storyFlags.has('station-dario')&&storyFlags.has('talked-remo')&&!storyFlags.has('dario-bell-death'))return 'THE BELL ROPE HANGS BY THE LEFT WALL OF THE NAVE. IL PROFESSORE SAYS YOUR HANDS ARE STEADY.';
+  if(currentZone==='church'&&storyFlags.has('station-dario')&&storyFlags.has('talked-remo')&&!storyFlags.has('dario-bell-death'))return 'THE BELL ROPE HANGS BY THE LEFT WALL OF THE NAVE. IL PRIMO SAYS YOUR HANDS ARE STEADY.';
  if(currentZone==='abattoir'&&!storyFlags.has('carcasses-decided'))return 'DECIDE WHAT TO DO WITH THE HANGING BODIES.';
  if(currentZone==='darkroom'&&!storyFlags.has('darkroom-cleared'))return 'SEARCH THE DARK ROOM — '+darkroomFindCount()+' / 6. Keep the beam moving.';
  if(storyFlags.has('altar-lit')&&!storyFlags.has('darkroom-cleared'))return currentZone==='cellar'?'THE SIDE DOOR IS OPEN. SEARCH THE DARK ROOM FOR THE SIX RECORDS.':'RETURN TO THE CELLAR. THE SIDE DOOR HAS OPENED.';
- if(storyFlags.has('darkroom-cleared')&&!storyFlags.has('escaped-forest'))return currentZone==='forest'?'WALK BACK TO THE LAMP IN THE CLEARING. DO NOT STOP.':'GO TO THE SLAUGHTERHOUSE. IL PROFESSORE IS WAITING WITH THE CAR. IT IS NOT A REQUEST.';
- if(storyFlags.has('darkroom-cleared')&&!storyFlags.has('first-tea'))return currentZone==='abattoir'?'SPEAK WITH IL PROFESSORE AGAIN. ASK HIM ABOUT THE SOUND HE REFUSED TO HEAR.':'RETURN TO THE SLAUGHTERHOUSE. IL PROFESSORE IS WAITING BESIDE THE HOOKS.';
+ if(storyFlags.has('darkroom-cleared')&&!storyFlags.has('escaped-forest'))return currentZone==='forest'?'WALK BACK TO THE LAMP IN THE CLEARING. DO NOT STOP.':'GO TO THE SLAUGHTERHOUSE. IL PRIMO IS WAITING WITH THE CAR. IT IS NOT A REQUEST.';
+ if(storyFlags.has('darkroom-cleared')&&!storyFlags.has('first-tea'))return currentZone==='abattoir'?'SPEAK WITH IL PRIMO AGAIN. ASK HIM ABOUT THE SOUND HE REFUSED TO HEAR.':'RETURN TO THE SLAUGHTERHOUSE. IL PRIMO IS WAITING BESIDE THE HOOKS.';
   if(storyFlags.has('first-tea')&&!storyFlags.has('listened-to-white'))return currentZone==='cellar'?'RETURN TO THE BLANK PLATTER. THE ROOM HAS BEEN RECORDED.':'THE BLANK PLATTER IS WAITING IN THE CELLAR.';
  if(currentZone==='home'&&!storyFlags.has('talked-ines'))return 'Speak with Ines before examining the Seating List.';
  if(currentZone==='home'&&!storyFlags.has('talked-ottavio'))return 'Speak with Ottavio before examining the Tuning Fork.';
  if(currentZone==='church'&&!storyFlags.has('talked-remo'))return 'Speak with Don Remo before examining the Mass Register.';
  if(currentZone==='ruin'&&!storyFlags.has('talked-widow'))return 'Speak with the Widow before examining the Burned Photograph.';
- if(storyFlags.has('cemetery-bait')&&!storyFlags.has('cemetery-shot')&&collected.size<clueCount)return 'IL PROFESSORE’S INSTRUCTION — THE CEMETERY: east of the road, past the CIMITERO signpost, follow the red grave lights to the iron gate. (Look at the factory roof before you go in.)';
+ if(storyFlags.has('cemetery-bait')&&!storyFlags.has('cemetery-shot')&&collected.size<clueCount)return 'IL PRIMO’S INSTRUCTION — THE CEMETERY: east of the road, past the CIMITERO signpost, follow the red grave lights to the iron gate. (Look at the factory roof before you go in.)';
  if(collected.size===7)return currentZone==='abattoir'
    ?'7 / 8 CLUES — The slaughterhouse ledger is on the north-west side, near the back wall.'
    :'7 / 8 CLUES — Follow the boardwalk east. The House of Beasts contains the final ledger.';
@@ -3086,7 +3087,7 @@ function applyConsequences(npc, index) {
   const key = (npc.name || '').toLowerCase();
   if (key === 'ottavio' && index === 0) { storyFlags.add('ottavio-cold'); }
   if (key === 'ines' && index === 1) { fear = Math.min(1, fear + .12); showToast('INES LOOKS AT YOU A LITTLE LONGER THAN BEFORE.'); }
-  if (key === 'dario' && index === 1) { storyFlags.add('primo-alerted'); showToast('IL PROFESSORE HAS HEARD YOUR NAME.'); }
+  if (key === 'dario' && index === 1) { storyFlags.add('primo-alerted'); showToast('IL PRIMO HAS HEARD YOUR NAME.'); }
   if(key==='pino'&&index===0){storyFlags.add('pino-sent');showToast('PINO HAS SHOWN YOU THE FIELD PATH. THE ENGINE IS STILL WARM.');}
 
   if (key === 'sergio' && index === 1) { fear = Math.min(1, fear + .05); }
@@ -3207,7 +3208,7 @@ function buildAtmosphere() {
 
 
 // =============================================================================
-// v3.4: smoke and fire, the industrial backdrop, relics as objects, the Professore's
+// v3.4: smoke and fire, the industrial backdrop, relics as objects, Il Primo's
 // double-faced dialogue, the confession, the drive into the forest and the chase.
 // =============================================================================
 function glow(color, intensity = 1) {
@@ -3419,7 +3420,7 @@ function buildForest() {
   storyRef.voidLeaves=[];
   for(let i=0;i<42;i++){const leaf=new THREE.Mesh(new THREE.PlaneGeometry(.18+(i%4)*.045,.055+(i%3)*.02),new THREE.MeshStandardMaterial({color:[0x5c6245,0x77714e,0x333d2d][i%3],roughness:1,transparent:true,opacity:.82,side:THREE.DoubleSide}));leaf.position.set(Math.cos(i*2.399)*(2.8+(i%3)),.18+(i%6)*.23,-29+Math.sin(i*2.399)*(2+(i%4)));leaf.userData={phase:i*2.399,radius:Math.hypot(leaf.position.x,leaf.position.z+29),height:leaf.position.y};g.add(leaf);storyRef.voidLeaves.push(leaf);}
 }
-// Il Professore: friendly on the surface, and every task he gives brings the new arrival closer to the void.
+// Il Primo: friendly on the surface, and every task he gives brings the new arrival closer to the void.
 function primoDialogueBase(){
   const f=storyFlags;
   if(f.has('darkroom-cleared')&&!f.has('first-tea'))return{line:'You read the margins. The sentence about willing nothingness is printed. The timings are mine. I added one line beneath them: “What is falling must also be pushed.” Those are not instructions for falling. They are the seconds I watched after each body stopped moving. You found the earplugs, too.',choices:['Why did you wear them?','Did you ever hear The White?'],replies:['I wanted the image without the sound. Sound makes a fall belong to someone. An image can be kept.','I heard the reels turn. I heard the room when the motor stopped. I never heard an album.'],actions:[()=>storyFlags.add('first-questioned'),()=>storyFlags.add('first-questioned')]};
@@ -3453,8 +3454,8 @@ function startFirstTeaScene(primo){
   storyScene={type:'first-tea',t:0,dur:17,i:0,leader:primo,ines,cup,collapsed:false,sound:false,lines:[
     [.7,'Tobia: She crosses the room with the thermos. Nobody asks her to.'],
     [3.4,'Ines: You have watched so many things fall. You must be tired.'],
-    [6.4,'Il Professore: I kept the image. I wore the plugs so the sound could not make a claim on me.'],
-    [9.3,'Tobia: The cup touches the table. Il Professore watches the dust settle.'],
+    [6.4,'Il Primo: I kept the image. I wore the plugs so the sound could not make a claim on me.'],
+    [9.3,'Tobia: The cup touches the table. Il Primo watches the dust settle.'],
     [11.1,'Ines: Someone has to make it gentle.'],
     [14.1,'Voice: The sound arrives late. The man is already gone.']
   ]};
@@ -3466,9 +3467,9 @@ function endFirstTeaScene(){
   if(primo){primo.fate='dead';primo.object.visible=false;}
   if(ines){ines.talkedOnce=true;ines.fate='present';ines.object.visible=true;}
   storyFlags.add('first-tea');storyFlags.add('first-dead');storyFlags.add('institution-survives');
-  journal.push({id:'first-tea',title:'The cup at 03:17',description:'Ines poured tea for Il Professore as he watched dust settle. The image of his fall arrived before its sound. She stayed. The house still had someone to open the door.',kind:'witness account',zone:'abattoir'});updateJournalCount();updateMissions();
+  journal.push({id:'first-tea',title:'The cup at 03:17',description:'Ines poured tea for Il Primo as he watched dust settle. The image of his fall arrived before its sound. She stayed. The house still had someone to open the door.',kind:'witness account',zone:'abattoir'});updateJournalCount();updateMissions();
   storyScene=null;dialogueOpen=false;$('subtitle-wrap').classList.remove('visible');camera.position.set(0,1.63,0);camera.rotation.set(0,s.savedRot?.[1]||0,0);resetLook();
-  showToast('IL PROFESSORE IS GONE.');
+  showToast('IL PRIMO IS GONE.');
 }
 function storyLine(text) { presentLine(() => storyLineNow(text), text); }
 function storyLineNow(text) {
@@ -3579,7 +3580,7 @@ function buildStory() {
   addBox(booth, 0, 1.45, .62, .9, .5, .05, mat(0x0a0908, .9));
   storyRef.hand = buildHand(); storyRef.hand.position.set(6.5, -1, -12.6); storyRef.hand.visible = false; zones.church.group.add(storyRef.hand);
   zones.church.interactables.push({ id: 'confession', type: 'story', object: booth, point: new THREE.Vector3(6.5, .9, -8.4), radius: 2.4, prompt: '[ E ] ENTER THE CONFESSIONAL', run: startConfession });
-  // the Professore's dialogue is generated from the story so far.
+  // Il Primo's dialogue is generated from the story so far.
   const primo = zones.abattoir.interactables.find(i => i.name === 'The First' || /primo/i.test(i.name || ''));
   if (primo) Object.defineProperty(primo, 'dialogue', { get: primoDialogue, configurable: true });
   buildForest();
@@ -3611,10 +3612,10 @@ function beginForestCar() {
   if (!car.userData.driver) { const d = extraFigure(car, -.42, .62, 'The First', 0x171716, 1); seatNPC(d, -.42, .62, Math.PI); d.object.position.y = .22; if (d.head) d.head.material = headMaterial(); car.userData.driver = d; }
   audio?.starter(); setTimeout(() => { if (storyScene?.type === 'car') storyScene.eng = audio?.engineStart(); }, 1400);
   storyScene = { type: 'car', t: 0, dur: 17, i: 0, lines: [
-    [.8, 'Il Professore: Sit. Breathe on the glass and it fogs up, then it clears. Most things work like that.'],
-    [4.5, 'Il Professore: We drive a little. Nobody in the village listens to cars, and the forest does not repeat what it hears.'],
-    [9, 'Il Professore: You did well at the table. Most people never ask who taught them to stop asking.'],
-    [13.5, 'Il Professore: Get out now. Keep the lamp behind you.']] };
+    [.8, 'Il Primo: Sit. Breathe on the glass and it fogs up, then it clears. Most things work like that.'],
+    [4.5, 'Il Primo: We drive a little. Nobody in the village listens to cars, and the forest does not repeat what it hears.'],
+    [9, 'Il Primo: You did well at the table. Most people never ask who taught them to stop asking.'],
+    [13.5, 'Il Primo: Get out now. Keep the lamp behind you.']] };
 }
 function updateStoryScene(dt, t) {
   const s = storyScene; s.t += dt;
@@ -3746,7 +3747,7 @@ function updateDarkroomHunt(dt,t){
     npc.object.rotation.y=Math.atan2(dx,dz);
     npc.object.rotation.z=Math.sin(t*.002)*.035;
     fear=Math.max(.10,fear-.025*dt);
-    if(dist<4.5&&darkroomHunt.warning<=0){darkroomHunt.warning=4;showToast('IL PROFESSORE IS STANDING IN THE LIGHT. DO NOT LOOK AWAY.');audio?.mechanicalTone(82,42,.8,'sine',.035,0);}
+    if(dist<4.5&&darkroomHunt.warning<=0){darkroomHunt.warning=4;showToast('IL PRIMO IS STANDING IN THE LIGHT. DO NOT LOOK AWAY.');audio?.mechanicalTone(82,42,.8,'sine',.035,0);}
   }else{
     npc.object.visible=t-darkroomHunt.lastFlash<240;
     darkroomHunt.warning=Math.max(0,darkroomHunt.warning-dt);
@@ -3755,7 +3756,7 @@ function updateDarkroomHunt(dt,t){
       h.x+=dx/dist*step;h.z+=dz/dist*step;
     }
   }
-  // When the player keeps the beam elsewhere, Il Professore crosses the room without a footstep.
+  // When the player keeps the beam elsewhere, Il Primo crosses the room without a footstep.
   if(darkroomHunt.reappear<=0&&!lampOn&&dist>5.5){
     const back=new THREE.Vector3(-camDir2.x,0,-camDir2.z);
     h.set(THREE.MathUtils.clamp(p.x+back.x*(4.5+Math.random()*2),-8.6,8.6),0,THREE.MathUtils.clamp(p.z+back.z*(4.5+Math.random()*2),-10.6,10.6));
@@ -3764,7 +3765,7 @@ function updateDarkroomHunt(dt,t){
   }
   if(dist<1.45&&!lampOn){
     flashFragment('collapse',180);
-    if(lethalContact()){darkroomHunt.active=false;triggerDeath('IL PROFESSORE FOUND YOU','You saw him only when the beam reached him. When the beam moved, he was already beside you. The room kept the rest of the recording.');return;}
+    if(lethalContact()){darkroomHunt.active=false;triggerDeath('IL PRIMO FOUND YOU','You saw him only when the beam reached him. When the beam moved, he was already beside you. The room kept the rest of the recording.');return;}
     enemyContact('room',()=>{h.set(THREE.MathUtils.clamp(-p.x,-8.6,8.6),0,THREE.MathUtils.clamp(-p.z,-10.6,10.6));});
   }
 }
@@ -3884,7 +3885,7 @@ function startIntro() {
     [25, 'Voice: The house at the end of the road has waited a long time for someone who listens. I am only the one who did not leave.'],
     [31, 'Voice: Stay quiet. The fog is listening too, and it does not repeat what it hears.'],
     [37, 'Voice: The lamp is lit. Someone is holding the door open.'],
-    [40, 'Il Professore: Good evening. You found us. I kept the light on.']] };
+    [40, 'Il Primo: Good evening. You found us. I kept the light on.']] };
 }
 function endIntro() {
   storyScene = null;
@@ -3896,7 +3897,7 @@ function endIntro() {
 
 
 // =============================================================================
-// v3.6: the Professore's face, his vanishing and return, difficulty, rewards and
+// v3.6: Il Primo's face, his vanishing and return, difficulty, rewards and
 // penalties, one conversation per person, zone soundscapes and the finale.
 // =============================================================================
 // A face after Francis Bacon's Head VI (1949): a screaming head in a dark cage of brushed strokes.
@@ -4158,18 +4159,18 @@ function updatePorchPrimoOld() {
 
 
 // =============================================================================
-// v5: the Professore's tiers and monologues, claustrophobic escalation, the cellar hunt
+// v5: Il Primo's tiers and monologues, claustrophobic escalation, the cellar hunt
 // (the record is far away, and he laughs as he moves), cinematic bars, hidden details.
 // =============================================================================
 let escTier = 0;
 const PRIMO_TIER_LINES = {
   // He never commands. He asks questions he already knows the answer to, and misquotes.
-  1: ['Il Professore: Have you counted the chairs yet? Everyone does, the first hour. What number did you get?', 'Il Professore: You listen like a man who expects to be paid for it. That is not a criticism.'],
-  2: ['Il Professore: “Become who you are.” Do you know who you are, Tobia, or only what you repair?', 'Il Professore: Notice how no one in this house has been told to do anything. I would like you to notice that.'],
-  3: ['Il Professore: Nothing is true, everything is permitted. It is in the same book. Look for it.', 'Il Professore: I do not like the sound of things. I like the second before the sound. Do you know that second?'],
-  4: ['Il Professore: When you were a boy, did you ever stand very far from something falling, and wait? The waiting is the best part.', 'Il Professore: I write down what people choose. You would be surprised how rarely it is what they say.'],
-  5: ['Il Professore: You could stop me. You know that. You have known it since the porch. Why haven’t you?', 'Il Professore: My father’s crew brought down a quarry face on a man. The sound came a second late. I have been living in that second.'],
-  6: ['Il Professore: Come down. The platter is empty. That is not the same as silent.', 'Il Professore: I put the earplugs in for the church. I will take them out for you. Isn’t that a kind of respect?']
+  1: ['Il Primo: Have you counted the chairs yet? Everyone does, the first hour. What number did you get?', 'Il Primo: You listen like a man who expects to be paid for it. That is not a criticism.'],
+  2: ['Il Primo: “Become who you are.” Do you know who you are, Tobia, or only what you repair?', 'Il Primo: Notice how no one in this house has been told to do anything. I would like you to notice that.'],
+  3: ['Il Primo: Nothing is true, everything is permitted. It is in the same book. Look for it.', 'Il Primo: I do not like the sound of things. I like the second before the sound. Do you know that second?'],
+  4: ['Il Primo: When you were a boy, did you ever stand very far from something falling, and wait? The waiting is the best part.', 'Il Primo: I write down what people choose. You would be surprised how rarely it is what they say.'],
+  5: ['Il Primo: You could stop me. You know that. You have known it since the porch. Why haven’t you?', 'Il Primo: My father’s crew brought down a quarry face on a man. The sound came a second late. I have been living in that second.'],
+  6: ['Il Primo: Come down. The platter is empty. That is not the same as silent.', 'Il Primo: I put the earplugs in for the church. I will take them out for you. Isn’t that a kind of respect?']
 };
 function startMonologue(lines, dur = 16) {
   if (storyScene) return;
@@ -4804,7 +4805,7 @@ function buildRoadV6() {
   addBox(sp, 0, 1.1, 0, .1, 2.2, .1, M.darkWood);
   const arrow = new THREE.Mesh(new THREE.BoxGeometry(1.25, .28, .04), new THREE.MeshStandardMaterial({ map: signTexture(['CIMITERO  →'], { w: 512, h: 112, font: 'bold 60px serif' }), roughness: .9 })); arrow.position.set(.55, 1.85, 0); sp.add(arrow);
   const arrow2 = new THREE.Mesh(new THREE.BoxGeometry(1.25, .28, .04), new THREE.MeshStandardMaterial({ map: signTexture(['←  CHIESA'], { w: 512, h: 112, font: 'bold 60px serif' }), roughness: .9 })); arrow2.position.set(-.5, 1.5, 0); arrow2.rotation.y = .5; sp.add(arrow2);
-  // Votive grave lights (lumini) that only appear when il Professore sends you to the cemetery.
+  // Votive grave lights (lumini) that only appear when il Primo sends you to the cemetery.
   const lumini = new THREE.Group(); lumini.visible = false; g.add(lumini); storyRef.lumini = lumini;
   const cupMat = new THREE.MeshStandardMaterial({ color: 0x9a1810, emissive: 0xff2a10, emissiveIntensity: 1.6, roughness: .3, transparent: true, opacity: .9 });
   const path = []; for (let x = 8.5; x <= 34; x += 1.7) path.push([x, 14.3 + Math.sin(x) * .15]); path.push([35.2, 16.2], [35.6, 17.6]);
@@ -4941,7 +4942,7 @@ function updateChoirEgg(dt) {
 
 // =============================================================================
 // v6 — STATIONS. Each follower's death is staged as in the script: a black title
-// card with the station number and the line il Professore uses, the Mass (or its
+// card with the station number and the line il Primo uses, the Mass (or its
 // absence) shown in the way the treatment prescribes — seen whole, in part, heard,
 // as silhouette, from far away, with the sound removed — then a Pastorale: a short
 // locked-off shot of landscape with no people. Space skips.
@@ -5011,31 +5012,31 @@ function stationDef(id) {
   const D = {
     franco: { roman: 'II', name: 'FRANCO', quote: '“You have cut meat for thirty years and never once for a reason.” — Become who you are.', zone: 'church', dur: 16, pastorale: ['cows', 'Cows grazing in fog. Nothing happens.'], victim: 'Franco',
       journal: 'The first black Mass, on white plastic chairs. Don Remo consecrated, word perfect. Franco lay down on the altar and offered himself as the host. A phone buzzed in someone’s pocket; nobody moved. The cult ate.',
-      lines: [[.5, 'Il Professore: You have cut meat for thirty years and never once for a reason, Franco.'], [4.5, 'Don Remo: Hoc est enim corpus meum.'], [7, '(A phone buzzes in someone’s pocket. Nobody moves. Don Remo waits for it to stop.)'], [10, 'Franco: (on the altar, calm) Then let the reason be me.'], [13, 'Tobia: They eat. I keep my eyes on Don Remo’s hands.']] },
+      lines: [[.5, 'Il Primo: You have cut meat for thirty years and never once for a reason, Franco.'], [4.5, 'Don Remo: Hoc est enim corpus meum.'], [7, '(A phone buzzes in someone’s pocket. Nobody moves. Don Remo waits for it to stop.)'], [10, 'Franco: (on the altar, calm) Then let the reason be me.'], [13, 'Tobia: They eat. I keep my eyes on Don Remo’s hands.']] },
     anna: { roman: 'IV', name: 'ANNA', quote: '“You have waited forty years. Stop waiting.” — Man would rather will nothingness than not will.', zone: 'home', dur: 21, pastorale: ['ivy', 'Ivy slowly overtaking a ruined wall.'], victim: 'Anna',
       journal: 'Heard, not seen. A wall went up in the cellar while you ate Anna’s soup at the table upstairs. Through the floor: the trowel, the bricks, Anna asking whether it was still warm. Then only the trowel.',
       lines: [[.5, 'Tobia: Ines puts a bowl in front of me. Anna’s soup. Anna is not at the table.'], [4, '(Below the floor: the scrape of a trowel. A brick set down. Another.)'], [8, 'Anna (below the floor, muffled): Is it warm? Tell me it is still warm.'], [11.5, 'Ines: It is warm, Anna.'], [14.5, '(The scraping slows. A last bowl is passed through the gap. Then only the trowel.)'], [18, 'Tobia: I finish the soup. The trowel stops. Nobody looks at the floor.']] },
     marta: { roman: 'V', name: 'MARTA', quote: '“You have been so careful with your memories. Be careless.” — One must still have chaos in oneself to give birth to a dancing star.', zone: 'cellar', dur: 19, pastorale: ['clay', 'Cracked clay under full sun. One cloud crosses.'], victim: 'Marta',
       journal: 'Under the heat lamp Livia took dictation, carving Marta’s memories into her skin while Marta narrated a golden childhood, until she could not find the next one. That night the nosebleeds began among the others.',
-      lines: [[.5, 'Il Professore: You have been so careful with your memories, Marta. Be careless.'], [4, 'Marta: A summer kitchen. My mother’s hands white with flour.'], [7.5, '(Livia does not speak. She carves what she hears.)'], [9.5, 'Marta: The sun on the tiles. A dog asleep under the table. Everything gold.'], [13.5, 'Marta: Gold… it was… (she cannot find the next one)'], [16.5, 'Tobia: Upstairs someone’s nose begins to bleed. Then another.']] },
+      lines: [[.5, 'Il Primo: You have been so careful with your memories, Marta. Be careless.'], [4, 'Marta: A summer kitchen. My mother’s hands white with flour.'], [7.5, '(Livia does not speak. She carves what she hears.)'], [9.5, 'Marta: The sun on the tiles. A dog asleep under the table. Everything gold.'], [13.5, 'Marta: Gold… it was… (she cannot find the next one)'], [16.5, 'Tobia: Upstairs someone’s nose begins to bleed. Then another.']] },
     gabri: { roman: 'VI', name: 'GABRI', quote: 'I love those who do not know how to live except by going under.', zone: 'pastorale', set: 'levee', dur: 19, pastorale: ['river', 'The river back in its bed, brown and slow.'], victim: 'Gabri', muffle: true,
       journal: 'Seen quiet. A car on the levee, the river rising, the album played to the only one in the car without earplugs. Ines passed him the thermos through the window. He asked whether everyone was looking at him. Everyone was.',
-      lines: [[.6, '(The sound has been removed. A car on the levee. The river is rising.)'], [5, 'Ines: (through the window, the thermos) Drink. It is warm.'], [9, 'Gabri: Is everyone looking at me?'], [12, 'Il Professore: Everyone.'], [15.5, '(Gabri smiles at the windscreen. His head comes to rest against the glass.)']] },
+      lines: [[.6, '(The sound has been removed. A car on the levee. The river is rising.)'], [5, 'Ines: (through the window, the thermos) Drink. It is warm.'], [9, 'Gabri: Is everyone looking at me?'], [12, 'Il Primo: Everyone.'], [15.5, '(Gabri smiles at the windscreen. His head comes to rest against the glass.)']] },
     sergio: { roman: 'VII', name: 'SERGIO', quote: '“He has already gone under. Leave him the sun.”', zone: 'road', dur: 20, pastorale: ['sunflowers', 'Black dried sunflowers in the wind.'], victim: 'Sergio',
-      journal: 'The only gentle death. A chair in a patch of real sunlight in the farmyard, Ines and her thermos beside him, you on the other side. No Mass. Il Professore watched from the doorway and did not come down.',
-      lines: [[.6, 'Tobia: A chair in the farmyard, in the first real sunlight in weeks. Ines has brought her thermos.'], [5, 'Sergio: I stopped believing years ago. I stayed for the company.'], [9, 'Ines: Then stay a little longer.'], [12.5, 'Il Professore (from the doorway): Leave him the sun.'], [16, '(Sergio closes his eyes. Nobody says Mass. Ines holds his hand until it is cold.)']] },
+      journal: 'The only gentle death. A chair in a patch of real sunlight in the farmyard, Ines and her thermos beside him, you on the other side. No Mass. Il Primo watched from the doorway and did not come down.',
+      lines: [[.6, 'Tobia: A chair in the farmyard, in the first real sunlight in weeks. Ines has brought her thermos.'], [5, 'Sergio: I stopped believing years ago. I stayed for the company.'], [9, 'Ines: Then stay a little longer.'], [12.5, 'Il Primo (from the doorway): Leave him the sun.'], [16, '(Sergio closes his eyes. Nobody says Mass. Ines holds his hand until it is cold.)']] },
     livia: { roman: 'IX', name: 'LIVIA', quote: '“Sing, or be silent for good.” — If you gaze long into an abyss, the abyss also gazes into you.', zone: 'church', dur: 17, pastorale: ['burnt', 'A burnt field at dawn. Steam, ash, one green shoot.'], victim: 'Livia',
       journal: 'Seen as silhouette. Livia locked in the confessional, singing her own aria while the group sang it back to her a semitone too low. The lattice began to glow. She did not stop singing until the shape stopped.',
-      lines: [[.6, 'Il Professore: Sing, Livia. Or be silent for good.'], [4, '(Inside the confessional, Livia sings. The others answer with her own aria, a semitone too low.)'], [9, '(The lattice begins to glow.)'], [13, 'Tobia: I see her only as a shape behind the grille. She does not stop singing until the shape stops.']] },
+      lines: [[.6, 'Il Primo: Sing, Livia. Or be silent for good.'], [4, '(Inside the confessional, Livia sings. The others answer with her own aria, a semitone too low.)'], [9, '(The lattice begins to glow.)'], [13, 'Tobia: I see her only as a shape behind the grille. She does not stop singing until the shape stops.']] },
     walter: { roman: 'X', name: 'WALTER', quote: 'Live dangerously! Build your cities on the slope of Vesuvius!', zone: 'road', dur: 16, pastorale: ['smoke', 'Smoke rising straight into still air.'], victim: 'Walter', fogDensity: .009,
-      journal: 'Seen from far away. Il Professore sent Walter to test the church’s charge alone, in the shed. It went up. He watched from the rise, radiant. The sound arrived late.',
-      lines: [[.6, 'Il Professore: Live dangerously, Walter. Test the charge for me. Alone.'], [4.5, 'Tobia: Walter walks into the shed with his notebook. Il Professore watches from the rise, the way other men watch football.'], [7.2, '(The shed goes up without a sound.)'], [9.6, '(The sound arrives late. It always does.)'], [12.5, 'Tobia: He is radiant. It is the only time I have seen him happy.']] },
+      journal: 'Seen from far away. Il Primo sent Walter to test the church’s charge alone, in the shed. It went up. He watched from the rise, radiant. The sound arrived late.',
+      lines: [[.6, 'Il Primo: Live dangerously, Walter. Test the charge for me. Alone.'], [4.5, 'Tobia: Walter walks into the shed with his notebook. Il Primo watches from the rise, the way other men watch football.'], [7.2, '(The shed goes up without a sound.)'], [9.6, '(The sound arrives late. It always does.)'], [12.5, 'Tobia: He is radiant. It is the only time I have seen him happy.']] },
     dario: { roman: 'VIII', name: 'DARIO', quote: '“You believe too much.” — Nothing is true, everything is permitted.', zone: 'church', dur: 19, pastorale: ['church', 'The church seen from a mile away, in fog.'], victim: 'Dario',
       journal: 'Seen in part, from below: the feet, the celebrants’ hands, the shadow on the rood beam. A full black Mass. Dario hung upside down from the beam and sang through all of it, until the final hymn. You had heard it planned through the wall, and said nothing.',
-      lines: [[.6, 'Don Remo: In nomine Patris… (every word, perfectly)'], [4.5, '(Someone tries to light the thurible. The lighter will not catch. Click. Click. Click.)'], [8, 'Dario (upside down, singing): …et lux perpetua luceat eis…'], [12, 'Il Professore: Nothing is true, Dario. Everything is permitted.'], [15.5, '(At the final hymn Dario stops singing. The shadow on the wall does not move again.)']] },
+      lines: [[.6, 'Don Remo: In nomine Patris… (every word, perfectly)'], [4.5, '(Someone tries to light the thurible. The lighter will not catch. Click. Click. Click.)'], [8, 'Dario (upside down, singing): …et lux perpetua luceat eis…'], [12, 'Il Primo: Nothing is true, Dario. Everything is permitted.'], [15.5, '(At the final hymn Dario stops singing. The shadow on the wall does not move again.)']] },
     remo: { roman: 'XI', name: 'DON REMO', quote: '“God is dead, Remo. You wrote the obituary.” — God is dead… and we have killed him.', zone: 'church', dur: 23, pastorale: ['belfry', 'The bell tower, silent. Birds return.'], victim: null,
-      journal: 'Il Professore handed you a rope: “Hold this, your hands are steady.” You understood only when the weight came onto it, and you did not let go. Ines rang the bell. Don Remo was the clapper.',
-      lines: [[.6, 'Il Professore: Hold this. Your hands are steady.'], [4, 'Tobia: The rope is rough and dry. For a moment it weighs nothing.'], [8, '(The weight comes onto it.)'], [11, 'Tobia: I understand only now. I do not let go.'], [13.5, 'Ines: (taking the other rope) Now.'], [18.5, 'Il Professore: God is dead, Remo. You wrote the obituary.']] }
+      journal: 'Il Primo handed you a rope: “Hold this, your hands are steady.” You understood only when the weight came onto it, and you did not let go. Ines rang the bell. Don Remo was the clapper.',
+      lines: [[.6, 'Il Primo: Hold this. Your hands are steady.'], [4, 'Tobia: The rope is rough and dry. For a moment it weighs nothing.'], [8, '(The weight comes onto it.)'], [11, 'Tobia: I understand only now. I do not let go.'], [13.5, 'Ines: (taking the other rope) Now.'], [18.5, 'Il Primo: God is dead, Remo. You wrote the obituary.']] }
   };
   return D[id];
 }
@@ -5590,9 +5591,9 @@ function startDarioEavesdrop() {
   storyScene = { type: 'dario-eavesdrop', t: 0, dur: 31, i: 0, lines: [], li: 0, save: { pos: playerAnchor.position.clone(), rx: camera.rotation.x, ry: camera.rotation.y }, script: [
     [.8, 'Tobia: Voices behind the plaster. Two men. I press my ear to the wall.', 0],
     [4.5, 'Don Remo (through the wall): He asked for the rood beam. Upside down, like Peter. He says he is not worthy to die the right way up.', 1],
-    [10.5, 'Il Professore (through the wall): Then let him have it. He believes too much, Remo. Nothing is true; everything is permitted.', 2],
+    [10.5, 'Il Primo (through the wall): Then let him have it. He believes too much, Remo. Nothing is true; everything is permitted.', 2],
     [16, 'Don Remo (through the wall): A full Mass, then. Every word. He will want to sing.', 1],
-    [20, 'Il Professore (through the wall): Until the final hymn. Dario — come in. Tomorrow, after vespers.', 2],
+    [20, 'Il Primo (through the wall): Until the final hymn. Dario — come in. Tomorrow, after vespers.', 2],
     [24.2, 'Dario (through the wall): Tell me where to stand.', 3],
     [27.4, 'Tobia: I hear all of it. I say nothing. This is the moment I belong.', 0]] };
   setCinema(true);
@@ -5614,7 +5615,7 @@ function updateDarioEavesdrop(s, dt) {
 function endDarioEavesdrop() {
   const s = storyScene;
   storyFlags.add('heard-dario-plan'); storyFlags.add('complicit');
-  journal.push({ id: 'dario-plan', title: 'The Words Through the Wall', description: 'Through the plaster you heard Don Remo and il Professore plan Dario’s Mass: the rood beam, upside down, a full liturgy, “until the final hymn”, tomorrow after vespers. Dario asked where to stand. You could have opened the door. You did not.', kind: 'witness account', zone: 'home' });
+  journal.push({ id: 'dario-plan', title: 'The Words Through the Wall', description: 'Through the plaster you heard Don Remo and il Primo plan Dario’s Mass: the rood beam, upside down, a full liturgy, “until the final hymn”, tomorrow after vespers. Dario asked where to stand. You could have opened the door. You did not.', kind: 'witness account', zone: 'home' });
   updateJournalCount(); storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); $('speaker').classList.remove('through-wall'); $('subtitle').classList.remove('muffled');
   if (s?.save) { playerAnchor.position.copy(s.save.pos); camera.rotation.set(s.save.rx, s.save.ry, 0); }
   camera.position.set(0, 1.63, 0); resetLook();
@@ -5646,7 +5647,7 @@ function triggerCemeteryAmbushV6() {
   }
   dialogueOpen = true; controls.unlock();
   $('speaker').textContent = 'THE FACTORY ROOF'; $('subtitle').textContent = 'A rifle cracks from the factory roof. You feel the impact before the echo reaches the cemetery.'; $('subtitle-wrap').classList.add('visible'); audio?.killSting();
-  setTimeout(() => { dialogueOpen = false; $('subtitle-wrap').classList.remove('visible'); triggerDeath('SHOT IN THE CEMETERY', 'You followed il Professore’s instruction to the cemetery beside the factory. The glint on the roof was a rifle scope. The missing name was never there.'); }, 820);
+  setTimeout(() => { dialogueOpen = false; $('subtitle-wrap').classList.remove('visible'); triggerDeath('SHOT IN THE CEMETERY', 'You followed il Primo’s instruction to the cemetery beside the factory. The glint on the roof was a rifle scope. The missing name was never there.'); }, 820);
 }
 
 // =============================================================================
@@ -6131,7 +6132,7 @@ function buildMaterialWorldV7() {
 
 // =============================================================================
 // v8 — jobs for cash, the porch walk-in, the grave, the church comes down,
-// gothic light that frames shots, a deeper Il Professore, and bodies that
+// gothic light that frames shots, a deeper Il Primo, and bodies that
 // breathe, talk and bend their knees.
 // =============================================================================
 
@@ -6187,7 +6188,7 @@ function findPersonaParts(npc) {
   return npc._parts;
 }
 function markTalking(name, dur) {
-  const key = (name || '').toLowerCase(); if (!key) return;
+  let key = (name || '').toLowerCase(); if (!key) return; if (key === 'il primo') key = 'the first';
   const all = [...cultRoster, ...Object.values(zones).flatMap(z => z.interactables || [])];
   for (const n of all) if (n?.type === 'npc' && (n.name || '').toLowerCase() === key && n.object?.visible) n.talkT = Math.max(n.talkT || 0, dur);
 }
@@ -6265,7 +6266,7 @@ function benchFinish(result) {
   nudgeHouse(result === 'well' ? 'accordo' : 'rifiuto', result === 'badly' ? .5 : 1, true);
   const clock = `${22 + Math.floor(elapsed / 900)}:${String(Math.floor(elapsed / 15) % 60).padStart(2, '0')}`;
   journal.push({ id: 'job-' + b.id, title: `Job · ${J.title}`, description: `${clock} · ${J.found} ${J[result === 'refused' ? 'refuse' : result]} ${paid ? 'Paid €' + paid + '.' : 'Not paid.'}`, kind: 'repair log', zone: currentZone }); updateJournalCount();
-  if (b.id === 'guitar') { storyFlags.add('tooth-found'); journal.push({ id: 'tooth', title: 'A Molar in a Matchbox', description: 'A human molar with an old grey filling fell out of the guitar. Il Professore gave me a matchbox to keep it in. “Then you found something I could not. Keep it.”', kind: 'object', zone: currentZone }); updateJournalCount(); }
+  if (b.id === 'guitar') { storyFlags.add('tooth-found'); journal.push({ id: 'tooth', title: 'A Molar in a Matchbox', description: 'A human molar with an old grey filling fell out of the guitar. Il Primo gave me a matchbox to keep it in. “Then you found something I could not. Keep it.”', kind: 'object', zone: currentZone }); updateJournalCount(); }
   const line = result === 'well' ? 'Clean work. Thank you.' : result === 'badly' ? 'Good. Thank you.' : '(A short silence. Then someone asks if you want more bread.)';
   setTimeout(() => storyLine(`${(b.npc.displayName || b.npc.name).toUpperCase()}: ${line}`), 400);
   renderBench();
@@ -6301,7 +6302,7 @@ function jobStationLine(id, def) {
   }
 }
 
-// ---- Il Professore: the man who arranges rooms ---------------------------------
+// ---- Il Primo: the man who arranges rooms ---------------------------------
 function primoAside() {
   { const s = society?.primoAside(); if (s) return s; }
   const done = Object.values(jobState.done), well = done.filter(r => r === 'well').length, refused = done.filter(r => r === 'refused').length, lean = houseLean();
@@ -6312,7 +6313,7 @@ function primoAside() {
   return '';
 }
 function primoDialogue() { const d = primoDialogueBase(); const a = primoAside(); if (a && d) d.line = a + d.line; return d; }
-function primoPhotograph(note = 'IL PROFESSORE PHOTOGRAPHS THE FACES, NOT THE BODY.') {
+function primoPhotograph(note = 'IL PRIMO PHOTOGRAPHS THE FACES, NOT THE BODY.') {
   const f = $('event-flash'); if (f) { f.style.background = 'rgba(255,250,235,.9)'; f.classList.add('active'); setTimeout(() => { f.classList.remove('active'); f.style.background = ''; }, 90); }
   audio?.mechanicalTone(2400, 900, .05, 'square', .03); setTimeout(() => showToast(note), 300);
 }
@@ -6388,7 +6389,7 @@ function updatePorchPrimo(dt = 1 / 60) {
       if (!porch.wp1) porch.wp1 = walkNPC(n, -1.95, -6.75, 1.25, dt);
       else if (!porch.wp2) porch.wp2 = walkNPC(n, 0, -7.55, 1.25, dt);
       else walkNPC(n, 0, -9.0, 1.25, dt);
-      if (!porch.opened && porch.wp1 && toDoor < 1.6) { porch.opened = true; porch.openT = 0; audio?.doorCreak(); setTimeout(() => { laugh(); setTimeout(laugh, 380); }, 300); storyLine('IL PROFESSORE: Come in. They have been waiting longer than you have.'); }
+      if (!porch.opened && porch.wp1 && toDoor < 1.6) { porch.opened = true; porch.openT = 0; audio?.doorCreak(); setTimeout(() => { laugh(); setTimeout(laugh, 380); }, 300); storyLine('IL PRIMO: Come in. They have been waiting longer than you have.'); }
       if (porch.opened) { porch.openT += dt; const k = Math.min(1, porch.openT / .6); if (door?.doorPivot) door.doorPivot.rotation.y = k * 1.45; porch.spill.intensity = k * 22; if (porch.hall) porch.hall.visible = true; }
       if (porch.opened && p0.z < -8.15) porchFirstGone(n, door);
     }
@@ -6420,7 +6421,7 @@ const welcome = { done: false, first: null, t: 0 };
 function buildHomeFirstV8() {
   const T = storyRef.tableSeats, z = zones.home; if (!T) return;
   const n = makeNPC(z.group, T.top[0] + .2, T.top[1] - 2.95, 'The First', 0x1d2330, 1);
-  n.isHomeFirst = true; n.object.rotation.y = 0; n.prompt = '[ E ] SPEAK — IL PROFESSORE'; n.object.visible = false;
+  n.isHomeFirst = true; n.object.rotation.y = 0; n.prompt = '[ E ] SPEAK — IL PRIMO'; n.object.visible = false;
   const ix = z.interactables.indexOf(n); if (ix >= 0) z.interactables.splice(ix, 1);
   welcome.first = n;
 }
@@ -6430,7 +6431,7 @@ function updateWelcome(dt) {
     welcome.done = true; n.object.visible = true; if (!zones.home.interactables.includes(n)) zones.home.interactables.push(n);
     if (society?.introScene()) return;
     house.welcomeT = 6;
-    const lines = ['IL PROFESSORE: This is Ines. Ottavio looks after the instruments. Franco works with meat. Pino knows the roads.', 'IL PROFESSORE: Anna cooks. Marta marks the beams. Gabri sits by the refrigerator. Sergio has opinions.', 'IL PROFESSORE: Dario remembers the prayers. Livia sings. Walter measures the places.', 'TOBIA: And you?', 'IL PROFESSORE: The First is enough. The guitar is on the table. Take your time.'];
+    const lines = ['IL PRIMO: This is Ines. Ottavio looks after the instruments. Franco works with meat. Pino knows the roads.', 'IL PRIMO: Anna cooks. Marta marks the beams. Gabri sits by the refrigerator. Sergio has opinions.', 'IL PRIMO: Dario remembers the prayers. Livia sings. Walter measures the places.', 'TOBIA: And you?', 'IL PRIMO: The First is enough. The guitar is on the table. Take your time.'];
     lines.forEach((l, i) => setTimeout(() => { if (!storyScene) storyLine(l); }, 900 + i * 3900));
     setTimeout(() => showToast('THE NAMES USED HERE. THEY MAKE THE TABLE EASIER TO SET.'), 900 + lines.length * 3900);
   }
@@ -6536,7 +6537,7 @@ function startCrollo() {
   for (let i = 0; i < 70; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xb8b2a4, transparent: true, opacity: 0, depthWrite: false })); s.position.set(cg.x + (Math.random() - .5) * 14, .5 + Math.random() * 3, cg.z + (Math.random() - .5) * 16); s.userData.v = new THREE.Vector3((Math.random() - .5) * 2.2, .5 + Math.random() * 1.4, Math.random() * 2.4); g.add(s); crollo.dust.push(s); }
   const target = new THREE.Vector3(cg.x - .6, 4.6, cg.z);
   storyRef.shedMeshes?.forEach(m => { if (storyFlags.has('shed-gone')) m.visible = false; });
-  storyScene = { type: 'v8', t: 0, dur: 27, i: 0, lines: [[.8, '(Il Professore puts in both earplugs.)'], [16.2, '(Someone laughs once, and covers her mouth. Ottavio sits down in the road.)'], [18.0, 'TOBIA: You knew it would come down.'], [20.0, 'IL PROFESSORE: We built it so that it could.'], [22.0, 'TOBIA: You called this freedom.'], [24.0, 'IL PROFESSORE: I called it a place where nothing had to remain standing.']], update(s, dt) {
+  storyScene = { type: 'v8', t: 0, dur: 27, i: 0, lines: [[.8, '(Il Primo puts in both earplugs.)'], [16.2, '(Someone laughs once, and covers her mouth. Ottavio sits down in the road.)'], [18.0, 'TOBIA: You knew it would come down.'], [20.0, 'IL PRIMO: We built it so that it could.'], [22.0, 'TOBIA: You called this freedom.'], [24.0, 'IL PRIMO: I called it a place where nothing had to remain standing.']], update(s, dt) {
     playerAnchor.position.set(38.4, 0, -4.6); camera.position.set(0, 1.5, 0); aimCamera(target, Math.min(1, dt * 2));
     const ct = s.t - 4; if (ct > 0) applyCollapse(ct);
     if (ct > 0 && !s.mute) { s.mute = true; audio?.setMuffle(true, .4); audio?.setDuck?.(.05, .4); }
@@ -6545,7 +6546,7 @@ function startCrollo() {
     if (ct > 9 && !s.sound) { s.sound = true; audio?.setMuffle(false, .2); audio?.setDuck?.(1, .2); audio?.mechanicalNoise(6, 55, .6, .6); audio?.mechanicalNoise(3.5, 140, .8, .35, .3); audio?.killSting(); glitchPulse = 1.4; }
     if (ct > 9 && ct < 11) camera.rotation.z = (Math.random() - .5) * .03 * (11 - ct);
     if (s.t > 16.2 && !s.laugh) { s.laugh = true; laugh(); if (ott.seated !== true) { ott.object.position.y = -.35; } }
-    if (s.t > 25.2 && !s.photo) { s.photo = true; primoPhotograph('IL PROFESSORE PHOTOGRAPHS THE DUST, NOT THE ALTAR.'); }
+    if (s.t > 25.2 && !s.photo) { s.photo = true; primoPhotograph('IL PRIMO PHOTOGRAPHS THE DUST, NOT THE ALTAR.'); }
     if (s.t >= s.dur) endCrollo(save);
   }, skip(s) { s.t = s.dur; } };
   setCinema(true);
@@ -6560,7 +6561,7 @@ function endCrollo(save) {
   const g = zones.road.group, cg = storyRef.churchExt.position, silver = v7mat(0xbdbab2, .25, { metalness: .9 });
   for (let i = 0; i < 14; i++) { const ear = new THREE.Mesh(new THREE.TorusGeometry(.05, .016, 6, 12, Math.PI * 1.4), silver); ear.position.set(cg.x + (Math.random() - .5) * 5, .03, cg.z + 8.2 + Math.random() * 1.6); ear.rotation.set(-Math.PI / 2, 0, Math.random() * 6); g.add(ear); }
   addLook(g, cg.x, .4, cg.z + 8.8, 'Silver ears in the rubble', 'Ex-voto ears, the kind people nailed to the north wall to thank a saint for hearing them. Dozens, in the dust in front of the portal. Beyond them, the forest has not moved.', 3);
-  journal.push({ id: 'crollo', title: 'Crollo', description: 'The church came down inward. The image arrived first; the sound came four seconds later. Il Professore had his earplugs in. He photographed the dust, not the altar. “I called it a place where nothing had to remain standing.”', kind: 'witness account', zone: 'road' }); updateJournalCount();
+  journal.push({ id: 'crollo', title: 'Crollo', description: 'The church came down inward. The image arrived first; the sound came four seconds later. Il Primo had his earplugs in. He photographed the dust, not the altar. “I called it a place where nothing had to remain standing.”', kind: 'witness account', zone: 'road' }); updateJournalCount();
   showToast('THE CHURCH IS A RUIN FOR THE REST OF THE NIGHT.'); updateMissions();
 }
 
@@ -6633,7 +6634,7 @@ function buildLightingV8() {
 }
 function updateShafts(t) { shafts.forEach(s => { const v = s.base * (.82 + Math.sin(t * .0007 + s.ph) * .12 + (Math.random() < .01 ? -.2 : 0)); if (s.shader) s.m.material.uniforms.uOpacity.value = v; else s.m.material.opacity = v; }); }
 
-// ---- v9: Il Professore wears the egtest rig (articulated hips, spine, neck, look-at, smoke) ----
+// ---- v9: Il Primo wears the egtest rig (articulated hips, spine, neck, look-at, smoke) ----
 function RIG_HAIR() { return { knot: 'knot', bald: 'bald', scarf: 'scarf', 'curls-short': 'curls', receding: 'receding', 'crop-bleached': 'bleach', 'bob-bleached': 'bob', long: 'long', 'long-curls': 'longcurls', 'fringe-eye': 'overeye', shaved: 'crop', scribble: 'short' }; }
 function RIG_TOP() { return { cardigan: 'cardigan', turtleneck: 'knit', dress: 'knit', blazer: 'blazer', 'shirt-oversized': 'shirt', leather: 'leather', track: 'track', workjacket: 'work', tee: 'tee', 'tee-long': 'teelong', longcoat: 'coat', cassock: 'cassock' }; }
 function RIG_FEMALE() { return ['ines', 'anna', 'marta', 'livia', 'the widow']; }
@@ -6705,10 +6706,10 @@ function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object
 // ---- v8 tick ----
 function v8Tick(dt, t) {
   updateSmears(t); updateTension(dt);
-  // The forest car is not optional: once the dark room is searched, Il Professore takes you there
+  // The forest car is not optional: once the dark room is searched, Il Primo takes you there
   // the next time you enter the slaughterhouse, whatever you said to him.
   if (gameStarted && !gameEnded && currentZone === 'abattoir' && storyFlags.has('darkroom-cleared') && !storyFlags.has('car-invited') && !storyFlags.has('car-called') && !storyScene && !dialogueOpen) {
-    storyFlags.add('car-called'); storyLine('IL PROFESSORE: Not here. Come outside. The car is warm.'); setTimeout(() => { if (!storyFlags.has('car-invited')) pendingCar = true; }, 3600);
+    storyFlags.add('car-called'); storyLine('IL PRIMO: Not here. Come outside. The car is warm.'); setTimeout(() => { if (!storyFlags.has('car-invited')) pendingCar = true; }, 3600);
   }
   updateRigs(dt, t); updateShafts(t); updateWelcome(dt);
   if (gameStarted && !gameEnded && currentZone === 'road' && (!storyScene || storyScene.type === 'hold') && !dialogueOpen && !bench && crolloReady()) { cancelHold(); startCrollo(); }
@@ -6962,13 +6963,13 @@ function startApocalypse(choice) {
   const fog0 = scene.fog.color.clone(), bg0 = scene.background.clone(), white = new THREE.Color(0xdedbd2);
   const lampsOff = lampFlickers.filter(l => l.light.parent && isVisibleChain(l.light)).sort(() => Math.random() - .5);
   storyScene = { type: 'v8', t: 0, dur: 52, i: 0, lines: [
-    [1.5, 'IL PROFESSORE: I thought I could take the world apart and leave the pieces arranged.'],
-    [6.5, 'IL PROFESSORE: First the roofs will fall inward.'],
-    [13, 'IL PROFESSORE: Then the roads will forget their ends.'],
-    [19, 'IL PROFESSORE: The trees will come through the rooms.'],
-    [26, 'IL PROFESSORE: Names will come loose from faces.'],
-    [32, 'IL PROFESSORE: The world will turn white. Not bright. Not clean. White like the dust left after every wall has failed.'],
-    [40.5, 'IL PROFESSORE: And when there is no room left to contain it, the Lord of Dust approaches.']],
+    [1.5, 'IL PRIMO: I thought I could take the world apart and leave the pieces arranged.'],
+    [6.5, 'IL PRIMO: First the roofs will fall inward.'],
+    [13, 'IL PRIMO: Then the roads will forget their ends.'],
+    [19, 'IL PRIMO: The trees will come through the rooms.'],
+    [26, 'IL PRIMO: Names will come loose from faces.'],
+    [32, 'IL PRIMO: The world will turn white. Not bright. Not clean. White like the dust left after every wall has failed.'],
+    [40.5, 'IL PRIMO: And when there is no room left to contain it, the Lord of Dust approaches.']],
     update(s, dt) {
       const t = s.t; playerAnchor.position.set(-.6, 0, 13.5); camera.position.set(0, 1.6, 0); aimCamera(new THREE.Vector3(.4, 2.6 + Math.sin(t * .2) * .2, -12), Math.min(1, dt * 1.2)); setFov(72 + THREE.MathUtils.smoothstep(t, 6, 40) * 14);
       updateSmoker(smoker, dt);
@@ -7332,10 +7333,10 @@ function socialPhotoTexture() {
 }
 society = createSociety({ THREE, camera, playerAnchor, look, zone: () => currentZone, home: () => zones.home, elapsed: () => elapsed, people: socialPeople, seats: () => storyRef.tableSeats,
   line: storyLine, lineNow: storyLine, say: storyLine, queueAction, linesBusy: () => linesPending(), clearLines,
-  scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
+  scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true) });
-if (TEST_MODE) window.__epi = { society: () => society, zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);

@@ -258,7 +258,7 @@ export const PEOPLE = {
     }
   },
   'the first': {
-    age: 38, role: 'Former quarry blaster', houseWord: 'Il Professore',
+    age: 38, role: 'Former quarry blaster', houseWord: 'Il Primo',
     surface: 'Clean, gentle, economical. Asks questions he already knows the answer to. Pays exactly, in notes, and counts them aloud.',
     wound: 'His father ran the blasting crew at a quarry above Canossa. At nine he watched a face of rock come down with a man under it; the sound arrived a second late, and in that second the man was still, in a sense, alive. He has been trying to live inside that second ever since.',
     secret: 'He does not believe in The White. He believes in arranging a room so that other people do the thing, and photographing their faces afterwards. The photographs are the only proof he was not responsible: look, he is not in any of them.',

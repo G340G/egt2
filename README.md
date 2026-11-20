@@ -44,6 +44,38 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 24 — requests, promises, and a cult that eats itself
+
+**Il Professore is now Il Primo** everywhere in the game.
+
+**What was removed.** The hunters who followed Tobia from room to room, people appearing where he happened to go, people moving whenever he looked away, the van attack, the errands that were ambushes in disguise, the watchers in the fog, the stolen tissues, and every kill threshold (the score-driven kitchen scene included). Nobody hunts Tobia, and nobody knows where he is unless they could have seen him go.
+
+**Requests.** People come to Tobia with things they cannot do alone. They catch his eye from where they are; he goes to them, or doesn't, and not going over is also an answer. Each request has a reason for choosing him, a fear, and an idea of what his answer will prove, and the player is never told these. Answers are written as things a person would say: yes, no, asking, bargaining, postponing, lying, saying nothing, walking away. None is clean.
+- **Ines, the thermos.** Take it to Gabri at the fridge: he refuses everything from her, and he wants the new one to look at him. It is for sleeping, and, if you ask, it is what the pharmacy gave her mother at the end. You can carry it, carry it knowing, give it back, pour it into the basin, leave it on the table (then Gabri finds it himself), or warn Gabri. If he drinks, you can wake him, call Sergio, call Ines, or let him sleep. When he wakes he asks what was in it.
+- **Anna, the place.** Sit in her husband's place and eat from his bowl, once, so she can stop. A stranger does not carry his memory.
+- **Pino, the way out.** After the next dinner, in the van, before Sunday. With someone in the passenger seat he cannot turn back at the combine. Not Dario, not Gabri.
+- **Walter, the count.** Il Primo asked for fourteen on Sunday. Lift the rotor arm out of Pino's van; Pino would hear Walter. Or offer to watch Pino and tell Walter before he goes.
+- **Gabri, take me with you.** He heard Pino through the wall. A promise to him contradicts Pino's.
+- **Franco, the account.** He tells you (or reminds you) that Don Aurelio wired the latch and that he held the door. When Dario asks who told you, say Sergio: Sergio believes in nothing, and Dario will forgive him.
+- **Il Primo, then Dario, the cellar.** Il Primo mentions that Dario has asked for the cellar and shouldn't be alone. Dario asks you to sit with him while he listens without anything in his ears, so that someone sees it when it fills him.
+- **Marta, the beam.** Help her look at the beam before Il Primo reads it. It has fourteen figures, and the fourteenth has your coat. Later the beam shows, in carvings, what is coming.
+- **Livia, the napkin.** Keep her secret and she will tell you, on napkins, who has decided.
+
+**Double binds.** Pino's and Walter's requests cancel each other: help Pino and Walter's count is short; help Walter and Pino is trapped; tell either about the other and they meet in the hall. Franco's lie protects Franco by pointing Dario at Sergio; the truth points Dario at Franco; "I don't remember" is heard as Franco's name. Warning Gabri saves him from the thermos and makes Ines a poisoner in front of the whole table. Promises are tracked and judged as kept or broken.
+
+**The cult eats itself.** Members can die of each other, and of you: Gabri in the fridge light if nobody wakes him; Sergio in the canal, taken by Dario because you said his name; Pino on the track through the wheat if you trapped him and he found out; Dario in the cellar if you watched, or left. The table has to go on eating with the empty chairs. Several deaths lead to the Disintegration ending.
+
+**Violence only from a person and a reason.** Five people can decide Tobia must disappear, each for one comprehensible reason created by what he did, and each only in their own place:
+- **Ines, the cup**, if you took Gabri from her and made her a poisoner in front of him or the table. She stays warm, and one evening brings you a cup for your nose.
+- **Gabri, the fridge light**, if you brought him the thermos knowing what it was and then lied to him. "Sit with me. The light's enough for two."
+- **Walter, the line**, if Pino got away through you, or you gave Walter's task to the man it was about. He goes to the church with the charges (Il Primo mentions it at the table), and asks you to hold the lead.
+- **Franco, the board**, if you gave Dario his name after he asked you not to, or if Sergio died because of the lie he asked you for. He goes to the kitchen table to cut the joint, and asks you to hold it.
+- **Dario, the cellar**, if you promised to watch him and didn't come, and he has decided Il Bianco has started in you.
+
+Someone can hate Tobia and never consider killing him (Pino, Anna, Sergio, Marta, Livia). Hidden motives keep their warmth. Every one of these moments can be prevented, earlier or in the moment, by the thing that person needed: an apology before the cup, or asking her to drink first; the truth at the fridge; telling Walter where the weight went; anyone asking Franco why he keeps the knife so clean; being looked at. Livia's napkins hint at them; Marta's beam shows them; the Last Supper shows who leans to Il Primo's ear. Each death screen explains the reason and what would have stopped it.
+
+**Il Primo** arranges and watches. He tells you who would like a word, offers the cellar, seats Dario next to Franco after you name him, mentions that Walter has gone to the church, and hands you a small black part found on the dresser ("I don't know what it belongs to. Do what you think is right."). He never asks anyone to kill.
+
 ## Version 23 — Il Bianco at the table
 
 - **Il Professore's jacket and shirt, rebuilt from the real garments.** The reference is the Schott 618 Perfecto: asymmetric front zip, a large lapel collar with snaps, an attached belt, zip cuffs, a coin pocket, a body of about 25 inches and a large back panel. The shirt is a dress shirt: about a 1.4-inch collar band, 3-inch straight points, a centre placket of buttons. The shirt is now the torso itself (chest and belly in white cotton), so it cannot float at any angle. The jacket is a leather shell computed from the torso's own cross-section at every height, about 1.1–2 cm out, open at the front the way an unzipped jacket hangs. On it are rolled front edges and hem, zip teeth on both fronts with the pull at the hem, lapels folded back with snaps, the big collar around the back of the neck, the belt around the back with the buckle and tail loose at the open front, slanted zip pockets, the flapped coin pocket, the yoke and side seams behind, epaulettes with snaps, elbow seams, zip cuffs with a white shirt cuff showing, and a shirt collar band with points lying on the chest. Checked from the front, the three-quarter view, the side and the back.

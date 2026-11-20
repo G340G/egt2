@@ -1,7 +1,7 @@
 // Procedural people. Simple solids, articulated, dressed from the v10 cast sheet.
 // Faces stay plain and half in shadow; posture, clothes and hair carry who they are.
 import * as THREE from 'three';
-// Ported from the egtest vertical slice (G340G/egtest js/people.js): Il Professore's rig.
+// Ported from the egtest vertical slice (G340G/egtest js/people.js): Il Primo's rig.
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
 const cap = (r, l, m) => { const g = new THREE.CapsuleGeometry(r, l, 4, 10); const mesh = new THREE.Mesh(g, m); mesh.castShadow = true; mesh.receiveShadow = true; return mesh; };
@@ -385,7 +385,7 @@ export function personalize(P, X, tex = {}) {
 // v12: a fitted black leather jacket, built to read from every side: stand collar and
 // asymmetric lapels, an off-centre zip, waistband and buckle, epaulettes, a back yoke
 // and centre seam, sleeve seams and zipped cuffs. All parts hug the body; none is a flat panel.
-// v23 — Il Professore: an unzipped Perfecto-type motorcycle jacket over a white shirt.
+// v23 — Il Primo: an unzipped Perfecto-type motorcycle jacket over a white shirt.
 // Built from the real garments (Schott 618 Perfecto: asymmetric front zip, large lapel collar with
 // snaps, attached belt, zip cuffs, coin pocket, ~25" body; a dress shirt: 1.4" collar band, ~3"
 // straight collar points, a centre placket of buttons). The shirt is the torso itself, so it can
