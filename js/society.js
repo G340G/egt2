@@ -1280,13 +1280,21 @@ export function createSociety(G) {
   // ---- the van, driven by a person with a reason ---------------------------------------
   function launchVan(m) {
     const Z = zoneOf('road'), p = playerPos(); G.camera.getWorldDirection(tmp2); const back = new THREE.Vector3(-tmp2.x, 0, -tmp2.z).normalize();
-    const v = G.buildVan(Z.group); v.position.set(p.x + back.x * 46, 0, p.z + back.z * 46); v.traverse(o => { if (o.isSpotLight) o.intensity = 0; });
-    R.van2 = { v, m, sp: 4, aim: new THREE.Vector3(p.x, 0, p.z), t: 0, passed: false };
+    // one van only: if Walter's van is parked by the lane, that is the one that comes; otherwise Pino's
+    // from the yard; only if neither is there is a van brought out of the fog
+    const parked = G.parkedVan?.(), yard = R.van?.visible ? R.van : null, v = parked || yard || G.buildVan(Z.group);
+    const home = (parked || yard) ? { pos: v.position.clone(), rot: v.rotation.y } : null;
+    if (parked || yard) { const d = Math.hypot(v.position.x - p.x, v.position.z - p.z); if (d < 14) v.position.set(p.x + back.x * 40, 0, p.z + back.z * 40); }
+    else v.position.set(p.x + back.x * 46, 0, p.z + back.z * 46);
+    v.traverse(o => { if (o.isSpotLight) o.intensity = 0; });
+    R.van2 = { v, m, sp: 4, aim: new THREE.Vector3(p.x, 0, p.z), t: 0, passed: false, home };
     G.audio()?.mechanicalTone(55, 90, 6, 'sawtooth', .03, 0);
   }
+  // a borrowed van goes back where it was parked, as if nothing had happened; a conjured one is removed
+  function parkVan(V) { if (V.home) { V.v.position.copy(V.home.pos); V.v.rotation.y = V.home.rot; V.v.traverse(o => { if (o.isSpotLight) o.intensity = V.v.userData.parked ? 22 : 0; }); } else V.v.parent?.remove(V.v); }
   function updateVan2(dt) {
     const V = R.van2; if (!V) return;
-    if (G.zone() !== 'road') { V.v.parent?.remove(V.v); R.van2 = null; return; }
+    if (G.zone() !== 'road') { parkVan(V); R.van2 = null; return; }
     V.t += dt; const p = playerPos(), o = V.v.position;
     if (!V.passed) V.aim.lerp(new THREE.Vector3(p.x, 0, p.z), Math.min(1, dt * .9));
     V.sp = Math.min(19, V.sp + dt * 7);
@@ -1297,7 +1305,7 @@ export function createSociety(G) {
     if (V.t > 1.2 && Math.random() < dt * 2) G.audio()?.mechanicalTone(70 + V.sp * 4, 60 + V.sp * 4, .4, 'sawtooth', .02 + Math.min(.05, 2 / Math.max(2, Math.hypot(p.x - o.x, p.z - o.z))), 0);
     if (Math.hypot(p.x - o.x, p.z - o.z) < 1.8 && !V.passed) { V.v.traverse(x => { if (x.isSpotLight) x.intensity = 90; }); R.van2 = null; kill(V.m.k, 'van'); return; }
     if (!V.passed && (V.dir.x * (p.x - o.x) + V.dir.z * (p.z - o.z)) < -1) { V.passed = true; G.line(pick(['(It goes past close enough to move your coat. No brake lights.)', '(Wind, metal, then the fog again. It did not stop.)'])); tense(.3); note(V.m.k, `${nm(V.m.k)} drove at you on the road, and missed.`); V.m.hunt && (V.m.hunt.vanAt = now() + 90 + Math.random() * 60); }
-    if (V.t > 14) { V.v.parent?.remove(V.v); R.van2 = null; }
+    if (V.t > 14) { parkVan(V); R.van2 = null; }
   }
   // ---- errands into rooms that are already set -------------------------------------------
   const ERRAND = {

@@ -5536,7 +5536,7 @@ function updateDrive(s, dt) {
   if (s.t >= 1.2 && !F.door) { F.door = true; audio?.knock(); audio?.mechanicalNoise(.18, 900, 2, .2, -.3); }
   if (s.t >= 1.7 && !F.key) { F.key = true; audio?.mechanicalNoise(.06, 4200, 6, .15, -.1); }
   if (s.t >= 2.0 && !F.crank) { F.crank = true; audio?.starter(); }
-  if (s.t >= 3.4 && !s.eng) { s.eng = audio?.engineStart(); F.rpm = 900; c.heads.forEach(h => { h.intensity = 60; h.visible = true; }); c.dashGlow.material.color.set(0xd88a2a); glitchPulse = .4; }
+  if (s.t >= 3.4 && !s.eng && s.mode === 'lane') { s.eng = audio?.engineStart(); F.rpm = 900; c.heads.forEach(h => { h.intensity = 60; h.visible = true; }); c.dashGlow.material.color.set(0xd88a2a); glitchPulse = .4; }
   if (s.mode === 'lane') {
     // Drive down the lane to the farmhouse. The fog closes behind you.
     const k = THREE.MathUtils.smoothstep(s.t, 5.2, 15.5);
@@ -5550,17 +5550,27 @@ function updateDrive(s, dt) {
     if (s.t >= 16 && !F.off) { F.off = true; s.eng?.stop(); s.eng = null; c.heads.forEach(h => { h.intensity = 0; h.visible = false; }); c.dashGlow.material.color.set(0x1a1408); }
     yaw += Math.sin(s.t * .5) * .05 * speed;
   } else {
-    if (!F.van) { F.van = true; storyRef.van = storyRef.van || buildVan(zones.road.group); storyRef.van.position.set(car.position.x - .6, 0, car.position.z + 11); storyRef.van.visible = true; }
-    const back = THREE.MathUtils.smoothstep(s.t, 5, 7.5) - THREE.MathUtils.smoothstep(s.t, 8, 9);
-    if (s.t > 5 && s.t < 9) { car.position.z = s.startZ + THREE.MathUtils.smoothstep(s.t, 5, 8.2) * 1.6; F.rpm = 1100 + back * 900; s.eng?.setRpm(F.rpm); }
-    yaw += back * 2.6; pitch += back * .05;
-    if (s.t >= 5.4 && !F.l1) { F.l1 = true; storyLine('Tobia: I put it in reverse.'); }
-    if (s.t >= 7.6 && !F.l2) { F.l2 = true; storyLine('Tobia: Walter’s van is across the lane, headlights on. Nobody is in it. I stay.'); storyFlags.add('lane-blocked'); }
-    if (s.t >= 11 && !F.off) { F.off = true; s.eng?.stop(); s.eng = null; c.heads.forEach(h => { h.intensity = 0; h.visible = false; }); }
+    // Leaving: the car turns over and will not catch. Walter's van is parked on the verge, lights on,
+    // nobody in it. It does not block anything. It is just there.
+    if (!F.van) { F.van = true; parkedVan(car); }
+    if (s.t >= 3.6 && !F.c2) { F.c2 = true; audio?.starter(); }
+    if (s.t >= 5.4 && !F.c3) { F.c3 = true; audio?.starter(); storyLine('Tobia: It turns over. It won’t catch.'); }
+    if (s.t >= 7.4 && !F.l1) { F.l1 = true; audio?.mechanicalNoise(.3, 600, 1, .08, .2); storyLine('Tobia: Under the bonnet the black cap is loose. The rotor arm is gone. Somebody has had it.'); }
+    if (s.t >= 10.2 && !F.l2) { F.l2 = true; storyLine('Tobia: Walter’s van is on the verge, headlights on. Nobody is in it. I stay.'); storyFlags.add('car-dead'); }
+    const look = THREE.MathUtils.smoothstep(s.t, 9.4, 10.6) - THREE.MathUtils.smoothstep(s.t, 12.5, 13.8); yaw += look * 2.15; pitch += look * .04;
   }
   camera.rotation.set(pitch, yaw, car.rotation.z * 2);
   updateCarEntry();
   if (s.t >= s.dur) endDrive(s);
+}
+// Walter's van, parked on the verge by the lane: not an obstacle, only a presence. When Walter or
+// Pino comes for Tobia on the road, it is this van that pulls out, so there is only ever one.
+function parkedVan(car) {
+  if (!storyRef.van) storyRef.van = buildVan(zones.road.group);
+  const v = storyRef.van; v.position.set(-7.4, 0, car.position.z + 7.5); v.rotation.y = Math.PI * 1.04;   // on the grass verge, clear of the asphalt v.visible = true;
+  v.traverse(o => { if (o.isSpotLight) { o.intensity = 22; o.distance = 18; } });
+  v.userData.parked = { pos: v.position.clone(), rot: v.rotation.y };
+  return v;
 }
 function endDrive(s) {
   const c = storyRef.tobiaCar; s.eng?.stop();
@@ -5591,7 +5601,7 @@ function vanPaintTexture() {
   t.wrapS = t.wrapT = THREE.RepeatWrapping; vanPaintTexture.t = t; return t;
 }
 function buildVan(g) {
-  const v = new THREE.Group(); g.add(v);
+  const v = new THREE.Group(); v.userData.isVan = true; g.add(v);
   const L = 4.7, W = 1.95, paint = new THREE.MeshStandardMaterial({ color: 0xffffff, map: vanPaintTexture(), roughness: .62, metalness: .08 });
   const black = mat(0x141414, .7), rubber = mat(0x0e0e0e, .95), chrome = mat(0xb8b6ae, .25, { metalness: .85 }), glassM = new THREE.MeshStandardMaterial({ color: 0x0d1416, roughness: .06, metalness: .4 });
   // side profile (f = metres from the back, y = height), extruded across the width
@@ -7404,7 +7414,7 @@ function socialPhotoTexture() {
 society = createSociety({ THREE, camera, playerAnchor, look, zone: () => currentZone, home: () => zones.home, elapsed: () => elapsed, people: socialPeople, seats: () => storyRef.tableSeats,
   line: storyLine, lineNow: storyLine, say: storyLine, queueAction, linesBusy: () => linesPending(), clearLines,
   scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), enter: (name, sp) => enterZone(name, sp), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
-  fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
+  fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, parkedVan: () => storyRef.van?.visible ? storyRef.van : null, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true) });
 if (TEST_MODE) window.__epi = { people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
