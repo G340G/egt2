@@ -44,6 +44,51 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 25 — the click
+
+The followers are back, and now they are earned. Each one is a particular person whom Tobia's own words and gestures made decide, sometimes in a second, that he has to disappear.
+
+- **The click.** Specific moments make specific people snap:
+  - taking Il Primo's earplugs, or sitting in Aurelio's chair while bleeding, in front of Dario;
+  - taking or tearing Gabri's photograph while he watches;
+  - laughing when Walter calls Gabri a dog;
+  - eating Anna's husband's supper without being asked;
+  - taking Walter's keys in front of him;
+  - shaming a violent man in front of Il Primo;
+  - a lie found out by someone capable of violence;
+  - refusing to watch Dario when you are the one who bleeds;
+  - waking Gabri while Ines is making it gentle;
+  - pulling Dario off Sergio at the canal, or running from it.
+
+  Add to these every motive from v24 (the thermos, the van, the account, the cellar).
+- **They follow.** After a while (longer for the ones who stay warm to your face), their chair is empty. They are in the rooms you walk into, out of your line of sight, or they come in through the door behind you. They move only when you are not looking, and never in front of other people. When they are close you hear a step, a breath. Turn round and they are ordinary ("Looking for the lamp oil. You?"). Then you can say the one thing that person needed, give back what you took, show the knife, or back away. Look away and they are closer. The nosebleed shrinks how far you can see them; while you wipe, you see nothing.
+- **They kill with what is in their hands:**
+  - Ines: the white cloth over your mouth.
+  - Gabri: the bread knife.
+  - Franco: the cleaver.
+  - Anna: the long kitchen knife.
+  - Marta: her burin.
+  - Dario: his rosary.
+  - Walter and Pino: their hands, and on the road the van, with its lights off.
+  - Sergio: his belt.
+  - Livia: a cushion.
+- **Errands into rooms that are already set.** The person who has decided, or someone who has turned against you, sends you somewhere with a plausible reason:
+  - the cellar: the hatch is dragged shut and the vents are taped; find the vent or Il Bianco fills you;
+  - the church: a hiss under the pews; leave before the second one;
+  - the slaughterhouse: the hoist chain ratchets above you; step out from under it;
+  - the road: the van;
+  - the empty house: they are waiting just inside the door.
+
+  Some errands come from friends, and lead to a warning napkin or a packet of tissues. You cannot tell which beforehand.
+- **Complicity.**
+  - **The canal:** after you gave Dario Sergio's name, Dario asks you to come to the canal and hold the lamp. On the bank, in your lamplight, he kneels Sergio at the water. You hold the lamp steady and see all of it, pull Dario off and make him your enemy, or drop the lamp and run as a witness.
+  - **The kitchen:** Ines asks you to hold Gabri's hand while she finishes it.
+  - **The cellar:** watching Dario remains.
+- Every death screen names the person, the tool, the reason, the errand that sent you, and what would have stopped it.
+- **The van**, rebuilt after the first-generation Fiat Ducato (1981–94): about 4.7 m long and 1.95 m wide with a 2.9 m wheelbase. It has a sloping nose, a raked windscreen, rectangular lamps either side of a black grille, black bumpers, a sliding side door with its rail, twin rear doors and tail lamps, mirrors on arms, steel wheels in dark arches, roof gutters, and dirty off-white paint with rust under the seams and a painted-out haulier's name. Pino's van no longer sits in the opening shot; it appears in the yard only once Pino mentions it.
+- **Glasses rebuilt on the face**: Ottavio's round frames and Pino's shades sit in front of the eyes, with a bridge on the nose and arms back to the ears, measured from the sculpted head, so nothing cuts through the skin or flickers.
+- The tree the opening walk passed through is gone: the lane is kept clear of trees all the way to where the walk starts.
+
 ## Version 24 — requests, promises, and a cult that eats itself
 
 **Il Professore is now Il Primo** everywhere in the game.

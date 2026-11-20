@@ -114,6 +114,10 @@ export function createSociety(G) {
       else if (c && SOCIAL[k].mute) S.rumours.push({ at: now() + 120 + Math.random() * 90, teller: k, listener: c, ep, act, napkin: true });
     }
     if (seen.length) tense(.05 + seen.length * .02);
+    if (['earplugs-take', 'earplugs-move', 'chair-aurelio'].includes(act) && seen.includes('dario') && (S.rel.dario.marked || S.rel.dario.grievance > 2.2)) click('dario', act === 'chair-aurelio' ? 'You sat in Aurelio’s chair, bleeding. Dario saw the marked one take the place of the first one to be full, and decided it was a sign that it must be finished.' : 'You put your hands on Il Primo’s earplugs. To Dario it was a desecration by the one already chosen.');
+    if (['photo-take', 'photo-tear'].includes(act) && seen.includes('gabri')) click('gabri', act === 'photo-tear' ? 'He watched you tear the only face that ever looked at him.' : 'He watched you put his mother in your pocket.');
+    if (act === 'bowl-eat' && seen.includes('anna') && !has('anna-asked')) click('anna', 'You ate a dead man’s supper in front of his widow, without being asked. For forty years nobody had touched it.');
+    if (act === 'keys-take' && seen.includes('walter')) click('walter', 'You took his keys while he was looking at you. A task with a variable in it cannot be finished.');
     return seen;
   }
   function tellRumour(r) {
@@ -395,7 +399,7 @@ export function createSociety(G) {
     setTimeout(() => {
       const holder = S.carried.has(topic) || (topic === 'earplugs' && S.belong.earplugs.where === 'mine');
       if (certain && !holder && topic !== 'photo') return;
-      affect(asker, { g: 1.8, t: -.8 }, cause);
+      affect(asker, { g: 1.8, t: -.8 }, cause); if ((SOCIAL[asker]?.violence ?? 0) >= .6 && S.rel[asker].grievance > 2) click(asker, cause + ' A lie, found out, is a door left open.');
       if (G.zone() === 'home' && who(asker) && dist2(who(asker)) < 7) G.line(`${UP(asker)}: ${pick(['(He looks at you for a long time and says nothing.)', 'You said no. I remember you said no.', 'Somebody told me something about you. I am not going to say who.'])}`);
     }, 50000 + Math.random() * 70000);
   }
@@ -530,8 +534,8 @@ export function createSociety(G) {
     (S.didHumil = S.didHumil || new Set()).add(agg);
     G.line(line); G.line(reply);
     G.queueAction(() => offer('', '', [
-      [`“Leave ${nm(vic)} alone.”`, () => { G.line(`TOBIA: Leave ${nm(vic)} alone.`); const seen = present().map(p => p.key); affect(vic, { t: 1.4 }); affect(agg, { g: 1.2 }, `You defended ${nm(vic)} against ${nm(agg)} at the table.`); S.primoNotes.push('defend'); seen.forEach(k => { if (k !== agg && k !== vic && SOCIAL[k]?.protects?.includes(vic)) affect(k, { t: .5 }); }); }],
-      ['Laugh.', () => { G.line('(You laugh. Two others laugh with you, a beat late.)'); affect(agg, { t: .6 }); affect(vic, { g: 1.2 }, `You laughed when ${nm(agg)} humiliated ${nm(vic)}.`); }],
+      [`“Leave ${nm(vic)} alone.”`, () => { G.line(`TOBIA: Leave ${nm(vic)} alone.`); const seen = present().map(p => p.key); affect(vic, { t: 1.4 }); affect(agg, { g: 1.2 }, `You defended ${nm(vic)} against ${nm(agg)} at the table.`); if (S.rel[agg].grievance > 1.8 && (SOCIAL[agg]?.violence ?? 0) > .6) click(agg, `You shamed ${nm(agg)} in front of Il Primo, at the table, for a stranger.`); S.primoNotes.push('defend'); seen.forEach(k => { if (k !== agg && k !== vic && SOCIAL[k]?.protects?.includes(vic)) affect(k, { t: .5 }); }); }],
+      ['Laugh.', () => { G.line('(You laugh. Two others laugh with you, a beat late.)'); affect(agg, { t: .6 }); affect(vic, { g: 1.2 }, `You laughed when ${nm(agg)} humiliated ${nm(vic)}.`); if (vic === 'gabri') click('gabri', 'You laughed with Walter when Walter called him a dog by the fridge. He had thought you were the one who looked at him.'); }],
       ['(Look at your plate.)', () => { affect(vic, { t: -.5 }); }]
     ], { timeout: 12, onTimeout: () => { affect(vic, { t: -.6 }); S.truths.push(`You said nothing when ${nm(agg)} humiliated ${nm(vic)}.`); } }));
   }
@@ -573,6 +577,7 @@ export function createSociety(G) {
 
   // ---- arriving, doors, gaze, barks --------------------------------------------------
   function onEnterZone(name) {
+    if (R.motives) { stalkersOnEnter(name); trapsOnEnter(name); }
     if (name !== 'home') { if (S.seated) S.seated = null; closeUI(); return; }
     buildWorld();
     const cold = present().filter(p => p.key !== 'primo' && standing(p.key) <= -1).length;
@@ -592,6 +597,7 @@ export function createSociety(G) {
     conflict('dario', 'tobia', 'the earplugs');
   }
   function doorGate(item) {
+    if (R.armed?.kind === 'cellar' && G.zone() === 'cellar') { G.line('(The hatch will not lift. Something heavy is on it.)'); tense(.1); return true; }
     if (item.destination !== 'home' || G.zone() === 'home') return false;
     const cold = keys.filter(k => standing(k) <= -1.2).length;
     if (cold < 5) return false;
@@ -730,17 +736,19 @@ export function createSociety(G) {
     S.plotAt = Math.min(S.plotAt || 1e9, now() + 45);
     if (R.napkins && alive('livia')) later(30, () => napkin(k, kind));
   }
-  function defuse(k, how) { const m = R.motives[k]; if (!m || !m.alive) return; m.alive = false; m.defused = how; S.truths.push(how); note(k, how); if (m.placed) { const n = npcOf(k); if (n) returnHome(n); } }
+  function defuse(k, how) { const m = R.motives[k]; if (!m || !m.alive) return; m.alive = false; m.defused = how; S.truths.push(how); note(k, how); const n = npcOf(k); if (n) { n.hunting = false; if (m.hunt) offH(m); if (m.placed || m.hunt) returnHome(n); } }
   function live(k) { const m = R.motives[k]; return m && m.alive && !R.dead.has(k) ? m : null; }
   function napkin(k, kind) {
-    const words = { cup: 'not the cup', fridge: 'not in the fridge light', lead: 'do not hold anything for him', cleaver: 'he is asking to be asked', cord: 'do not kneel' }[kind];
+    const words = { cup: 'not the cup', fridge: 'not in the fridge light', lead: 'do not hold anything for him', cleaver: 'he is asking to be asked', cord: 'do not kneel' }[kind] || 'do not be alone. do not go where they send you';
     S.napkinText = `(A napkin at your place, Livia's small capitals:) ${nm(k).toUpperCase()} — ${words}`;
     if (G.zone() === 'home') G.line(S.napkinText); else R.pendingNews = (R.pendingNews || []).concat(S.napkinText);
   }
   // ---- the request engine -------------------------------------------------------------
   // Someone catches Tobia's eye. They do not come to him from nowhere: he has to go to them,
   // or let them come across the room. Ignoring them is an answer too.
+  function showVan() { if (!R.van || R.van.visible) return; R.van.visible = true; zoneOf('road').interactables.push(R.vanEntry); }
   function beckon(id) {
+    if (id === 'pino') showVan();
     const q = REQ[id]; R.reqs[id] = { state: 'beckon', at: now() }; R.beckon = { id, k: q.k, t: 0 };
     if (q.arranged && alive('primo')) say('primo', q.arranged);
     say(null, q.beckon); S.beckonK = q.k;
@@ -897,8 +905,9 @@ export function createSociety(G) {
     const basin = new THREE.Mesh(new THREE.CylinderGeometry(.16, .11, .1, 18, 1, true), M(0xdedad0, .4, { side: THREE.DoubleSide })); basin.position.set(-7.62, .92, -6.48); home.group.add(basin);
     home.interactables.push({ id: 'basin', type: 'social', object: basin, point: basin.position, radius: 1.8, get prompt() { return R.carry.has('thermos') ? '[ E ] THE BASIN' : '[ E ] A BASIN'; }, run: () => { if (!R.carry.has('thermos')) { G.line('(Enamel, chipped. Somebody has scrubbed it very hard.)'); return; } offer('THE BASIN', '(The thermos is warm against your ribs.)', [['Pour it away.', () => { R.carry.delete('thermos'); set('thermos-poured'); S.gestures++; G.line('(It smells of honey and of a pharmacy. It goes down the drain in a long thread.)'); const seen = witnesses(playerPos()); if (seen.includes('ines')) { affect('ines', { g: 1.2, t: -1 }, 'Ines watched you pour her thermos down the drain.'); set('ines-saw-pour'); } }], ['Keep it.', () => {}]]); } });
     // Pino's van, parked in the yard outside the farmhouse door
-    const v = G.buildVan(zoneOf('road').group); v.position.set(6.2, 0, -1.6); v.rotation.y = Math.PI * .5; v.traverse(o => { if (o.isSpotLight) o.intensity = 0; }); R.van = v;
-    zoneOf('road').interactables.push({ id: 'van', type: 'social', object: v, point: new THREE.Vector3(5.0, 0, -1.6), radius: 3.2, get prompt() { return '[ E ] PINO’S VAN'; }, run: () => vanBonnet() });
+    // hidden until Pino first mentions it, so it never sits in the opening shot
+    const v = G.buildVan(zoneOf('road').group); v.position.set(6.2, 0, -1.6); v.rotation.y = Math.PI * .5; v.traverse(o => { if (o.isSpotLight) o.intensity = 0; }); v.visible = false; R.van = v;
+    R.vanEntry = { id: 'van', type: 'social', object: v, point: new THREE.Vector3(5.0, 0, -1.6), radius: 3.2, get prompt() { return '[ E ] PINO’S VAN'; }, run: () => vanBonnet() };
     // the beam in the cellar ceiling, where Marta carves them before they go
     const cz = zoneOf('cellar'); if (cz) { const beam = new THREE.Mesh(new THREE.SphereGeometry(.2, 6, 4), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })); beam.position.set(2.5, 2.6, 2.5); cz.group.add(beam); cz.interactables.push({ id: 'beam', type: 'social', object: beam, point: beam.position, radius: 3.6, get prompt() { return has('beam-open') ? '[ E ] LOOK UP — THE BEAM' : '[ E ] LOOK UP'; }, run: () => readBeam() }); }
   }
@@ -906,7 +915,7 @@ export function createSociety(G) {
     if (!has('beam-open')) { G.line('(A ceiling beam, carved all along its length with small figures. Too dark to see what they are doing.)'); return; }
     const figs = [];
     for (const k of R.dead) figs.push(`${nm(k)}, already finished, a smoothed hollow where the face was`);
-    for (const m of Object.values(R.motives)) if (m.alive) figs.push({ cup: 'a woman bending over a seated man with a cup, her other hand on the back of his neck', fridge: 'a boy in a rectangle of light, holding something behind his back', lead: 'a man on a lane paying out a line toward a wall', cleaver: 'a man at a board, one hand raised, the other open as if asking a question', cord: 'a kneeling figure, and a second figure behind him, also kneeling' }[m.kind]);
+    for (const m of Object.values(R.motives)) if (m.alive) figs.push({ cup: 'a woman bending over a seated man with a cup, her other hand on the back of his neck', fridge: 'a boy in a rectangle of light, holding something behind his back', lead: 'a man on a lane paying out a line toward a wall', cleaver: 'a man at a board, one hand raised, the other open as if asking a question', cord: 'a kneeling figure, and a second figure behind him, also kneeling' }[m.kind] || `${nm(m.k)}, standing in a doorway behind a smaller figure, hands not visible`);
     figs.push('and at the end, a figure in your coat, its nose cut deep so the grain runs red');
     G.line(`(The beam. Fourteen figures, cut in Marta’s hand. You make out: ${figs.slice(0, 4).join('; ')}.)`);
   }
@@ -951,7 +960,7 @@ export function createSociety(G) {
     offer('GABRI — ASLEEP', '(His lips are pale. When you say his name, nothing.)', [
       ['Shake him awake.', () => wakeGabri('you')],
       ['Call Sergio.', () => { if (!alive('sergio')) { G.line('(Sergio’s chair is empty.)'); return; } say('sergio', '(He comes at once, slaps Gabri’s face, hauls him to the sink.) Up. Up. What did he drink? What did you give him?'); wakeGabri('sergio'); }],
-      ['Call Ines.', () => { say('ines', '(She comes and sits beside him and puts her hand on his chest.) Shh. Let him. He’s not afraid. Look at him. (She does not get up again.)'); set('ines-sat'); later(40, () => { if (!has('gabri-woken')) gabriDies(); }); }],
+      ['Call Ines.', () => { say('ines', '(She comes and sits beside him and puts her hand on his chest.) Shh. Let him. He’s not afraid. Look at him. (She does not get up again.)'); set('ines-sat'); }],
       ['Let him sleep.', () => { set('let-sleep'); note('gabri', 'You let Gabri sleep.'); }]
     ]);
   }
@@ -1062,6 +1071,7 @@ export function createSociety(G) {
   function retract() { set('retracted'); me('It wasn’t Sergio who told me. I lied.'); say('dario', '(He looks at you the way he looks at the altar.) Then who.'); ch([['“Franco.”', () => { me('Franco.'); namedFranco('dario'); affect('dario', { g: .6 }, 'You lied to Dario about Sergio before you told him the truth.'); }], ['“I won’t say.”', () => { me('I won’t say.'); affect('dario', { g: 1.2 }, 'You admitted you had lied to Dario and would not say who had really told you.'); }]]); }
   function sergioCanal() {
     if (!has('dario-sergio-plan') || has('retracted') || has('warned-sergio') || !alive('sergio') || !alive('dario')) return;
+    if (G.zone() === 'home' && canalComplicity()) return;
     set('sergio-gone-out'); if (G.zone() === 'home') say(null, 'After dinner Dario asks Sergio to come and look at the canal with him. Sergio laughs, and goes.');
     later(120, () => { if (!alive('sergio')) return; memberDies('sergio', '(Dario comes back alone, with wet shoes, and sits down and says grace over nothing.)', 'Sergio went to look at the canal with Dario and did not come back. Dario believed Sergio had told you about Aurelio, because you said so. It had been Franco.');
       if (alive('franco')) later(60, () => motive('franco', 'cleaver', 'You said Sergio’s name because he asked you to. Then Sergio was in the canal. Franco cannot carry that, so he has put it down on you.', true)); });
@@ -1155,20 +1165,252 @@ export function createSociety(G) {
     fridge: 'Gabri waited until you sat down in the fridge light. The bread knife was behind his back the whole time he was smiling. Afterwards he sat with you for an hour, talking, because for once someone was not going to leave.',
     lead: 'Walter walked back along the lane, paying out the line, measuring. You counted to sixty, then to a hundred. He did not call you back. He checked the line twice; he always checks it twice.',
     cleaver: 'Franco never finished the joke. Thirty years of clean cuts for strangers’ tables. Afterwards he washed the blade, and the board, and his hands, and sat down to eat.',
-    cord: 'Dario prayed first, kneeling behind you, and then the rosary went round your throat, twice, the way he winds it round his knuckles at grace. He wanted to see Il Bianco finish in someone. He watched very carefully.'
+    cord: 'Dario prayed first, kneeling behind you, and then the rosary went round your throat, twice, the way he winds it round his knuckles at grace. He wanted to see Il Bianco finish in someone. He watched very carefully.',
+    cloth: 'Ines came up behind you with the white cloth she is always folding and held it over your mouth and nose, and hummed, the way she does on the ward at four in the morning, until Il Bianco had filled you. Nobody here fills alone.',
+    knife: 'You heard the floor once, behind you. Then the knife, which is an ordinary bread knife, the one on the kitchen table, the one everybody uses.',
+    burin: 'Marta came from behind with her burin, the way she cuts a figure into the grain: one long stroke, and then the small careful ones. Afterwards she carved it, and in the carving it was you who had done something to her first.',
+    hands: 'Hands, from behind, on your throat. No word. Somebody counting under their breath, the way a man counts a load.',
+    belt: 'A belt, from behind, pulled tight by a man who had spent fifty years not going in. This time he went in.',
+    cushion: 'A cushion from the settle, over your face, held by someone very light who hummed four notes and stopped on the fifth, where there is only breath.',
+    van: 'The van came out of the fog with its lights off and did not brake. Afterwards they said it was the fog. Nobody on the provinciale could see anything that night.',
+    gas: 'The hatch did not open. The vents had been taped over from outside. It was sweet, and then it was heavy, and then it was white. Sergio had always said that was all Il Bianco ever was.',
+    collapse: 'The charges under the pews went at the second hiss. The church came down inward, the way Walter had measured it to, with you on the altar step looking for a tape measure that was never there.',
+    hook: 'The hoist chain let go. The hook came down where you were standing, the one they hang the carcasses from, and Franco had oiled the ratchet that morning.'
   };
   function kill(k, kind) {
+    if (mercy()) { say(null, `At the last moment ${nm(k)} cannot. ${pick(['Their hands drop.', 'They step back into the dark.', 'They are crying.'])}`); defuse(k, `${nm(k)} could not go through with it.`); R.scene = null; R.armed = null; G.el('gas')?.style.setProperty('opacity', '0'); return; }
     R.scene = 'dead'; const m = R.motives[k];
     G.audio()?.killSting?.(); G.glitch?.(2);
     const lines = [m?.why || ''];
     lines.push(...R.log.filter(l => l.k === k).map(l => l.text).slice(-5));
     lines.push(...S.truths.filter(t => /Il Primo|watches|arranged/.test(t)).slice(-1));
     if (R.napkins && S.napkinText) lines.push('Livia had warned you. ' + S.napkinText.replace(/^\(A napkin[^)]*\)\s*/, ''));
-    const could = ({ cup: 'An apology, before. Or asking her to drink first.', fridge: 'The truth about the thermos. He had never been told the truth.', lead: 'Telling him where the weight went. Or not holding anything for him.', cleaver: 'Anyone asking him why he keeps the knife so clean.', cord: 'Being looked at. That was all he had ever asked for.' })[kind];
+    const could = ({ cup: 'An apology, before. Or asking her to drink first.', fridge: 'The truth about the thermos. He had never been told the truth.', lead: 'Telling him where the weight went. Or not holding anything for him.', cleaver: 'Anyone asking him why he keeps the knife so clean.', cord: 'Being looked at. That was all he had ever asked for.', gas: 'Not going down. Or the vent, on the wall to the left.', collapse: 'Leaving at the first hiss.', hook: 'Stepping out from under the chain when it ratcheted.', van: 'Stepping off the road when you heard the engine.' })[kind] || 'Turning round. Saying the one thing they needed to hear, face to face. Not being alone with them.';
     lines.push('What would have stopped it: ' + could);
-    S.ending = { id: 'assassination', title: { cup: 'The Cup', fridge: 'The Fridge Light', lead: 'The Line', cleaver: 'The Board', cord: 'The Cellar' }[kind], small: 'ENDING · THE ASSASSINATION', copy: DEATH[kind] + ' Il Primo had his earplugs in. When they told him, he asked who had been with you, and wrote the name down.', voice: 'There was no monster. There was a reason, and nobody near you.', ledger: [...new Set(lines.filter(Boolean))].slice(0, 9) };
+    G.el('gas')?.style.setProperty('opacity', '0');
+    S.ending = { id: 'assassination', title: { cup: 'The Cup', fridge: 'The Fridge Light', lead: 'The Line', cleaver: 'The Board', cord: 'The Cellar', cloth: 'The Cloth', knife: 'The Bread Knife', burin: 'The Burin', hands: 'Hands', belt: 'The Belt', cushion: 'The Cushion', van: 'The Road', gas: 'The Vents', collapse: 'The Church', hook: 'The Hook' }[kind] || 'The Assassination', small: 'ENDING · THE ASSASSINATION', copy: DEATH[kind] + ' Il Primo had his earplugs in. When they told him, he asked who had been with you, and wrote the name down.', voice: 'There was no monster. There was a reason, and nobody near you.', ledger: [...new Set(lines.filter(Boolean))].slice(0, 9) };
     G.end(S.ending, true);
   }
+  // ===================================================================================
+  // v25 — THE CLICK. When something Tobia says or does makes a particular person decide he has
+  // to disappear, that person stops being a face at the table. Their chair is empty. They are in
+  // the rooms he walks into, behind him on the stairs, moving only when he is not looking. They
+  // kill with what is in their own hands. They send him on errands into rooms that are already
+  // set. And sometimes they ask him to hold the lamp while they kill somebody else.
+  // ===================================================================================
+  const HIDDEN = { ines: true, gabri: true, franco: true, anna: true, marta: true, livia: true };
+  const TOOL = { ines: ['cloth', 'the white cloth she is always folding'], gabri: ['knife', 'the bread knife'], franco: ['cleaver', 'the cleaver'], anna: ['knife', 'the long kitchen knife'], marta: ['burin', 'her burin'], dario: ['cord', 'his rosary'], walter: ['hands', 'his hands'], pino: ['hands', 'his hands'], sergio: ['belt', 'his belt'], livia: ['cushion', 'a cushion from the settle'], ottavio: ['hands', 'his hands'] };
+  const LIES = { franco: 'Looking for the lamp oil. You?', marta: 'The light is better for the beams in here.', gabri: 'I was just walking. Can’t I walk?', anna: 'Ines sent me to find you. Dinner.', dario: 'I was praying. You interrupted.', sergio: 'Thought I heard you. Wanted a smoke, that’s all.', livia: '(She hums the four notes and smiles.)', walter: 'Measuring. Somebody has to.', pino: 'Getting something from the van.', ines: 'There you are. You look pale. Come here, let me see your nose.', ottavio: '(He holds up his palm: listening to the floor.)' };
+  // a sudden decision, made in a second, by one person, for one reason
+  function click(k, why) {
+    if (!k || k === 'primo' || G.difficulty() === 0 && false) return;
+    if (R.dead.has(k) || live(k) || (SOCIAL[k]?.violence ?? 0) < .1) return;
+    motive(k, 'stalk', why, !!HIDDEN[k]);
+    if (G.zone() === 'home' && near(k, 9)) G.line(pick([`(${nm(k)} looks at you, once, and then very carefully at nothing.)`, `(Something goes out of ${nm(k)}’s face, the way a light goes out in another room.)`, `(${nm(k)} laughs at something nobody said.)`]));
+  }
+  // ---- following ---------------------------------------------------------------------
+  const solidAt = (Z, x, z, m = .3) => Z.solids.some(o => x + m > o.minX && x - m < o.maxX && z + m > o.minZ && z - m < o.maxZ);
+  const los = (Z, a, b) => { for (let i = 1; i < 10; i++) { const x = a.x + (b.x - a.x) * i / 10, z = a.z + (b.z - a.z) * i / 10; if (solidAt(Z, x, z, 0)) return false; } return true; };
+  function hidingSpot(Z, from, near_ = [7, 15]) {
+    const b = Z.bounds; let best = null, bs = -1e9;
+    for (let i = 0; i < 60; i++) { const x = b.minX + 1 + Math.random() * (b.maxX - b.minX - 2), z = b.minZ + 1 + Math.random() * (b.maxZ - b.minZ - 2); if (solidAt(Z, x, z, .45)) continue; const d = Math.hypot(x - from.x, z - from.z); if (d < 4) continue; let sc = -Math.abs(d - (near_[0] + near_[1]) / 2) * .4; if (!los(Z, from, { x, z })) sc += 5; if (solidAt(Z, x, z, 1.1)) sc += 2; if (sc > bs) { bs = sc; best = { x, z }; } }
+    return best;
+  }
+  const visRange = () => (G.flashlight() ? 13 : 7.5) * (1 - .6 * B.distort) * (B.wipe > 0 ? 0 : 1);
+  function sees(n) { const Z = zoneOf(G.zone()), o = n.object.position, p = playerPos(), d = Math.hypot(o.x - p.x, o.z - p.z); if (d > visRange()) return false; G.camera.getWorldDirection(tmp2); const dot = (tmp2.x * (o.x - p.x) + tmp2.z * (o.z - p.z)) / (Math.hypot(tmp2.x, tmp2.z) * (d || 1)); if (dot < (d < 2 ? .35 : .72)) return false; return los(Z, p, o); }
+  function stalkers() { return Object.values(R.motives).filter(m => m.alive && !R.dead.has(m.k) && m.hunt); }
+  function release(m) { m.hunt = { state: 'away', where: null, t: 0, seenT: 0, cd: 0 }; const n = npcOf(m.k); if (n) { keepHome(n); n.hunting = true; if (G.zone() === 'home' && sameZone(n)) leaveHouse(m.k, () => { n.object.visible = false; }); else n.object.visible = false; } }
+  function placeH(m, zone, x, z, yaw) { sendTo(m.k, zone, x, z, yaw); const n = npcOf(m.k); n.hunting = true; n.borrowed = true; m.hunt.where = zone; m.hunt.t = 0; m.hunt.seenT = 0; const Z = zoneOf(zone); if (m.hunt.entry) { const L = m.hunt.entryZone.interactables, i = L.indexOf(m.hunt.entry); if (i >= 0) L.splice(i, 1); } m.hunt.entry = { id: 'stalk-' + m.k, type: 'social', object: n.object, point: n.object.position, radius: 2.6, prompt: '[ E ] SPEAK — ' + UP(m.k), run: () => faceH(m, true) }; m.hunt.entryZone = Z; Z.interactables.push(m.hunt.entry); }
+  function offH(m) { const h = m.hunt; h.where = null; h.state = 'away'; const n = npcOf(m.k); if (n) { n.object.visible = false; n.walking = false; } if (h.entry) { const L = h.entryZone.interactables, i = L.indexOf(h.entry); if (i >= 0) L.splice(i, 1); h.entry = null; } }
+  function stalkersOnEnter(name) {
+    for (const m of stalkers()) {
+      const h = m.hunt; if (h.where && h.where !== name) offH(m);
+      if (R.trap && R.trap.zone === name && R.trap.k === m.k) continue;   // the trap places them itself
+      const Z = zoneOf(name); if (!Z) continue;
+      if ((m.k === 'pino' || m.k === 'walter') && name === 'road' && Math.random() < .5) { h.vanAt = now() + 10 + Math.random() * 20; continue; }
+      const chance = .5 + Math.min(.3, S.rel[m.k].grievance * .04) + (B.on ? .15 : 0);
+      if (Math.random() < chance) { const sp = hidingSpot(Z, playerPos()); if (sp) { placeH(m, name, sp.x, sp.z, Math.random() * 6.28); h.state = 'hide'; continue; } }
+      h.state = 'follow'; h.followAt = now() + 9 + Math.random() * 18; h.followZone = name;
+    }
+  }
+  function stepH(m, tx, tz, sp, dt) { const Z = zoneOf(m.hunt.where), n = npcOf(m.k), o = n.object.position, dx = tx - o.x, dz = tz - o.z, d = Math.hypot(dx, dz) || 1, st = sp * dt; let nx = o.x + dx / d * st, nz = o.z + dz / d * st, moved = false; if (!solidAt(Z, nx, o.z, .25)) { o.x = nx; moved = true; } if (!solidAt(Z, o.x, nz, .25)) { o.z = nz; moved = true; } if (!moved) { const sx = o.x - dz / d * st, sz = o.z + dx / d * st; if (!solidAt(Z, sx, sz, .25)) { o.x = sx; o.z = sz; } } n.walking = true; G.turn(n, tx, tz, dt, 5); }
+  function updateStalkers(dt) {
+    for (const m of Object.values(R.motives)) {
+      if (!m.alive || R.dead.has(m.k) || m.hunt) continue;
+      // the face at the table lasts a while; the placed ones wait in their place first
+      const wait = m.kind === 'stalk' ? (m.hidden ? 50 : 18) : 150;
+      if (now() - m.born > wait && !(G.zone() === 'home' && near(m.k, 4))) { if (m.placed) { const n = npcOf(m.k); if (n) returnHome(n); } release(m); }
+    }
+    const act = G.canAct() || B.wipe > 0;
+    for (const m of stalkers()) {
+      const h = m.hunt; h.t += dt; h.cd = Math.max(0, h.cd - dt);
+      if (h.state === 'follow' && now() >= h.followAt) { if (G.zone() === h.followZone && act) { const sp = zoneOf(G.zone()).spawn; placeH(m, G.zone(), sp.x + (Math.random() - .5), sp.z + (Math.random() - .5), 0); h.state = 'stalk'; G.audio()?.doorCreak?.(); G.line(pick(['(Behind you, the door. Somebody else has come in.)', '(A latch. Footsteps that stop when yours stop.)', '(The door again. Nobody says anything.)'])); } else h.state = 'away'; }
+      if (h.vanAt && now() >= h.vanAt && G.zone() === 'road' && !R.van2 && act) { h.vanAt = 0; launchVan(m); }
+      if (h.where !== G.zone() || !act || R.scene) { const n = npcOf(m.k); if (n?.walking) n.walking = false; continue; }
+      const n = npcOf(m.k), o = n.object.position, p = playerPos(), d = Math.hypot(o.x - p.x, o.z - p.z), seen = sees(n);
+      const others = G.zone() === 'home' ? present().filter(x => x.key !== m.k && !live(x.key) && dist2(x) < 6.5).length : 0;
+      if (seen) { h.seenT += dt; n.walking = false; G.turn(n, p.x, p.z, dt, 2); if (h.state === 'stalk' && d < 3.2 && !h.faced && !S.ui) faceH(m, false); if (h.seenT > 6 && d > 5) reHideH(m); continue; }
+      h.seenT = 0; if (d < 9) tense(dt * .012);
+      if (h.state === 'hide' && (d < 5.5 || (h.t > 25 && Math.random() < dt * .05))) h.state = 'stalk';
+      if (h.state === 'stalk' || h.state === 'faced') {
+        if (others) { n.walking = false; continue; }
+        const sp = (1.05 + Math.min(.6, S.rel[m.k].grievance * .05)) * (B.wipe > 0 ? 2.2 : 1) * (now() < (h.boldUntil || 0) ? 1.5 : 1);
+        stepH(m, p.x, p.z, sp, dt);
+        if (d < 2.7) { h.cueT = (h.cueT || 0) - dt; if (h.cueT <= 0) { h.cueT = 2.2; G.audio()?.footstep?.('wood', false, Math.random() < .5 ? -1 : 1); if (Math.random() < .4) G.audio()?.mechanicalNoise(.8, 380, .7, .03, 0); } }
+        if (d < 1.0 && h.cd <= 0 && !S.ui) { strikeH(m); return; }
+      }
+    }
+    updateVan2(dt); updateTrap(dt);
+  }
+  function reHideH(m) { const Z = zoneOf(m.hunt.where), sp = hidingSpot(Z, playerPos(), [9, 16]); if (!sp) return; m.hunt.state = 'hide'; m.hunt.t = 0; const n = npcOf(m.k); n.walking = false; n.object.position.set(sp.x, 0, sp.z); }
+  // face to face, they are ordinary; whatever they needed is still the way out
+  function faceH(m, asked) {
+    if (S.ui || R.scene) return; const h = m.hunt; h.faced = 1; h.state = 'faced';
+    G.line(`${UP(m.k)}: ${LIES[m.k] || '…'}`);
+    const opts = [], give = returnTo(m.k);
+    if (give) opts.push([`Give back the ${({ photo: 'photograph', keys: 'keys', earplugs: 'earplugs' })[give]}.`, () => { S.carried.delete(give); defuse(m.k, `You gave ${nm(m.k)} back what you had taken.`); offH(m); returnHome(npcOf(m.k)); say(m.k, '(A long look.) Go and eat something.'); }]);
+    const fix = { ines: '“I’m sorry, Ines. I took him from you.”', gabri: '“I’m sorry. I knew. I should have told you.”', walter: '“It wasn’t your fault, Walter. The weight went to me.”', franco: '“Why do you keep the knife so clean, Franco?”', dario: '“Dario. I see you.”', anna: '“I’m sorry about his bowl.”', marta: '“Carve me as I am, Marta. Not as they told you.”', pino: '“I know the way out. I’ll show you.”', sergio: '“You were right about Il Bianco.”', livia: '(Hum the four notes back to her.)' }[m.k];
+    if (fix) opts.push([fix, () => { G.line('TOBIA: ' + fix.replace(/[“”]/g, '')); const ok = m.kind !== 'stalk' || (S.rel[m.k].grievance < 6.5 && SOCIAL[m.k].care >= .3) || ['dario', 'franco', 'walter'].includes(m.k); if (ok) { defuse(m.k, `You said the one thing ${nm(m.k)} needed to hear, face to face, in the dark.`); offH(m); returnHome(npcOf(m.k)); say(null, `${nm(m.k)} stands there a long time, then goes back to the house without a word.`); } else { say(null, `${nm(m.k)} smiles as if you had said something kind, and does not move.`); h.boldUntil = now() + 5; h.state = 'stalk'; } }]);
+    if (S.carried.has('knife')) opts.push(['(Let them see the knife.)', () => { affect(m.k, { f: 1.4 }); h.cd = 30; say(null, `${nm(m.k)} sees it, and smiles, and steps back into the dark.`); later(1.5, () => reHideH(m)); }]);
+    opts.push(['(Back away.)', () => { h.state = 'stalk'; h.cd = 6; }]);
+    G.queueAction(() => offer(UP(m.k), '', opts, { timeout: 9, onTimeout: () => { h.state = 'stalk'; h.boldUntil = now() + 5; }, leave: () => { h.state = 'stalk'; h.cd = 4; } }));
+    later(25, () => { h.faced = 0; });
+  }
+  function strikeH(m) { const [kind] = TOOL[m.k] || ['hands']; kill(m.k, kind); }
+  // ---- the van, driven by a person with a reason ---------------------------------------
+  function launchVan(m) {
+    const Z = zoneOf('road'), p = playerPos(); G.camera.getWorldDirection(tmp2); const back = new THREE.Vector3(-tmp2.x, 0, -tmp2.z).normalize();
+    const v = G.buildVan(Z.group); v.position.set(p.x + back.x * 46, 0, p.z + back.z * 46); v.traverse(o => { if (o.isSpotLight) o.intensity = 0; });
+    R.van2 = { v, m, sp: 4, aim: new THREE.Vector3(p.x, 0, p.z), t: 0, passed: false };
+    G.audio()?.mechanicalTone(55, 90, 6, 'sawtooth', .03, 0);
+  }
+  function updateVan2(dt) {
+    const V = R.van2; if (!V) return;
+    if (G.zone() !== 'road') { V.v.parent?.remove(V.v); R.van2 = null; return; }
+    V.t += dt; const p = playerPos(), o = V.v.position;
+    if (!V.passed) V.aim.lerp(new THREE.Vector3(p.x, 0, p.z), Math.min(1, dt * .9));
+    V.sp = Math.min(19, V.sp + dt * 7);
+    const dx = V.aim.x - o.x, dz = V.aim.z - o.z, d = Math.hypot(dx, dz) || 1;
+    if (!V.dir) V.dir = new THREE.Vector3(dx / d, 0, dz / d);
+    if (!V.passed) V.dir.lerp(new THREE.Vector3(dx / d, 0, dz / d), Math.min(1, dt * 1.6)).normalize();
+    o.addScaledVector(V.dir, V.sp * dt); V.v.rotation.y = Math.atan2(V.dir.x, V.dir.z) + Math.PI;
+    if (V.t > 1.2 && Math.random() < dt * 2) G.audio()?.mechanicalTone(70 + V.sp * 4, 60 + V.sp * 4, .4, 'sawtooth', .02 + Math.min(.05, 2 / Math.max(2, Math.hypot(p.x - o.x, p.z - o.z))), 0);
+    if (Math.hypot(p.x - o.x, p.z - o.z) < 1.8 && !V.passed) { V.v.traverse(x => { if (x.isSpotLight) x.intensity = 90; }); R.van2 = null; kill(V.m.k, 'van'); return; }
+    if (!V.passed && (V.dir.x * (p.x - o.x) + V.dir.z * (p.z - o.z)) < -1) { V.passed = true; G.line(pick(['(It goes past close enough to move your coat. No brake lights.)', '(Wind, metal, then the fog again. It did not stop.)'])); tense(.3); note(V.m.k, `${nm(V.m.k)} drove at you on the road, and missed.`); V.m.hunt && (V.m.hunt.vanAt = now() + 90 + Math.random() * 60); }
+    if (V.t > 14) { V.v.parent?.remove(V.v); R.van2 = null; }
+  }
+  // ---- errands into rooms that are already set -------------------------------------------
+  const ERRAND = {
+    dario: ['cellar', 'Il Primo wants the record turned over. In the cellar. Now, before the others come down.'],
+    walter: ['church', 'I left the tape measure on the altar step at the church. Fetch it for me? My knees.'],
+    franco: ['abattoir', 'The joint for Sunday is in the cold room at the slaughterhouse. Bring it. It’s heavy, take your time.'],
+    pino: ['road', 'Meet me out on the road, past the lamp. I’ll show you the track. Alone.'],
+    gabri: ['ruin', 'There’s something in the empty house you have to see. Upstairs. I’ll wait for you there.'],
+    ines: ['cellar', 'Fetch me the jar of honey from the cellar shelf, would you? My legs.'],
+    anna: ['cellar', 'His trowel is in the cellar. Bring it up. I want it on the table tonight.'],
+    marta: ['cellar', 'Go and look at the beam in the cellar. Look at it properly. Alone.'],
+    sergio: ['road', 'Come out to the road. I’ve got something to show you about the report.'],
+    livia: ['church', '(A napkin:) church. altar. come alone. i will sing it for you'],
+    ottavio: ['cellar', '(He points down at the floor, then at you, then at the hatch.)']
+  };
+  const PLACE_NAME = { cellar: 'the cellar', church: 'the church', abattoir: 'the slaughterhouse', road: 'the road', ruin: 'the empty house' };
+  function updateErrands(dt) {
+    if (G.zone() !== 'home' || S.ui || !G.canAct() || S.gather.active || R.active || R.beckon || R.scene || G.linesBusy()) return;
+    R.errandT = (R.errandT ?? 110) - dt; if (R.errandT > 0) return; R.errandT = 110 + Math.random() * 70;
+    const killers = Object.values(R.motives).filter(m => m.alive && !R.dead.has(m.k));
+    const friends = present().filter(p => p.key !== 'primo' && standing(p.key) > 1 && !live(p.key));
+    let from, k, trap;
+    if (killers.length && (Math.random() < .75 || !friends.length)) { const m = pick(killers); k = m.k; trap = true; const ally = present().find(p => p.key !== k && p.key !== 'primo' && S.between[p.key + '>tobia']); from = !m.hunt && who(k) ? k : (ally ? ally.key : (who(k) ? k : null)); if (!from) return; }
+    else if (friends.length) { from = pick(friends).key; k = from; trap = false; }
+    else return;
+    const [zone, line] = ERRAND[k]; if (!zoneOf(zone) || (zone === 'abattoir' && !G.flags.has('visited-abattoir'))) return;
+    const what = from === k ? line : `${nm(k)} wants you in ${PLACE_NAME[zone]}. Alone, ${['dario', 'walter', 'pino', 'franco', 'sergio', 'ottavio'].includes(k) ? 'he' : 'she'} said.`;
+    G.line(`${UP(from)}: ${what}`);
+    G.queueAction(() => offer(UP(from), '', [
+      ['“All right.”', () => { R.trap = { zone, k, from, trap, what, until: now() + 150 }; }],
+      ['“Why me?”', () => { say(from, pick(['Because you’re the one standing here.', 'Does it matter?', '(A shrug.) You were closest.'])); R.trap = { zone, k, from, trap, what, until: now() + 150 }; }],
+      ['“Not now.”', () => { if (!trap) affect(from, { t: -.3 }); }]
+    ], { timeout: 12 }));
+  }
+  // what is waiting in each room
+  function trapsOnEnter(name) {
+    const T = R.trap; if (!T || T.zone !== name || now() > T.until) return; R.trap = null;
+    if (!T.trap) { R.friendNote = true; const ks = Object.values(R.motives).filter(m => m.alive).map(m => nm(m.k)); later(1.5, () => G.line(ks.length ? `(Nobody is here. On the floor by the door, a napkin in ${nm(T.from)}’s hand:) ${ks[0]} has decided. Do not be alone with ${ks[0]}.` : `(Nobody is here. ${nm(T.from)} has left a packet of tissues on the step.)`)); if (!ks.length) { B.tissues++; showPacket(3); } return; }
+    const m = live(T.k); if (!m) return;
+    note(T.k, `${nm(T.from)} sent you to ${PLACE_NAME[name]}: “${T.what}”`);
+    R.armed = { kind: name, k: T.k, from: T.from, t: 0, what: T.what };
+    if (name === 'cellar') { G.line('(Above you, the hatch drops shut. Something heavy is dragged across it.)'); G.audio()?.mechanicalNoise(.6, 180, .7, .12, 0); later(3, () => G.line('(A sweet, flat smell. The vents high in the wall have been taped over.)')); }
+    else if (name === 'church') { later(2, () => { G.line('(A hiss, somewhere under the pews. A smell like a struck match that does not go out.)'); G.audio()?.mechanicalNoise(4, 3400, 2, .05, 0); }); }
+    else if (name === 'abattoir') { later(2.5, () => { G.line('(Overhead, the hoist chain runs out a few links with a ratchet sound, and stops.)'); G.audio()?.mechanicalEvent?.('hoist'); }); }
+    else if (name === 'road') { if (m.k === 'pino' || m.k === 'walter') { if (!m.hunt) release(m); m.hunt.vanAt = now() + 6; } else ambush(m, name); }
+    else ambush(m, name);
+  }
+  function ambush(m, zone) { if (!m.hunt) release(m); const sp = zoneOf(zone).spawn; placeH(m, zone, sp.x + (Math.random() - .5) * 2, sp.z + 2.2, Math.PI); m.hunt.state = 'stalk'; m.hunt.boldUntil = now() + 6; }
+  function updateTrap(dt) {
+    const A = R.armed; if (!A) return;
+    if (G.zone() !== A.kind) { if (A.kind === 'church' && A.t > 0) G.line('(Behind you, the church comes down inward. The sound arrives four seconds after the image.)'); R.armed = null; G.el('gas')?.style.setProperty('opacity', '0'); return; }
+    if (!G.canAct()) return; A.t += dt; const p = playerPos();
+    if (A.kind === 'cellar') {
+      G.el('gas')?.style.setProperty('opacity', String(Math.min(.85, A.t / 32)));
+      if (!A.vent) { const Z = zoneOf('cellar'), vent = new THREE.Mesh(new THREE.BoxGeometry(.5, .3, .05), G.mat(0x8a7a50, .8)); vent.position.set(-8.7, 2.3, -3); vent.rotation.y = Math.PI / 2; Z.group.add(vent); A.vent = { id: 'vent', type: 'social', object: vent, point: vent.position, radius: 2.6, prompt: '[ E ] TEAR THE TAPE OFF THE VENT', run: () => { G.line('(You claw the tape off. Cold air, and the sound of the yard.)'); Z.interactables.splice(Z.interactables.indexOf(A.vent), 1); vent.parent?.remove(vent); R.armed = null; G.el('gas')?.style.setProperty('opacity', '0'); note(A.k, 'You tore the tape off the cellar vent in time.'); later(4, () => G.line('(The hatch opens. Nobody is there.)')); } }; Z.interactables.push(A.vent); }
+      if (A.t > 12 && !A.w1) { A.w1 = true; G.line('(Your head is heavy. Your nose is bleeding again and you did not feel it start.)'); if (!B.on) startBleed(); }
+      if (A.t > 34) { R.armed = null; kill(A.k, 'gas'); }
+    } else if (A.kind === 'church') { if (A.t > 13) { R.armed = null; kill(A.k, 'collapse'); } }
+    else if (A.kind === 'abattoir') { const sp = zoneOf('abattoir').spawn; if (A.t > 5.5 && !A.drop) { A.drop = true; G.audio()?.mechanicalTone(300, 60, .5, 'sawtooth', .1, 0); if (Math.hypot(p.x - sp.x, p.z - sp.z) < 2.2) { R.armed = null; kill(A.k, 'hook'); } else { G.line('(The hook comes down where you were standing and swings, and swings.)'); R.armed = null; tense(.4); note(A.k, 'The hoist dropped where you had been standing.'); } } }
+    else R.armed = null;
+  }
+  // ---- complicity: hold the lamp ------------------------------------------------------------
+  function canalComplicity() {
+    // instead of Sergio simply not coming back, Dario asks Tobia to come and hold the lamp
+    if (!has('dario-sergio-plan') || has('retracted') || has('warned-sergio') || !alive('sergio') || !alive('dario') || has('canal-asked')) return false;
+    set('canal-asked');
+    say('dario', '(He stops beside you with a hurricane lamp.) Sergio wants to see the canal. Come with us. Hold the lamp. It’s dark on the bank.');
+    ch([
+      ['(Take the lamp and go.)', () => canalScene()],
+      ['“Leave him alone, Dario.”', () => { me('Leave him alone, Dario.'); say('dario', 'You told me his name. (He goes out with Sergio anyway.)'); later(100, () => sergioCanalDies(false)); click('dario', 'You gave him Sergio’s name, and then tried to take it back in front of him. He decided you were the one who lies to him.'); }],
+      ['“I’m not going.”', () => { me('I’m not going.'); later(100, () => sergioCanalDies(false)); }]
+    ], { silence: () => later(100, () => sergioCanalDies(false)) });
+    return true;
+  }
+  function canalScene() {
+    // the east bank of the canal, facing the water; the only light is the lamp in Tobia's hand
+    const T = { x: -24.9, z: 10 }, V = (x, y, z) => new THREE.Vector3(x, y, z);
+    sendTo('sergio', 'road', T.x, T.z, -Math.PI / 2); sendTo('dario', 'road', T.x + .75, T.z + .15, -Math.PI / 2);
+    const s = npcOf('sergio'), d = npcOf('dario');
+    const lamp = new THREE.PointLight(0xffa850, 9, 9, 1.6); lamp.position.set(T.x + 2.4, 1.15, T.z + 1.1); lamp.castShadow = false;
+    runScene([
+      { do: () => { G.fade(true, .4); G.enter('road', [T.x + 3, 0, T.z + 1.6]); zoneOf('road').group.add(lamp); } }, { wait: .5 },
+      { do: () => G.fade(false, 1), shot: { pos: V(T.x + 3.1, 1.5, T.z + 1.7), look: V(T.x + .3, .95, T.z), fov: 52 } },
+      { say: 'SERGIO: (looking at the black water) Fifty years. I never came down here at night. Funny.' },
+      { say: '(Dario sets his hand on the back of Sergio’s neck, gently, the way you steady a man on a slope.)' },
+      { do: () => { if (s) s.seated = true; if (d) { d.raiseK = .3; d.lookAt = V(T.x, .7, T.z); } }, say: 'DARIO: Kneel, Sergio. You should hear it. Just this once.' },
+      { say: '(The lamp is in your hand. It is the only light on the bank.)' },
+      { choose: [
+        ['(Hold the lamp steady.)', () => { say(null, 'You hold it steady. You see all of it. It takes much longer than you thought.'); later(.1, () => sergioCanalDies(true)); }],
+        ['(Pull Dario off him.)', () => { say(null, 'You drop the lamp and drag Dario back by the collar. Sergio comes up out of the water coughing, and does not look at either of you.'); set('saved-sergio'); affect('sergio', { t: 2, g: -2 }); click('dario', 'You pulled him off Sergio on the bank, in the dark. He had been completing a man, and you stopped it. Now it has to be you.'); conflict('dario', 'sergio', 'the canal'); }],
+        ['(Drop the lamp and run.)', () => { say(null, 'You run. Behind you, in the dark, the water is very loud and then very quiet.'); later(.1, () => sergioCanalDies(false)); click('dario', 'You saw what he did at the canal and ran. A witness who runs is a witness who talks.'); }]
+      ], silence: () => sergioCanalDies(true) },
+      { do: () => G.fade(true, .5) }, { wait: .6 },
+      { do: () => { lamp.parent?.remove(lamp); if (d) { d.raiseK = 0; d.lookAt = null; returnHome(d); } if (s && !R.dead.has('sergio')) { s.seated = false; returnHome(s); } G.enter('road', [0, 0, -3.4]); G.fade(false, 1); } }
+    ], { onEnd: () => { G.camera.rotation.set(0, 0, 0); G.resetLook(); } });
+  }
+  function sergioCanalDies(heldLamp) {
+    if (!alive('sergio')) return;
+    memberDies('sergio', '(Dario comes back alone, with wet shoes, and sits down and says grace over nothing.)', heldLamp ? 'Sergio drowned in the canal with Dario’s hand on the back of his neck. You held the lamp. You saw all of it. You had given Dario his name, and it was not his.' : 'Sergio went to look at the canal with Dario and did not come back. Dario believed Sergio had told you about Aurelio, because you said so.');
+    if (heldLamp) { set('held-lamp'); S.truths.push('You held the lamp at the canal.'); }
+    if (alive('franco')) later(50, () => motive('franco', 'cleaver', 'You said Sergio’s name because he asked you to. Then Sergio was in the canal. Franco cannot carry that, so he has put it down on you.', true));
+  }
+  function gabriComplicity() {
+    // Ines sits with the sleeping boy and asks Tobia to hold his hand while she finishes it
+    if (!has('ines-sat') || has('hand-asked') || !alive('gabri')) return; set('hand-asked');
+    say('ines', '(Without looking up.) Hold his other hand. He should have someone’s hand. Nineteen years and nobody held it.');
+    ch([
+      ['(Hold his hand.)', () => { say(null, 'His hand is very warm, and then less warm. Ines hums. You do not let go.'); set('held-hand'); later(6, () => gabriDies()); S.truths.push('You held Gabri’s hand while Ines finished it.'); }],
+      ['(Shake him awake.)', () => { say('ines', '(Her hand closes on your wrist, hard.) Don’t.'); wakeGabri('you'); click('ines', 'You woke the boy while she was making it gentle. You took the last kind thing she could do and broke it in her hands.'); }],
+      ['(Leave the kitchen.)', () => { later(20, () => gabriDies()); }]
+    ], { silence: () => later(10, () => gabriDies()) });
+  }
+
   // ---- the dinner: what the requests do to the table ----------------------------------
   function requestSituation() {
     if (has('gabri-confront') && !has('gabri-confronted') && alive('gabri') && alive('ines')) return () => publicConfrontation();
@@ -1192,7 +1434,9 @@ export function createSociety(G) {
       else if (now() - R.pinoWait > 160) { if (!R.rotorIn) pinoStuck(false); else if (has('pino-yes')) { set('pino-turned'); const n = npcOf('pino'); if (n) returnHome(n); affect('pino', { g: 1.5 }, 'You told Pino you would come, and he sat in the van in the yard for an hour, and you didn’t.'); } else pinoLeavesAlone(); }
     }
     if (has('dario-down') && !has('cellar-came') && !has('cellar-over') && G.zone() === 'cellar' && near('dario', 4) && G.canAct() && !S.ui) cellarScene();
-    updateMotives(dt);
+    updateMotives(dt); updateStalkers(dt); updateErrands(dt);
+    if (has('dario-no') && S.rel.dario?.marked && !R.darioClick) { R.darioClick = true; later(60, () => click('dario', 'You bleed, and you would not watch him. He has decided Il Bianco must finish in you instead.')); }
+    if (has('ines-sat') && !has('hand-asked') && G.zone() === 'home' && near('gabri', 4) && !S.ui && G.canAct()) gabriComplicity();
     // a request, when the house is quiet and nobody is already talking to you
     if (!R.active && !R.beckon && !R.scene && G.zone() === 'home' && G.canAct() && G.welcomed() && S.introDone && !S.gather.active && !S.ui && !G.linesBusy()) {
       R.cd -= dt; if (R.cd <= 0) { const id = ORDER.find(i => !R.reqs[i] && REQ[i].ready()); if (id) beckon(id); else R.cd = 30; }
@@ -1349,6 +1593,6 @@ export function createSociety(G) {
     S, update, onKey, onEnterZone, doorGate, gazeFor, barkFor, dialogueGate, onDialogueChoice, primoAside, computeEnding, standing, tense,
     get seated() { return S.seated; }, get busy() { return B.wipe > 0; }, get distort() { return B.distort; },
     // test hooks
-    introScene, _plot: () => plotScene(), _req: R, _gatherEnded: () => gatherEnded(), _beckon: (id) => beckon(id), _motive: (k, kind, why, hidden) => motive(k, kind, why, hidden), _set: set, _canAct: () => G.canAct(), _gesture: gesture, _ask: ask, _startBleed: startBleed, _gather: gatherStart, _affect: affect
+    introScene, _plot: () => plotScene(), _click: (k, w) => click(k, w || 'test'), _errand: () => { R.errandT = 0; }, _req: R, _gatherEnded: () => gatherEnded(), _beckon: (id) => beckon(id), _motive: (k, kind, why, hidden) => motive(k, kind, why, hidden), _set: set, _canAct: () => G.canAct(), _gesture: gesture, _ask: ask, _startBleed: startBleed, _gather: gatherStart, _affect: affect
   };
 }

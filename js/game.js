@@ -1304,7 +1304,7 @@ function buildRoad() {
   // Trees, weeds, fence fragments.
   for (let i = 0; i < 54; i++) {
     const x = (Math.random() - .5) * 125; const zz = (Math.random() - .5) * 115;
-    if (Math.abs(x) < 11 && zz > -20 && zz < 38) continue;
+    if (Math.abs(x) < 11 && zz > -20 && zz < 62) continue;   // keep the lane clear: the opening walk starts at z 47
     if (Math.abs(x + 31) < 10) continue;
     addTree(z.group, x, zz, 5 + Math.random() * 6, i + 1);
   }
@@ -5570,13 +5570,83 @@ function endDrive(s) {
   $('subtitle-wrap').classList.remove('visible');
   if (!storyFlags.has('drove-lane')) { storyFlags.add('drove-lane'); journal.push({ id: 'drove-lane', title: 'The lane', description: 'You tried the car. The engine caught, the radio found only static and the fog, and the lane brought you to the farmhouse door. It is the only place the road goes.', kind: 'witness account', zone: 'road' }); updateJournalCount(); }
 }
+// v25 — a working van, after the first-generation Fiat Ducato (1981–94): about 4.7 m long, 1.95 m
+// wide, a wheelbase near 2.9 m, a low roof around 2.2 m; a short sloping nose, a raked windscreen,
+// rectangular headlamps either side of a black grille, black bumpers, a sliding side door on the
+// right, twin rear doors, mirrors on arms. Dirty off-white paint, rust under the seams, a faded
+// haulier's name. The front of the van faces -z, as before.
+function vanPaintTexture() {
+  if (vanPaintTexture.t) return vanPaintTexture.t;
+  const t = canvasTex(1024, 480, (g, w, h) => {
+    g.fillStyle = '#d4cebd'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2200; i++) { g.fillStyle = `rgba(${90 + Math.random() * 40},${80 + Math.random() * 30},${60},${Math.random() * .05})`; g.fillRect(Math.random() * w, Math.random() * h, 2 + Math.random() * 8, 1 + Math.random() * 3); }
+    const dirt = g.createLinearGradient(0, h, 0, h * .55); dirt.addColorStop(0, 'rgba(70,58,40,.75)'); dirt.addColorStop(.45, 'rgba(90,76,52,.3)'); dirt.addColorStop(1, 'rgba(90,76,52,0)'); g.fillStyle = dirt; g.fillRect(0, 0, w, h);
+    // rust bleeding down from the seams and the wheel arches
+    const rust = (x, y0, len) => { const gr = g.createLinearGradient(0, y0, 0, y0 + len); gr.addColorStop(0, 'rgba(120,58,22,.75)'); gr.addColorStop(1, 'rgba(120,58,22,0)'); g.fillStyle = gr; for (let i = 0; i < 4; i++) g.fillRect(x + (Math.random() - .5) * 10, y0, 1.5 + Math.random() * 2.5, len * (.4 + Math.random() * .6)); };
+    [0.19, 0.3, 0.55, 0.63, 0.8].forEach(u => rust(u * w, h * .42, h * .3)); [0.19, 0.8].forEach(u => { g.fillStyle = 'rgba(110,52,20,.5)'; g.beginPath(); g.ellipse(u * w, h * .86, 60, 22, 0, Math.PI, 0); g.fill(); });
+    // a haulier's name, painted out and still legible
+    g.save(); g.globalAlpha = .28; g.fillStyle = '#3a4a5a'; g.font = 'bold 44px Arial Narrow, Arial, sans-serif'; g.fillText('AUTOTRASPORTI', w * .1, h * .44); g.font = '30px Arial Narrow, Arial, sans-serif'; g.fillText('BASSA PADANA · CREMONA', w * .1, h * .52); g.restore();
+    g.fillStyle = 'rgba(210,205,190,.55)'; g.fillRect(w * .08, h * .37, w * .42, h * .2);   // the white paint over the name
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; vanPaintTexture.t = t; return t;
+}
 function buildVan(g) {
   const v = new THREE.Group(); g.add(v);
-  const body = roundedHousing(1.9, 1.7, 4.6, .14, mat(0xc8c2b0, .6, { map: TEX.metal }), .04); body.position.y = 1.15; v.add(body);
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .6), new THREE.MeshStandardMaterial({ color: 0x1a2224, roughness: .1 })); glass.position.set(0, 1.55, -2.34); glass.rotation.y = Math.PI; v.add(glass);
-  for (const [x, z] of [[-.9, 1.5], [.9, 1.5], [-.9, -1.5], [.9, -1.5]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .26, 18), M.black); w.rotation.z = Math.PI / 2; w.position.set(x, .36, z); v.add(w); }
-  for (const s of [-1, 1]) { const l = new THREE.SpotLight(0xfff0cc, 70, 30, .45, .5, 1.2); l.position.set(s * .7, .9, -2.35); l.target.position.set(s * .6, 0, -14); v.add(l, l.target); const lens = new THREE.Mesh(new THREE.CircleGeometry(.13, 16), glow(0xfff4d8, 2)); lens.position.set(s * .7, .9, -2.36); lens.rotation.y = Math.PI; v.add(lens); }
-  v.rotation.y = Math.PI * .45; v.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  const L = 4.7, W = 1.95, paint = new THREE.MeshStandardMaterial({ color: 0xffffff, map: vanPaintTexture(), roughness: .62, metalness: .08 });
+  const black = mat(0x141414, .7), rubber = mat(0x0e0e0e, .95), chrome = mat(0xb8b6ae, .25, { metalness: .85 }), glassM = new THREE.MeshStandardMaterial({ color: 0x0d1416, roughness: .06, metalness: .4 });
+  // side profile (f = metres from the back, y = height), extruded across the width
+  const P = [[0, .46], [0, 2.08], [.1, 2.18], [3.15, 2.2], [3.42, 2.13], [3.56, 2.0], [4.13, 1.3], [4.58, 1.14], [4.68, 1.05], [4.7, .5], [4.62, .44], [.06, .44]];
+  const sh = new THREE.Shape(); sh.moveTo(P[0][0], P[0][1]); P.slice(1).forEach(([x, y]) => sh.lineTo(x, y)); sh.closePath();
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: W, bevelEnabled: true, bevelThickness: .035, bevelSize: .035, bevelSegments: 3, curveSegments: 4 });
+  geo.rotateY(Math.PI / 2); geo.translate(-W / 2, 0, L / 2);   // f → -z (front), width across x
+  // UVs: map the painted texture across the side panels (shape coords are metres)
+  const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / L, uv.getY(i) / 2.2);
+  const body = new THREE.Mesh(geo, paint); v.add(body);
+  const Z = (f) => L / 2 - f;   // f along the van → local z
+  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); v.add(b); return b; };
+  // windscreen, in the raked plane, and the cab side windows
+  { const a = new THREE.Vector3(0, 1.97, Z(3.58)), c = new THREE.Vector3(0, 1.34, Z(4.1)), len = a.distanceTo(c);
+    const ws = new THREE.Mesh(new THREE.PlaneGeometry(W - .2, len), glassM); ws.position.copy(a).add(c).multiplyScalar(.5); const up = a.clone().sub(c).normalize(), nrm = new THREE.Vector3(0, up.z, -up.y).normalize(); ws.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), up, nrm)); ws.position.addScaledVector(nrm, .062); v.add(ws);
+    const wiper = box(.012, .012, .55, black, -.25, 1.38, Z(4.05)); wiper.rotation.y = .9; const wiper2 = box(.012, .012, .55, black, .3, 1.38, Z(4.05)); wiper2.rotation.y = .9; }
+  for (const sd of [-1, 1]) {
+    const sx = sd * (W / 2 + .041);
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(.62, .5), glassM); win.position.set(sx, 1.72, Z(3.28)); win.rotation.y = sd * Math.PI / 2; v.add(win);
+    const qw = new THREE.Shape(); qw.moveTo(0, 0); qw.lineTo(.3, 0); qw.lineTo(.0, .42); qw.closePath(); const q = new THREE.Mesh(new THREE.ShapeGeometry(qw), glassM); q.position.set(sx, 1.5, Z(3.63)); q.rotation.y = sd * Math.PI / 2; if (sd < 0) q.scale.x = -1; v.add(q);
+    // door shut lines, handles, the sliding door and its rail on the right
+    box(.006, 1.5, .012, black, sx, 1.22, Z(2.98)); box(.006, .02, .55, black, sx, .5, Z(3.25));
+    box(.02, .03, .13, chrome, sx + sd * .01, 1.25, Z(3.05));
+    if (sd > 0) { box(.006, 1.55, .012, black, sx, 1.22, Z(1.32)); box(.006, 1.55, .012, black, sx, 1.22, Z(2.55)); box(.03, .035, 1.6, black, sx + .015, 1.38, Z(.7)); box(.02, .03, .12, chrome, sx + .01, 1.25, Z(2.45)); }
+    // rubbing strip along the side
+    box(.012, .05, 4.1, black, sx + sd * .004, .78, Z(2.3));
+    // mirrors on arms
+    const arm = box(.03, .03, .22, black, sd * (W / 2 + .1), 1.62, Z(3.55)); arm.rotation.y = sd * .5;
+    box(.04, .22, .14, black, sd * (W / 2 + .2), 1.62, Z(3.5));
+    // wheel arches: a dark recess, the tyre, the steel wheel and its hubcap
+    for (const f of [.92, 3.78]) {
+      const arch = new THREE.Mesh(new THREE.CylinderGeometry(.41, .41, .02, 24), black); arch.rotation.z = Math.PI / 2; arch.position.set(sd * (W / 2 + .036), .36, Z(f)); v.add(arch);
+      const tyre = new THREE.Mesh(new THREE.CylinderGeometry(.33, .33, .21, 22), rubber); tyre.rotation.z = Math.PI / 2; tyre.position.set(sd * (W / 2 - .06), .33, Z(f)); v.add(tyre);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(.2, .2, .012, 18), mat(0x8a8a86, .5, { metalness: .6 })); rim.rotation.z = Math.PI / 2; rim.position.set(sd * (W / 2 + .05), .33, Z(f)); v.add(rim);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, .02, 12), chrome); hub.rotation.z = Math.PI / 2; hub.position.set(sd * (W / 2 + .058), .33, Z(f)); v.add(hub);
+    }
+  }
+  // front: black grille between rectangular lamps, indicators, bumper, plate
+  box(1.0, .2, .04, black, 0, .86, Z(4.7) - .03);
+  for (let i = 0; i < 4; i++) box(.96, .012, .02, chrome, 0, .79 + i * .045, Z(4.7) - .055);
+  box(W + .06, .16, .14, rubber, 0, .52, Z(4.7) - .04);
+  box(.52, .11, .01, mat(0xe8e4d6, .4), 0, .52, Z(4.7) - .115);
+  for (const sd of [-1, 1]) {
+    box(.34, .17, .03, mat(0x1c1c1c, .5), sd * .72, .87, Z(4.7) - .03);
+    const lamp = box(.3, .13, .01, glow(0xfff1d2, 1.6), sd * .72, .87, Z(4.7) - .05);
+    box(.08, .13, .02, mat(0xd8862a, .35, { emissive: 0x3a1a00 }), sd * .93, .87, Z(4.7) - .04);
+    const l = new THREE.SpotLight(0xfff0cc, 70, 30, .45, .5, 1.2); l.position.set(sd * .72, .87, Z(4.7) - .1); l.target.position.set(sd * .6, 0, Z(4.7) - 14); v.add(l, l.target);
+  }
+  // back: twin doors, handles, tail lamps, bumper
+  box(.012, 1.55, .006, black, 0, 1.25, Z(0) + .04); box(.05, .1, .03, chrome, .08, 1.15, Z(0) + .05);
+  for (const sd of [-1, 1]) { box(.1, .32, .03, mat(0x7a120c, .3, { emissive: 0x1a0200 }), sd * (W / 2 - .07), 1.0, Z(0) + .04); box(.012, 1.4, .006, black, sd * (W / 2 - .02), 1.25, Z(0) + .04); }
+  box(W + .04, .14, .12, rubber, 0, .52, Z(0) + .06);
+  // roof gutters
+  for (const sd of [-1, 1]) box(.03, .03, 3.4, black, sd * (W / 2 + .02), 2.12, Z(1.7));
+  v.rotation.y = Math.PI * .45; v.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return v;
 }
 
@@ -7333,7 +7403,7 @@ function socialPhotoTexture() {
 }
 society = createSociety({ THREE, camera, playerAnchor, look, zone: () => currentZone, home: () => zones.home, elapsed: () => elapsed, people: socialPeople, seats: () => storyRef.tableSeats,
   line: storyLine, lineNow: storyLine, say: storyLine, queueAction, linesBusy: () => linesPending(), clearLines,
-  scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
+  scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), enter: (name, sp) => enterZone(name, sp), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true) });
 if (TEST_MODE) window.__epi = { people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
