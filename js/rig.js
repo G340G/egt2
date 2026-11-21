@@ -264,6 +264,120 @@ export function drapeGeometry(len, width, wave, R) {
   g.computeVertexNormals(); return g;
 }
 
+
+// ---- gait ---------------------------------------------------------------------
+// Walking is driven by distance, not by a clock: the gait phase advances by the ground the
+// body actually covers divided by the stride, so a planted foot stays planted whatever the
+// speed. The cycle follows the clinical description of human gait (e.g. Joseph et al. 2024,
+// PMC11678955): stance ~60% of the cycle and swing ~40%, two double-support periods; within
+// stance, heel contact, loading response (the foot rolls flat over the heel while the knee
+// takes the weight), mid-stance with the foot flat and the body vaulting over it, then heel
+// rise and toe-off pivoting on the ball of the foot. In swing the knee folds early for
+// clearance, the toes come up, and the leg reaches forward for the next heel contact.
+// The ankle path is placed on the ground in the body frame and the hip and knee are solved
+// with two-bone IK; the pelvis height follows from the legs (highest in mid-stance, lowest in
+// double support), which gives the few centimetres of vertical motion of real walking and
+// no more. The arms swing as passive pendulums opposite the legs, a little behind them, and
+// the thorax counter-rotates against the pelvis (Collins, Adamczyk & Kuo 2009, PMC2817299:
+// normal arm swing is cheap, cancels much of the legs' vertical angular momentum, and moves
+// each arm with the opposite leg). Each person gets their own stride, sway, arm swing,
+// lean and tempo from their build.
+const L1 = 0.44, L2 = 0.43, SOLE = 0.055, HEEL = 0.06, BALL = 0.13;
+const sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+const minJerk = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * x * (10 - 15 * x + 6 * x * x); };
+export function gaitParams(P) {
+  if (P.gaitP) return P.gaitP;
+  const s = P.spec || {}, R = rng((P.key || 'x').split('').reduce((a, c) => a * 31 + c.charCodeAt(0), 7));
+  const v = (a, b) => a + (b - a) * R();
+  const heavy = !!s.heavy, fem = !!s.female, old = (s.age || 0) > 60 || /primo|remo|first/.test(P.key || '');
+  P.gaitP = {
+    stride: v(1.06, 1.18) * (heavy ? .92 : 1) * (fem ? .96 : 1) * (old ? .92 : 1),
+    duty: v(.59, .62),
+    arm: v(.17, .27) * (heavy ? .8 : 1) * (old ? .8 : 1), elbow: v(.24, .36), armOut: v(.06, .1) + (heavy ? .06 : 0), lag: v(.03, .06),
+    yaw: v(.055, .085) * (fem ? 1.25 : 1), roll: v(.035, .055) * (heavy ? 1.3 : 1), sway: v(.012, .02) * (heavy ? 1.5 : 1),
+    lean: v(.03, .07) + (old ? .05 : 0), crouch: v(.015, .03), clear: v(.075, .095),
+    pre: v(0, .12) + (heavy ? .1 : 0) + (old ? .08 : 0), rise: v(1.35, 1.65) + (heavy ? .25 : 0) + (old ? .3 : 0),
+  };
+  return P.gaitP;
+}
+// Ankle position (z forward, y up, root frame) and foot pitch (+ = toes down) for one leg.
+function footAt(phi, S, beta, k, gY) {
+  if (phi < beta) {
+    const u = phi / beta, zh = S * beta * (0.5 - u) - HEEL;
+    let p = 0, qz = 0, Pz = 0;
+    if (u < 0.16) { p = -0.26 * (1 - sm(u / 0.16)); qz = -HEEL; Pz = zh; }
+    else if (u > 0.55) { p = 0.62 * sm((u - 0.55) / 0.45); qz = BALL; Pz = zh + HEEL + BALL; }
+    else return { z: zh + HEEL, y: gY + SOLE, p: 0 };
+    const c = Math.cos(p), si = Math.sin(p), qy = -SOLE;
+    return { z: Pz - (qy * si + qz * c), y: gY - (qy * c - qz * si), p };
+  }
+  const u = (phi - beta) / (1 - beta), a = footAt(beta - 1e-6, S, beta, k, gY), b = footAt(0, S, beta, k, gY), m = minJerk(u);
+  const lift = Math.sin(Math.PI * Math.pow(u, 0.7));
+  const p = u < 0.35 ? 0.62 + (-0.12 - 0.62) * sm(u / 0.35) : -0.12 + (-0.26 + 0.12) * sm((u - 0.35) / 0.65);
+  return { z: a.z + (b.z - a.z) * m, y: a.y + (b.y - a.y) * m + lift * k * 0.085, p, lift };
+}
+function legIK(dz, dy, k) {
+  const a = L1 * k, b = L2 * k; let D = Math.hypot(dz, dy); D = Math.max(0.25 * k, Math.min((a + b) * 0.999, D));
+  const kn = Math.PI - Math.acos(Math.max(-1, Math.min(1, (a * a + b * b - D * D) / (2 * a * b))));
+  const th = Math.atan2(-dz, -dy) - Math.acos(Math.max(-1, Math.min(1, (a * a + D * D - b * b) / (2 * a * D))));
+  return [th, kn];
+}
+// Returns pose overrides for walking (and for standing up from a chair), or null.
+function gaitPose(P, dt, moving, dist, pre) {
+  const G = gaitParams(P), k = P.k, g = P.g || (P.g = { ph: 0, gw: 0, v: 0, hy: 0.92 * k, pre: 0 });
+  const standY = 0.92 * k, gY = standY - (L1 + L2) * k - SOLE;
+  g.v += ((dt > 0 ? dist / dt : 0) - g.v) * Math.min(1, dt * 6);
+  g.gw += ((moving ? 1 : 0) - g.gw) * Math.min(1, dt * (moving ? 5 : 3.5));
+  g.pre += ((pre ? 1 : 0) - g.pre) * Math.min(1, dt * 7);
+  if (g.gw < 0.01 && g.pre < 0.01 && !P.rise) { g.ph = G.duty; g.hy = standY; return null; }
+  const beta = G.duty, sfac = Math.max(0.35, Math.min(1.15, Math.pow(Math.max(0, g.v) / (1.15 * k), 0.55)));
+  const S = Math.max(0.32 * k, G.stride * k * sfac);
+  g.ph = (g.ph + dist / S) % 1;
+  const phi = [g.ph, (g.ph + 0.5) % 1], ft = phi.map(f => footAt(f, S, beta, k, gY));
+  const Rm = (L1 + L2) * k * 0.985;
+  let hy = standY - G.crouch * k;
+  for (const f of ft) hy = Math.min(hy, f.y + Math.sqrt(Math.max(0, Rm * Rm - f.z * f.z)));
+  g.hy += (hy - g.hy) * Math.min(1, dt * 30);
+  const w = g.gw, two = Math.PI * 2;
+  const o = { w, hipsY: g.hy, th: [0, 0], kn: [0, 0], an: [0, 0], thZ: [0, 0], sh: [0, 0], shZ: [0, 0], el: [0, 0] };
+  for (let i = 0; i < 2; i++) { const [th, kn] = legIK(ft[i].z, ft[i].y - g.hy, k); o.th[i] = th; o.kn[i] = kn; o.an[i] = ft[i].p - th - kn; }
+  const amp = Math.min(1, sfac) * w;
+  o.yaw = G.yaw * amp * Math.cos(two * phi[0]);
+  o.roll = -G.roll * amp * Math.sin(two * (phi[0] + 0.1));
+  o.sway = -(G.sway * k) * (amp * Math.sin(two * (phi[0] - 0.05)) + g.pre * 1.2 * (1 - w));
+  o.lean = (G.lean * (0.5 + 0.5 * sfac)) * w + g.pre * 0.06;
+  for (let i = 0; i < 2; i++) {
+    const c = Math.cos(two * (phi[1 - i] - G.lag));
+    o.sh[i] = 0.07 - G.arm * Math.max(0.5, sfac) * c; o.el[i] = -(G.elbow + 0.18 * Math.max(0, c)); o.shZ[i] = (i === 0 ? 1 : -1) * G.armOut;
+    o.thZ[i] = -(o.sway / ((L1 + L2) * k)) - o.roll;
+  }
+  o.skirt = (o.th[0] + o.th[1]) * 0.18;
+  return o;
+}
+// Standing up from a chair (sit-to-stand): feet drawn back under the knees, the trunk pitches
+// forward to bring the weight over the feet (flexion momentum), the seat comes off the chair
+// and hips and knees extend together while the trunk comes upright, then a small settle.
+// The feet do not move once they are under the body.
+function risePose(P, dt) {
+  const r = P.rise, G = gaitParams(P), k = P.k, standY = 0.92 * k, gY = standY - (L1 + L2) * k - SOLE;
+  r.t += dt; const u = r.t / r.dur;
+  if (u >= 1) { P.rise = null; return null; }
+  const tuck = { z: 0.05 * k, y: gY + SOLE };
+  const a = sm(u / 0.3), lift = sm((u - 0.3) / 0.5);
+  const az = r.az + (tuck.z - r.az) * a, ay = r.ay + (tuck.y - r.ay) * a;
+  const hy = r.hy + (standY - G.crouch * 0.5 * k - r.hy) * lift;
+  const o = { w: 1, hipsY: hy, th: [0, 0], kn: [0, 0], an: [0, 0], thZ: [0, 0], sh: [0, 0], shZ: [0.1, -0.1], el: [0, 0], yaw: 0, roll: 0, sway: 0, skirt: 0, rise: true };
+  for (let i = 0; i < 2; i++) { const [th, kn] = legIK(az, ay - hy, k); o.th[i] = th; o.kn[i] = kn; o.an[i] = -th - kn; }
+  o.lean = 0.55 * sm(u / 0.32) * (1 - sm((u - 0.45) / 0.45)) + G.lean * 0.5 * sm((u - 0.6) / 0.4);
+  const push = sm(u / 0.2) * (1 - sm((u - 0.55) / 0.3));
+  o.sh = [-0.15 - 0.35 * push, -0.15 - 0.35 * push]; o.el = [-0.25 - 0.55 * push, -0.25 - 0.55 * push];
+  return o;
+}
+function startRise(P) {
+  const k = P.k, L = P.legs, th = L[0].th.rotation.x, kn = L[0].kn.rotation.x, hy = P.hips.position.y;
+  P.rise = { t: 0, dur: gaitParams(P).rise, hy, az: -L1 * k * Math.sin(th) - L2 * k * Math.sin(th + kn), ay: hy - L1 * k * Math.cos(th) - L2 * k * Math.cos(th + kn) };
+}
+
 // ---- posing ----
 export function setPose(P, pose) { P.pose = pose; }
 
@@ -287,24 +401,23 @@ export function updatePerson(P, dt, t, camPos) {
   if (P.pose === 'reach') { shX = [0.04, -1.15]; shZ = [0.1, -0.1]; elX = [-0.18, -0.25]; }
   if (P.pose === 'wall') { shX = [0.04, -1.5]; shZ = [0.1, 0.25]; elX = [-0.18, -0.2]; }
   if (P.pose === 'palm') { shX = [-0.6, -0.9]; shZ = [0.15, -0.1]; elX = [-1.0, -0.6]; }
-  // walking
+  // walking: distance-driven gait (see gaitPose). Internal walks move the root here;
+  // external walks (the game moving the object) report the distance covered in P.extWalk.
+  let dist = 0, moving = false;
   if (P.walk) {
     const w = P.walk; const dx = w.to.x - P.root.position.x, dz = w.to.z - P.root.position.z; const d = Math.hypot(dx, dz);
     if (d > 0.04) {
-      const sp = Math.min(d, w.speed * dt); P.root.position.x += dx / d * sp; P.root.position.z += dz / d * sp;
+      const sp = Math.min(d, w.speed * dt); P.root.position.x += dx / d * sp; P.root.position.z += dz / d * sp; dist = sp; moving = true;
       const yaw = Math.atan2(dx, dz); let dy = yaw - P.root.rotation.y; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2; P.root.rotation.y += dy * Math.min(1, dt * 6);
-      w.ph += dt * w.speed * 4.2; const s = Math.sin(w.ph);
-      legT[0] = [s * 0.45, Math.max(0, -Math.cos(w.ph)) * 0.6 + 0.05, 0]; legT[1] = [-s * 0.45, Math.max(0, Math.cos(w.ph)) * 0.6 + 0.05, 0];
-      shX = [-s * 0.3, s * 0.3]; hipsY = 0.92 * k - Math.abs(Math.cos(w.ph)) * 0.02;
-      P.walking = true;
-    } else { if (w.face !== undefined) { let dy = w.face - P.root.rotation.y; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2; P.root.rotation.y += dy * Math.min(1, dt * 5); if (Math.abs(dy) < 0.02) { const r = w.resolve; P.walk = null; r && r(); } } else { const r = w.resolve; P.walk = null; r && r(); } P.walking = false; }
+    } else { if (w.face !== undefined) { let dy = w.face - P.root.rotation.y; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2; P.root.rotation.y += dy * Math.min(1, dt * 5); if (Math.abs(dy) < 0.02) { const r = w.resolve; P.walk = null; r && r(); } } else { const r = w.resolve; P.walk = null; r && r(); } }
   }
-  if (P.extWalk && P.extWalk.on) {
-    const w = P.extWalk; w.ph += dt * w.speed * 4.2; const s = Math.sin(w.ph);
-    legT[0] = [s * 0.42, Math.max(0, -Math.cos(w.ph)) * 0.62 + 0.05, 0]; legT[1] = [-s * 0.42, Math.max(0, Math.cos(w.ph)) * 0.62 + 0.05, 0];
-    shX = [-s * 0.32, s * 0.32]; shZ = [0.08, -0.08]; elX = [-0.25 - Math.max(0, s) * 0.15, -0.25 - Math.max(0, -s) * 0.15];
-    hipsY = 0.92 * k - Math.abs(Math.cos(w.ph)) * 0.025; spineX = 0.04; P.walking = true;
-  }
+  if (P.extWalk) { dist += P.extWalk.dist || 0; P.extWalk.dist = 0; if (P.extWalk.on) moving = true; }
+  const wasSit = P._lastPose === 'sit' || P._lastPose === 'lean' || P._lastPose === 'sleep';
+  if (wasSit && P.pose === 'stand' && !P.noRise) startRise(P);
+  P._lastPose = P.pose;
+  const ov = P.rise ? risePose(P, dt) : gaitPose(P, dt, moving, dist, !!(P.extWalk && P.extWalk.pre));
+  P.walking = !!(ov && !ov.rise && ov.w > 0.3);
+  if (ov && !ov.rise && ov.w > 0.05) { spineX = ov.lean; }
   // laughter: shoulders shake, head goes back, mouth opens
   const lg = P.laughFrozen ? 0 : P.laugh;
   if (lg > 0) { const sh = Math.sin(t * 22 + P.t0) * 0.5 + 0.5; chestX -= lg * (0.12 + sh * 0.05); neckX -= lg * 0.2; shZ[0] += lg * 0.05 * sh; shZ[1] -= lg * 0.05 * sh; hipsY += lg * sh * 0.008; }
@@ -312,6 +425,20 @@ export function updatePerson(P, dt, t, camPos) {
   P.hips.position.y += (hipsY - P.hips.position.y) * Math.min(1, dt * 10);
   for (let i = 0; i < 2; i++) { const l = L[i]; l.th.rotation.x += (legT[i][0] - l.th.rotation.x) * Math.min(1, dt * 12); l.kn.rotation.x += (legT[i][1] - l.kn.rotation.x) * Math.min(1, dt * 12); l.an.rotation.x = -l.th.rotation.x - l.kn.rotation.x; }
   for (let i = 0; i < 2; i++) { const a = Ar[i]; const tr = P.tremble ? Math.sin(t * 40 + i) * P.tremble * 0.03 : 0; a.sh.rotation.x += (shX[i] + tr - a.sh.rotation.x) * Math.min(1, dt * 8); a.sh.rotation.z += (shZ[i] - a.sh.rotation.z) * Math.min(1, dt * 8); a.el.rotation.x += (elX[i] - a.el.rotation.x) * Math.min(1, dt * 8); }
+  if (ov) {
+    const w = ov.w, mix = (a, b) => a + (b - a) * w;
+    P.hips.position.y = mix(P.hips.position.y, ov.hipsY);
+    for (let i = 0; i < 2; i++) { const l = L[i]; l.th.rotation.x = mix(l.th.rotation.x, ov.th[i]); l.kn.rotation.x = mix(l.kn.rotation.x, ov.kn[i]); l.an.rotation.x = mix(l.an.rotation.x, ov.an[i]); l.th.rotation.z = ov.thZ[i] * w; }
+    for (let i = 0; i < 2; i++) { const a = Ar[i]; a.sh.rotation.x = mix(a.sh.rotation.x, ov.sh[i]); a.sh.rotation.z = mix(a.sh.rotation.z, ov.shZ[i]); a.el.rotation.x = mix(a.el.rotation.x, ov.el[i]); }
+    P.hips.rotation.y = ov.yaw; P.hips.rotation.z = ov.roll; P.hips.position.x = ov.sway;
+    P.spine.rotation.y = -ov.yaw * 0.55; P.chest.rotation.y = -ov.yaw * 0.75; P.chest.rotation.z = -ov.roll * 0.45;
+    if (ov.rise) spineX = ov.lean;
+    if (P.skirt) { P.skirt.rotation.x += (ov.skirt * w - P.skirt.rotation.x) * Math.min(1, dt * 6); P.skirt.rotation.z = -ov.roll * 0.8; }
+    if (P.apron) P.apron.rotation.x += (ov.skirt * 0.5 * w - P.apron.rotation.x) * Math.min(1, dt * 6);
+  } else if (P.hips.rotation.y || P.hips.position.x || P.hips.rotation.z) {
+    P.hips.rotation.y *= 0.8; P.hips.rotation.z *= 0.8; P.hips.position.x *= 0.8; P.spine.rotation.y *= 0.8; P.chest.rotation.y *= 0.8; P.chest.rotation.z *= 0.8;
+    L.forEach(l => { l.th.rotation.z *= 0.8; }); if (P.skirt) { P.skirt.rotation.x *= 0.9; P.skirt.rotation.z *= 0.9; }
+  }
   if (P.idle) P.idle(P, t, dt);
   P.spine.rotation.x = spineX; P.chest.rotation.x = chestX + br * 0.012; P.chestMesh.scale.y = 1 + br * 0.015;
   // head: look at a point (usually the camera) within limits
@@ -326,7 +453,7 @@ export function updatePerson(P, dt, t, camPos) {
   }
   P.neck.rotation.y += (hy * 0.4 - P.neck.rotation.y) * Math.min(1, dt * 5); P.head.rotation.y += (hy * 0.6 - P.head.rotation.y) * Math.min(1, dt * 5);
   P.head.rotation.x += (hx - P.head.rotation.x) * Math.min(1, dt * 5);
-  P.head.rotation.z += (P.headTilt - P.head.rotation.z) * Math.min(1, dt * 3);
+  P.head.rotation.z += (P.headTilt - (ov ? ov.roll * 0.55 : 0) - P.head.rotation.z) * Math.min(1, dt * 3);
   if (P.lids) { P.blinkT = (P.blinkT ?? (2 + P.t0 % 3)) - dt; let b = 0; if (P.blinkT < 0.12) b = 1; if (P.blinkT < 0) P.blinkT = 2.4 + Math.random() * 4; P.lids.forEach(l => { l.scale.y = 0.12 + b * 0.62; }); }
   if (P.mouth) {
     let open = 0;
