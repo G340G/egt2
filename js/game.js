@@ -776,7 +776,7 @@ function addDoor(group,x,z,label,destination,spawn,locked=false,options={}){
   }
   const entry={id:`door_${destination}`,type:'door',object:root,point:root.position,radius:options.radius??3.3,
     prompt:locked?'[ E ] THRESHOLD LOCKED':`[ E ] ENTER — ${label.toUpperCase()}`, 
-    label,destination,spawn,locked,slab,doorPivot:pivot,openAngle:options.openAngle??-1.08};
+    label,destination,spawn,locked,slab,doorPivot:pivot,openAngle:options.openAngle??-1.08,aimY:options.style==='hatch'?.45:1.0};
   group.userData.interactables.push(entry);return entry;
 }
 
@@ -1769,7 +1769,7 @@ function enterZone(name, spawn) {
   $('location').textContent = ({ road: 'FOG ROAD', home: 'THE HOUSE / THIRTEEN PLACES', church: 'THE DECONSECRATED CHURCH', ruin: 'THE EMPTY HOUSE', cellar: 'THE CELLAR / 14-B', darkroom: 'THE DARK ROOM / 14-B', abattoir: 'THE SLAUGHTERHOUSE / THE VOID ROOM', forest: 'THE CANAL FOREST' })[name];
   glitchPulse = Math.max(glitchPulse, .42); audio?.stinger(.32); audio?.setZone(name); if(name==='abattoir'){fear=Math.min(1,fear+.19);audio?.mechanicalEvent('hoist');} if(name==='church' && collected.size>=2 && !scenePlayed) showToast('THE BELL ROPE IS WET.'); if(name==='cellar'||name==='darkroom'){fear=Math.min(1,fear+.18);} if(name==='darkroom'){darkroomHunt.active=!noEnemies()&&!storyFlags.has('darkroom-cleared');if(noEnemies()&&storyRef.darkroomHunter?.object)storyRef.darkroomHunter.object.visible=false;if(!storyFlags.has('darkroom-entered')){storyFlags.add('darkroom-entered');darkroomHunt.elapsed=0;darkroomHunt.reappear=3.2;startMonologue(['Il Primo: The lamp is not a weapon. It is a question you can only ask in one direction.','Voice: The room is full. You cannot see what it contains.','Il Primo: Find what the tape cannot carry. Do not mistake being watched for being seen.'],13);}}
   showToast(({ road: 'THE ROAD IS NOT WHERE YOU LEFT IT', home: 'NO ONE ASKED YOUR NAME', church: 'THE NAVE IS LONGER FROM THE INSIDE', ruin: 'SOMEONE IS WAITING BY THE TELEPHONE', cellar: 'THE ROOM HAS KEPT ITS HEAT', darkroom: 'THE DARK HAS BEEN ARRANGED BY HAND', forest: 'THE FOREST KEEPS YOUR POSITION', abattoir: 'HERE THE FLESH HAS A LONG MEMORY' })[name]);
-  placeStalker(name); showChapterCard(name); resetTensionFor(name); society?.onEnterZone(name);
+  placeStalker(name); showChapterCard(name); resetTensionFor(name); society?.onEnterZone(name); tragedyOnEnter(name);
 }
 function currentPosition() { return playerAnchor.position; }
 function playerInputEnabled() { return gameStarted && !gameEnded && !listeningPending && !doorTransitioning && !cultFateActive && !dialogueOpen && !journalOpen && !settingsOpen && (!storyScene || storyScene.type === 'hold') && !society?.busy; }
@@ -2316,7 +2316,7 @@ function collectClue(item) {
   dread = Math.min(1, dread + .13); glitchPulse = Math.max(glitchPulse, .85); audio.stinger(.85);
   showToast(`CLUE RECORDED // ${item.title.toUpperCase()}`); updateProgress();
   if (collected.size === clueCount) showToast('THE HOUSE HAS FINISHED COUNTING. THE HATCH IS OPEN.');
-  const station=STATION_ORDER_BY_CLUE[collected.size-1];if(station)queueStation(station);
+  // v26: a clue is a discovery, never a death. Deaths are paced by the story (see TRAGEDY).
 }
 function speakVoice(text, npcName = '') {
   // No speech synthesis: the line is whispered. Its length sets the duration, the speaker sets the side.
@@ -2602,20 +2602,46 @@ flashlight.position.set(0, 0, 0); flashlight.target.position.set(0, 0, -8); flas
 camera.add(flashlight); camera.add(flashlight.target);
 const fillFlash = new THREE.PointLight(0xe3e2d9, .55, 4.5); fillFlash.position.set(0, -.2, -.3); camera.add(fillFlash);
 function toggleFlashlight() { flashlightOn = !flashlightOn; flashlight.visible = flashlightOn; fillFlash.visible = flashlightOn; $('torch-state').textContent = flashlightOn ? 'ON' : 'OFF'; audio.stinger(.18); }
+// Target selection. Everything inside its radius and the view cone is a candidate; the one
+// closest to the centre of the view wins, distance breaking ties. Two corrections keep the
+// E key honest when people move about:
+//  - a doorway is aimed at its middle (1 m up), not at its sill, so looking at a door is
+//    looking at it, even if a person is standing nearby;
+//  - a person who is walking past is only a target when deliberately centred and close:
+//    passers-by never intercept E meant for something else.
+// When Tobia stands at a doorway and faces it, a person wins over the door only if they
+// are standing still, clearly nearer and clearly more centred than the door.
+const _tgtDir = new THREE.Vector3();
+function targetAim(item) {
+  const p = item.point || item.object.position;
+  const h = item.aimY ?? (item.type === 'npc' ? 1.15 : item.type === 'door' ? 1.0 : .25);
+  return targetVec.set(p.x, p.y + h, p.z);
+}
+function npcInTransit(n) { return !!(n.walking || n.borrowed || n.hunting || n.rig?.walking || n.rig?.rise); }
 function findTarget() {
   if (!zone || !playerInputEnabled()) return null;
   controls.getDirection(forward); camera.getWorldPosition(cameraWorld);
-  let best = null; let bestScore = Infinity;
+  let best = null, bestScore = Infinity, door = null;
   for (const item of zone.interactables) {
-    if (!item.object || !item.object.parent) continue;
-    const p = item.point || item.object.position; targetVec.set(p.x, p.y + (item.type === 'npc' ? 1.15 : .25), p.z);
+    if (!item.object || !item.object.parent || (item.type === 'npc' && !isVisibleChain(item.object))) continue;
+    targetAim(item);
     const dist = cameraWorld.distanceTo(targetVec); if (dist > (item.radius || 3.0)) continue;
-    const dir = targetVec.clone().sub(cameraWorld).normalize(); const dot = forward.dot(dir);
+    _tgtDir.copy(targetVec).sub(cameraWorld).normalize(); const dot = forward.dot(_tgtDir);
     if (dot < .58) continue;
-    const score = dist + (1 - dot) * 2.1;
-    if (score < bestScore) { bestScore = score; best = item; }
+    const moving = item.type === 'npc' && npcInTransit(item);
+    if (moving && (dot < .93 || dist > 2.6)) continue;
+    const score = (1 - dot) * 7 + dist * .45 + (moving ? .6 : 0);
+    if (item.type === 'door') {
+      const flat = Math.hypot(targetVec.x - cameraWorld.x, targetVec.z - cameraWorld.z);
+      if (flat < 3.0 && dot > .8 && (!door || score < door.score)) door = { item, score, dot, dist };
+    }
+    if (score < bestScore) { bestScore = score; best = { item, score, dot, dist }; }
   }
-  return best;
+  if (best && door && best.item !== door.item && best.item.type === 'npc') {
+    const n = best.item, keep = !npcInTransit(n) && best.dot > door.dot + .05 && best.dist < door.dist - .35;
+    if (!keep) return door.item;
+  }
+  return best ? best.item : null;
 }
 function footstepSurfaceForZone(name) {
   if (name === 'road' || name === 'forest') return 'grass';
@@ -4285,7 +4311,9 @@ function animateZone(t, dt) {
     [...new Set([...z.interactables.filter(x => x.type === 'npc'),...cultRoster.filter(n=>n.object.parent===z.group)])].forEach(n => {
       if(n.rig){personaAnimate(n,t,dt);return;}
       // v9 walk: a slower, heavier stride; arms swing forward and back, not sideways; no body roll.
-      const phase=t*.0011+n.phase, wph=t*.005+n.phase, stride=n.walking?Math.sin(wph):0;
+      // Gait phase from ground covered (one full cycle per ~1.3 m stride), so feet do not skate.
+      { const o=n.object.position,L=n._gLast||(n._gLast=o.clone()),d=Math.hypot(o.x-L.x,o.z-L.z); if(n.walking&&d<.5)n._gph=(n._gph||0)+d/1.3*Math.PI*2; L.copy(o); }
+      const phase=t*.0011+n.phase, wph=(n._gph||0)+n.phase, stride=n.walking?Math.sin(wph):0;
       const bob=n.walking?Math.abs(Math.cos(wph))*-.022:Math.sin(phase)*.006;
       n.object.position.y = n.fate==='dead'?n.object.position.y:(n.baseY||0)+(n.seated?bob*.3:bob);
       if(n.seated){n.leftArm.rotation.z=-.08+Math.sin(phase)*.01;n.rightArm.rotation.z=.08-Math.sin(phase)*.01;}
@@ -4947,7 +4975,6 @@ function updateChoirEgg(dt) {
 // as silhouette, from far away, with the sound removed — then a Pastorale: a short
 // locked-off shot of landscape with no people. Space skips.
 // =============================================================================
-const STATION_ORDER_BY_CLUE = ['franco', 'anna', 'marta', 'gabri', 'sergio', 'livia', 'walter'];
 function cultist(name) { return cultRoster.find(n => n.name === name); }
 function stationAvailable(id) {
   if (storyFlags.has('station-' + id)) return false;
@@ -4968,6 +4995,156 @@ function tickStationQueue(dt = 1 / 60) {
   storyRef.stationWait = (storyRef.stationWait || 0) + dt; if (storyRef.stationWait < 1.0) return; storyRef.stationWait = 0;
   const id = q.shift(); if (!stationAvailable(id)) { if (id === 'remo') storyFlags.add('station-remo'); return; }
   startStation(id);
+}
+// =============================================================================
+// v26 — THE TRAGEDY. Who dies, and when, follows the story, not the clue count.
+// A death becomes possible ("ripe") only when its own preconditions are in place: the
+// stage the story has reached (milestones Tobia has lived through, tables he has sat at,
+// plots he has seen), who is still alive, who is needed for it, what has already happened.
+// Deaths are spaced: a new one needs fresh story since the last (two milestones and a
+// breathing interval), so they spread through the game instead of clustering.
+// When one is ripe it is first visible as a sign at the table, if Tobia is there to see
+// it: he can say something or look away (doing nothing looks away). Then the group acts on
+// its own, the next time Tobia goes somewhere. Where he happens to go decides what he gets
+// to see: walking into the place itself he arrives at the wrong moment and witnesses it
+// (the existing station plays, unchanged), or a minute too late; from somewhere near he
+// only hears it; anywhere else he misses it entirely and finds the aftermath later.
+// =============================================================================
+const tragedy = { lastStage: 0, lastAt: -999, armed: null, ripeSince: {}, transit: null, pending: [], avoided: 0, spoke: 0, deadSeen: 0, log: [] };
+const STAGE_FLAGS = ['primo-first-contact', 'talked-ines', 'talked-ottavio', 'talked-pino', 'heard-dario-plan', 'talked-remo', 'altar-lit', 'station-dario', 'dario-bell-death', 'church-collapsed', 'darkroom-entered', 'darkroom-cleared', 'escaped-forest', 'first-tea', 'carcasses-decided', 'cemetery-shot'];
+function storyStage() {
+  const m = society?.meta?.() || { gathers: 0, plots: 0 };
+  return STAGE_FLAGS.reduce((a, f) => a + (storyFlags.has(f) ? 1 : 0), 0) + Math.min(4, m.gathers) + Math.min(3, m.plots);
+}
+function deadCount() { return cultRoster.filter(n => n.fate === 'dead').length; }
+function aliveP(name) { const n = cultist(name); return !!n && n.fate === 'present'; }
+const TRAGEDY = {
+  franco: { victim: 'Franco', killer: null, zone: 'church', near: ['road'],
+    ripe: (st, d, m) => m.gathers >= 1 && !!storyRef.remo?.object && !storyFlags.has('station-remo') && (storyFlags.has('talked-remo') ? st >= 4 : st >= 6),
+    sign: ['Ines', 'Franco folds the white tablecloth the way altar linen is folded, in three, and puts it under his arm. Ines watches him do it and does not help.'],
+    heard: ['(Across the fog, from the church: an organ, very slow. One voice in Latin, word perfect.)', 'Tobia: I stay where I am. I tell myself it is a rehearsal.'],
+    after: ['church', 0, 1.2, -10.6, 'The scrubbed altar', 'The stone has been scrubbed pink. A white cloth, folded in three, is drying over the rail.'],
+    missed: 'Not witnessed. The white cloth went to the church with Franco. Only the cloth came back. His chair is pushed in, and nobody says his name.' },
+  anna: { victim: 'Anna', killer: 'ines', zone: 'home', near: ['cellar'],
+    ripe: (st, d, m) => d >= 1 && m.gathers >= 2 && aliveP('Ines') && st >= 5,
+    sign: ['Ines', 'Anna asks Ines whether there is enough brick left in the cellar. Ines says there is exactly enough. Anna laughs as if that were kind.'],
+    heard: ['(Below the floor: the scrape of a trowel. A brick set down. Another.)', 'Tobia: I do not go down. I count the bricks instead of going down.'],
+    after: ['cellar', 1.4, 1.0, -2.2, 'New brickwork', 'A wall that was not there before. The mortar is still soft enough to take a fingerprint. Somebody has already pushed a bowl against it.'],
+    missed: 'Not witnessed. When you came back, Anna’s ladle was washed and hung up, and there was a new wall in the cellar, the mortar still soft.' },
+  marta: { victim: 'Marta', killer: 'livia', zone: 'cellar', near: ['home'],
+    ripe: (st, d, m) => d >= 1 && aliveP('Livia') && st >= 6,
+    sign: ['Livia', 'Livia sits beside Marta and asks her to tell the summer kitchen again, slowly, from the beginning. She is holding the burin under the table.'],
+    heard: ['(Under the floor, Marta’s voice, telling a childhood: a summer kitchen, flour, a dog asleep. It stops in the middle of a word.)', 'Tobia: I go on looking at my hands until my nose starts to bleed.'],
+    after: ['cellar', -.6, 1.0, -1.0, 'The heat lamp', 'Still warm. On the floor under it, curls of something pale, like wood shavings, that are not wood.'],
+    missed: 'Not witnessed. Marta told her last memory to Livia under the heat lamp while you were elsewhere. Livia came up with the burin wrapped in a napkin and washed it twice.' },
+  walter: { victim: 'Walter', killer: null, zone: 'road', near: ['home', 'church'],
+    ripe: (st, d, m) => storyFlags.has('altar-lit') && st >= 5,
+    sign: [null, 'Walter checks a coil of wire against a page in his notebook and says, to nobody, that the charge has to be tested by somebody who understands it. Il Primo agrees with him at once.'],
+    heard: ['(A thump from the fields, more felt than heard. Somewhere a window answers it.)', 'Tobia: Nobody goes to look. So I do not go to look.'],
+    after: ['road', 21.5, 1.0, 6.5, 'Where the shed was', 'Black ground and a twisted hinge. A notebook page, half burnt, with a column of figures that all add up.'],
+    missed: 'Not witnessed. The shed by the field went up while you were somewhere else. Walter had gone in with his notebook to test the charge alone.' },
+  gabri: { victim: 'Gabri', killer: 'ines', zone: 'road', near: [],
+    ripe: (st, d, m) => d >= 2 && aliveP('Ines') && st >= 7,
+    sign: ['Ines', 'Ines fills the thermos and asks Gabri, gently, whether he would like to see the river in flood. Gabri asks if everyone will come.'],
+    heard: [],
+    after: ['road', -3.2, .4, 9.5, 'A thermos', 'Ines’s thermos, on the verge, the cap screwed on tight. It is still warm. It smells of tea and something under the tea.'],
+    missed: 'Not witnessed. A car went out to the levee with Gabri in it and came back without him. Ines’s thermos came back too, empty.' },
+  livia: { victim: 'Livia', killer: 'dario', zone: 'church', near: ['road'],
+    ripe: (st, d, m) => (storyFlags.has('station-marta') || d >= 3) && st >= 8,
+    sign: ['Dario', 'Dario hums Livia’s aria while she eats, a semitone too low, and does not stop when she asks him to.'],
+    heard: ['(From the church: a woman singing an aria, and many voices answering a semitone too low. Then only the many.)', 'Tobia: I could walk to the door. I walk the other way.'],
+    after: ['church', 6.2, 1.2, -7.9, 'The confessional', 'The lattice is scorched in a pattern of diamonds. Inside, a hairpin and the smell of hot varnish.'],
+    missed: 'Not witnessed. Livia sang in the confessional until she stopped. You heard about it afterwards, from the way nobody hummed at the table.' },
+  sergio: { victim: 'Sergio', killer: null, zone: 'road', near: ['home'],
+    ripe: (st, d, m) => d >= 3 && aliveP('Ines') && st >= 8,
+    sign: ['Ines', 'Sergio says he would like to sit in the sun once more, if the sun comes. Ines says it will come tomorrow. She says it as if she had arranged it.'],
+    heard: ['(Through the window: Ines’s voice in the farmyard, low, saying stay a little longer. Then nothing for a long time.)', 'Tobia: I do not look out of the window. I could have. I do not.'],
+    after: ['road', -5.4, .6, -4.8, 'A chair in the farmyard', 'A kitchen chair in the yard, turned to where the sun was. A blanket folded on the seat.'],
+    missed: 'Not witnessed. They put a chair in the farmyard for Sergio in the first sun. By the time you came back the chair was empty and the blanket folded.' },
+};
+function tragedyTick(dt) {
+  if (!gameStarted || gameEnded || listeningPending) return;
+  const st = storyStage(), d = deadCount(), m = society?.meta?.() || { gathers: 0, plots: 0 };
+  // Deaths caused elsewhere (the table's own violence) count towards the pacing too.
+  if (d > tragedy.deadSeen) { tragedy.deadSeen = d; tragedy.lastStage = Math.max(tragedy.lastStage, st); tragedy.lastAt = elapsed; }
+  for (const [id, T] of Object.entries(TRAGEDY)) {
+    if (tragedy.ripeSince[id] == null && stationAvailable(id) && aliveP(T.victim) && T.ripe(st, d, m)) tragedy.ripeSince[id] = elapsed;
+  }
+  const A = tragedy.armed;
+  if (A && (!stationAvailable(A.id) || !aliveP(TRAGEDY[A.id].victim))) { tragedy.armed = null; return; }
+  if (!A) {
+    if (!storyFlags.has('primo-first-contact') || !welcome.done) return;
+    if (st < tragedy.lastStage + 2 || elapsed - tragedy.lastAt < 90) return;
+    const next = Object.keys(TRAGEDY).filter(id => tragedy.ripeSince[id] != null && stationAvailable(id) && aliveP(TRAGEDY[id].victim)).sort((a, b) => tragedy.ripeSince[a] - tragedy.ripeSince[b])[0];
+    if (next) { tragedy.armed = { id: next, at: elapsed, signed: false }; tragedy.transit = null; tragedy.log.push(['armed', next, st]); }
+    return;
+  }
+  const busy = (storyScene && storyScene.type !== 'hold') || dialogueOpen || doorTransitioning || cultFateActive || !society?.idle?.() || linesPending() || !playerInputEnabled();
+  if (busy) return;
+  // The sign: only if Tobia is at the table to see it, and only once.
+  if (!A.signed) {
+    const T = TRAGEDY[A.id], v = cultist(T.victim), w = T.sign[0] ? cultist(T.sign[0]) : null;
+    const here = currentZone === 'home' && v?.object.visible && v.object.parent === zones.home.group && (!w || (w.fate === 'present' && w.object.visible));
+    if (here) { A.signed = true; tragedy.transit = null; showSign(A.id); return; }
+    if (elapsed - A.at > 75) { A.signed = 'unseen'; tragedy.transit = null; }
+    else return;
+  }
+  // The act: at the next place Tobia goes, a moment after he arrives.
+  const tr = tragedy.transit;
+  if (tr && elapsed - tr.t > 1.2) { tragedy.transit = null; resolveTragedy(A.id, tr.name); return; }
+  // Nobody waits for Tobia forever: if he stays put, it happens where it happens.
+  if (elapsed - A.at > 260) resolveTragedy(A.id, currentZone);
+}
+function showSign(id) {
+  const T = TRAGEDY[id];
+  storyLine('(' + T.sign[1] + ')');
+  queueAction(() => society?.offerExt?.('YOU SAW THAT', '', [
+    ['Say something.', () => {
+      tragedy.spoke++; storyFlags.add('spoke-up-' + id); tragedy.armed = null; tragedy.lastStage = storyStage(); tragedy.lastAt = elapsed;
+      storyLine('TOBIA: (too quietly, then again) Is everything all right?');
+      storyLine(T.killer ? `(${T.killer[0].toUpperCase() + T.killer.slice(1)} looks at you for a long moment. The table goes on.)` : '(Il Primo smiles at you as if you had said something charming. The table goes on.)');
+      if (T.killer) society?.affectExt?.(T.killer, { g: 1.2 }, 'You saw what they were doing and said so, at the table.');
+      if (tragedy.spoke >= 2) { const who = [T.killer, 'dario', 'franco', 'walter'].find(k => k && aliveP(k[0].toUpperCase() + k.slice(1))); if (who) society?.clickExt?.(who, 'Tobia keeps noticing. Somebody who notices is somebody who will talk.'); }
+    }],
+    ['Look away.', () => lookAway(id)],
+  ], { timeout: 11, onTimeout: () => lookAway(id) }));
+}
+function lookAway(id) {
+  tragedy.avoided++; storyFlags.add('looked-away-' + id);
+  journal.push({ id: 'looked-away-' + id, title: 'Looked away', description: TRAGEDY[id].sign[1] + ' You looked at your plate.', kind: 'what you did not do', zone: 'home' }); updateJournalCount();
+  if (tragedy.avoided === 2) storyLine('IL PRIMO: (to nobody, pleasantly) Tobia has beautiful manners. He never interrupts.');
+  if (tragedy.avoided === 3) { const who = ['dario', 'walter', 'franco'].find(k => aliveP(k[0].toUpperCase() + k.slice(1))); if (who) society?.clickExt?.(who, 'He has seen everything and said nothing. A man like that is waiting for his moment to speak.'); }
+}
+function resolveTragedy(id, where) {
+  const T = TRAGEDY[id]; if (!T || !stationAvailable(id)) { tragedy.armed = null; return; }
+  tragedy.armed = null; tragedy.lastStage = storyStage(); tragedy.lastAt = elapsed;
+  let mode = 'missed';
+  if (where === T.zone) mode = Math.random() < .75 ? 'witness' : 'late';
+  else if (T.near.includes(where) && T.heard.length) mode = Math.random() < .65 ? 'heard' : 'missed';
+  tragedy.log.push([mode, id, where]); storyFlags.add('tragedy-' + mode + '-' + id);
+  if (mode === 'witness') { queueStation(id, true); return; }
+  if (mode === 'heard') T.heard.forEach(l => storyLine(l));
+  offscreenDeath(id, mode);
+  if (mode === 'late') storyLine('TOBIA: I am a minute late. Whatever it was is over. I am glad, and I know what being glad makes me.');
+}
+function offscreenDeath(id, mode) {
+  const T = TRAGEDY[id], def = stationDef(id), v = cultist(T.victim);
+  const chair = v && v.object.parent === zones.home.group ? v.object.position.clone() : null;
+  retireNPC(v); society?.memberGone?.(T.victim.toLowerCase());
+  storyFlags.add('station-' + id); storyFlags.add('station-any'); storyFlags.add('station-' + id + '-unseen');
+  if (id === 'walter') storyFlags.add('shed-gone');
+  const text = mode === 'heard' ? 'Heard, not seen. ' + T.heard[0].replace(/^\(|\)$/g, '') + ' You did not go to see. Afterwards: ' + T.after[5] : mode === 'late' ? 'A minute too late. You walked in just after it was over. ' + T.after[5] : T.missed;
+  journal.push({ id: 'station-' + id, title: `Station ${def.roman} · ${def.name.charAt(0) + def.name.slice(1).toLowerCase()}`, description: text, kind: 'station', zone: T.after[0] }); updateJournalCount();
+  const [zn, x, y, z, title, look] = T.after; const zg = zones[zn]?.group;
+  if (zg) addLook(zg, x, y, z, title, look, 2.6);
+  if (chair) addLook(zones.home.group, chair.x, 1.0, chair.z, 'An empty chair — ' + T.victim, 'The chair is pushed in. Ines has set the place anyway: bowl, spoon, a folded napkin nobody will unfold.', 2.2);
+  if (mode === 'missed') tragedy.pending.push({ id, zone: currentZone === 'home' ? T.after[0] : 'home', line: `TOBIA: ${T.victim}’s place is set and nobody is in it. Nobody says why. I do not ask.` });
+  fear = Math.min(1, fear + .05);
+}
+function tragedyOnEnter(name) {
+  tragedy.transit = { name, t: elapsed };
+  const i = tragedy.pending.findIndex(p => p.zone === name);
+  if (i >= 0) { const p = tragedy.pending.splice(i, 1)[0]; setTimeout(() => storyLine(p.line), 1600); }
 }
 function retireNPC(npc) {
   if (!npc) return;
@@ -5799,7 +5976,7 @@ function updateShadowRig() {
 }
 function v6Tick(dt, t) {
   updateLamps(t); updateSmoke(dt, t); updateChoirEgg(dt); updateShadowRig();
-  if (gameStarted && !gameEnded) tickStationQueue(dt);
+  if (gameStarted && !gameEnded) { tickStationQueue(dt); tragedyTick(dt); }
   // Dario's Mass begins the next time you enter the church after hearing it planned.
   if (currentZone === 'church' && storyFlags.has('heard-dario-plan') && !storyFlags.has('station-dario') && (!storyScene || storyScene.type === 'hold') && !(storyRef.stationQueue || []).includes('dario')) queueStation('dario', true);
   // The refrigerator hum (a flat B) is audible across the kitchen.
@@ -6276,7 +6453,7 @@ function bodyRealism(n, t, dt) {
   const parts = findPersonaParts(n), s = t * .001 + n.phase;
   if (parts.chest) parts.chest.scale.y = .56 * (1 + Math.sin(s * 1.4) * .025);
   if (parts.mouth) { let open = 0; if (n.talkT > 0) { n.talkT -= dt; open = (Math.sin(s * 17) * .5 + .5) * (Math.sin(s * 5.3) * .3 + .7); if (n.headPivot) n.headPivot.rotation.x += Math.sin(s * 6) * .03; } parts.mouth.scale.y += (1 + open * 4.5 - parts.mouth.scale.y) * Math.min(1, dt * 18); }
-  if (n.walking && n.lowerLegs?.length === 2) { const ph = t * .005 + n.phase; n.lowerLegs[0].rotation.x = Math.max(0, -Math.cos(ph)) * .62 + .05; n.lowerLegs[1].rotation.x = Math.max(0, Math.cos(ph)) * .62 + .05; }
+  if (n.walking && n.lowerLegs?.length === 2) { const ph = (n._gph || 0) + n.phase; n.lowerLegs[0].rotation.x = Math.max(0, -Math.cos(ph)) * .62 + .05; n.lowerLegs[1].rotation.x = Math.max(0, Math.cos(ph)) * .62 + .05; }
   else if (!n.seated && n.lowerLegs?.length === 2) { n.lowerLegs[0].rotation.x = .02 + Math.max(0, Math.sin(s * .3)) * .05; n.lowerLegs[1].rotation.x = .02; }
 }
 
@@ -6413,11 +6590,23 @@ function aimCamera(target, k = 1) {
   camera.rotation.y += dy * k; camera.rotation.x += (pitch - camera.rotation.x) * k; camera.rotation.z *= 1 - k;
 }
 function setFov(f) { camera.fov = f; camera.updateProjectionMatrix(); }
-function walkNPC(n, tx, tz, speed, dt) {
+// Walking on the ground, not along a rail: a person who has been standing first shifts their
+// weight (about a fifth of a second, longer for the heavy and the old), then accelerates
+// over the first steps, slows into a turn, and slows to a halt when told it is the last leg.
+// While the body is still rising from a chair, nobody moves.
+function walkNPC(n, tx, tz, speed, dt, last = false) {
   const p = n.object.position, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
+  if (n.rig?.rise) { n.walking = false; n._v = 0; return false; }
   if (d < .05) { n.walking = false; return true; }
-  const st = Math.min(d, speed * dt); p.x += dx / d * st; p.z += dz / d * st; n.walking = true;
-  let dy = Math.atan2(dx, dz) - n.object.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); n.object.rotation.y += dy * Math.min(1, dt * 6);
+  const fresh = elapsed - (n._walkSeen ?? -9) > .35; n._walkSeen = elapsed;
+  if (fresh) { n._v = 0; n._pre = (.2 + (n.rig?.gaitP?.pre || 0)); }
+  let dy = Math.atan2(dx, dz) - n.object.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); n.object.rotation.y += dy * Math.min(1, dt * 5);
+  if (n._pre > 0) { n._pre -= dt; n.walking = true; n.preStep = 1; return false; }
+  n.preStep = 0;
+  const turn = Math.max(.4, Math.cos(Math.min(Math.PI / 2, Math.abs(dy))));
+  let want = speed * turn; if (last) want = Math.min(want, Math.sqrt(2 * 1.3 * d) + .08);
+  n._v = Math.min(want, (n._v || 0) + 1.4 * dt); if (want < n._v) n._v = want;
+  const st = Math.min(d, n._v * dt); p.x += dx / d * st; p.z += dz / d * st; n.walking = true;
   return false;
 }
 function turnNPC(n, tx, tz, dt, rate = 3) { let dy = Math.atan2(tx - n.object.position.x, tz - n.object.position.z) - n.object.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); n.object.rotation.y += dy * Math.min(1, dt * rate); }
@@ -6762,7 +6951,12 @@ function driveRig(n, t, dt) {
   const P = n.rig; if (P._frame === renderer.info.render.frame) return; P._frame = renderer.info.render.frame;
   const cam = driveRig.v || (driveRig.v = new THREE.Vector3()); camera.getWorldPosition(cam);
   P.parentYaw = n.object.rotation.y;
-  P.extWalk = P.extWalk || { on: false, ph: 0, speed: 1.1 }; P.extWalk.on = !!n.walking;
+  P.extWalk = P.extWalk || { on: false, dist: 0 }; P.extWalk.on = !!n.walking; P.extWalk.pre = !!(n.walking && n.preStep);
+  { // ground actually covered this frame, in the rig's own units (teleports are not steps)
+    const o = n.object.position, L = P._lastPos || (P._lastPos = o.clone()), d = Math.hypot(o.x - L.x, o.z - L.z);
+    if (n.walking && d < .5) { const sz = P._sz || (P._sz = Math.max(.3, P.root.getWorldScale(new THREE.Vector3()).z)); P.extWalk.dist += d / sz; }
+    L.copy(o);
+  }
   const tic = n.persona?.tic, key = personaKey(n);
   if (key !== 'the first' || !n.porchOverride) {
     if (n.seated) { P.pose = tic === 'lean' ? 'lean' : 'sit'; if (!n.posed) n.object.position.y = 0; }
@@ -7416,7 +7610,7 @@ society = createSociety({ THREE, camera, playerAnchor, look, zone: () => current
   scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), enter: (name, sp) => enterZone(name, sp), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, parkedVan: () => storyRef.van?.visible ? storyRef.van : null, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true) });
-if (TEST_MODE) window.__epi = { people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);

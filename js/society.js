@@ -707,7 +707,7 @@ export function createSociety(G) {
   const later = (sec, fn) => R.timers.push({ at: now() + sec, fn });
   function ch(opts, { timeout = 16, silence = null, leave = null, title = '' } = {}) { G.queueAction(() => offer(title, '', opts, { timeout, onTimeout: silence || (() => {}), leave: leave || silence })); }
   function npcOf(k) { if (k === 'primo') return G.firstNpc(); const p = G.people().find(x => x.key === k); if (p) R.npc[k] = p.npc; return R.npc[k] || null; }
-  function alive(k) { return !R.dead.has(k) && !!npcOf(k); }
+  function alive(k) { if (R.dead.has(k)) return false; const n = npcOf(k); return !!n && (!n.fate || n.fate === 'present' || n.fate === 'queued'); }
   function sameZone(n) { const Z = zoneOf(G.zone()); return n && n.object.visible && Z && n.object.parent === Z.group; }
   function near(k, r) { const n = npcOf(k); if (!sameZone(n)) return false; const o = n.object.getWorldPosition(new THREE.Vector3()), p = playerPos(); return Math.hypot(o.x - p.x, o.z - p.z) < r; }
   function alone(r = 5, except = []) { return !present().some(p => !except.includes(p.key) && dist2(p) < r); }
@@ -716,7 +716,11 @@ export function createSociety(G) {
   function returnHome(n) { const h = n._home; if (!h) return; if (n.object.parent !== h.parent) { n.object.parent?.remove(n.object); h.parent.add(n.object); } n.object.position.set(h.x, h.y, h.z); n.object.rotation.y = h.r; n.seated = h.seated; n.walking = false; n.object.visible = true; n.borrowed = false; n.lookAt = null; }
   function sendTo(k, zoneName, x, z, yaw) { const n = npcOf(k); if (!n) return; keepHome(n); const zg = zoneOf(zoneName).group; if (n.object.parent !== zg) { n.object.parent?.remove(n.object); zg.add(n.object); } n.object.position.set(x, 0, z); n.object.rotation.y = yaw; n.seated = false; n.posed = false; n.walking = false; n.object.visible = true; n.borrowed = zoneName !== 'home'; }
   function walkTo(k, path, then) { const n = npcOf(k); if (!n) return; keepHome(n); n.seated = false; n.posed = false; R.moves = R.moves.filter(m => m.k !== k); R.moves.push({ k, n, path: path.slice(), then }); }
-  function leaveHouse(k, then) { const n = npcOf(k); if (!n) return; const o = n.object.position, side = o.x < -6.5 ? -7.75 : -5.0; walkTo(k, [...(o.z < 5 && o.x < -4 ? [[side, o.z], [side, 6.5]] : []), [0, 7.4], [0, 8.6]], () => { n.object.visible = false; n.borrowed = true; then?.(); }); }
+  // Leaving people approach the front door from one side (x ±1.15, z 6.7), out of the line
+  // of the doorway, and only step through it when Tobia is not standing there. The last two
+  // waypoints are flagged 'door' so the walker loop can hold them at the side point.
+  function leaveHouse(k, then) { const n = npcOf(k); if (!n) return; const o = n.object.position, side = o.x < -6.5 ? -7.75 : -5.0, sx = o.x < 0 ? -1.15 : 1.15; walkTo(k, [...(o.z < 5 && o.x < -4 ? [[side, o.z], [side, 6.5]] : []), [sx, 6.7], [0, 7.9, 'door'], [0, 8.7, 'door']], () => { n.object.visible = false; n.borrowed = true; then?.(); }); }
+  function doorwayOccupied() { if (G.zone() !== 'home') return false; const p = playerPos(); return Math.abs(p.x) < 1.5 && p.z > 5.9 && p.z < 9.2; }
   // a member dies, and everyone has to live at the same table with it
   function memberDies(k, line, journalText) {
     if (R.dead.has(k)) return; R.dead.add(k); const n = npcOf(k);
@@ -1432,7 +1436,7 @@ export function createSociety(G) {
   function updateRequests(dt) {
     if (!R.built) buildRequestWorld();
     for (const t of R.timers.slice()) if (now() >= t.at) { R.timers.splice(R.timers.indexOf(t), 1); t.fn(); }
-    for (const mv of R.moves.slice()) { const tgt = mv.path[0]; if (!tgt) { R.moves.splice(R.moves.indexOf(mv), 1); mv.n.walking = false; mv.then?.(); continue; } if (G.walk(mv.n, tgt[0], tgt[1], 1.1, dt)) mv.path.shift(); }
+    for (const mv of R.moves.slice()) { const tgt = mv.path[0]; if (!tgt) { R.moves.splice(R.moves.indexOf(mv), 1); mv.n.walking = false; mv.then?.(); continue; } if (tgt[2] === 'door' && !mv.through && doorwayOccupied()) { G.walk(mv.n, mv.n.object.position.x, mv.n.object.position.z, 0, dt); mv.n.walking = false; continue; } if (tgt[2] === 'door') mv.through = true; if (G.walk(mv.n, tgt[0], tgt[1], mv.n.walkSpeed || 1.1, dt, mv.path.length === 1)) mv.path.shift(); }
     for (const pr of R.promises) if (pr.state === 'open') { const r = pr.check(); if (r) { pr.state = r; note(pr.k, r === 'kept' ? `You kept your word to ${nm(pr.k)}: ${pr.text}.` : `You told ${nm(pr.k)} you would ${pr.text}, and you didn’t.`); if (r === 'broken') affect(pr.k, { g: 1.2, t: -1.2 }); } }
     if (R.pendingNews?.length && G.zone() === 'home') { R.pendingNews.forEach(l => G.line(l)); R.pendingNews = []; }
     if (has('thermos-left') && !has('thermos-given') && now() - R.thermosLeft > 100) leftThermosDrunk();
@@ -1599,8 +1603,13 @@ export function createSociety(G) {
 
   return {
     S, update, onKey, onEnterZone, doorGate, gazeFor, barkFor, dialogueGate, onDialogueChoice, primoAside, computeEnding, standing, tense,
+    // v26: what the tragedy director needs to read and to touch
+    meta: () => ({ gathers: S.gather.n, plots: S.plotN || 0 }),
+    idle: () => !S.ui && !R.scene && !R.active && !R.beckon && !S.gather.active,
+    memberGone: (k) => { if (R.dead.has(k)) return; R.dead.add(k); keys.forEach(x => { if (x !== k && !R.dead.has(x)) affect(x, { f: .3 }); }); },
+    offerExt: (title, line, opts, o) => offer(title, line, opts, o), affectExt: (k, fx, cause) => affect(k, fx, cause), clickExt: (k, why) => { if (alive(k)) click(k, why); },
     get seated() { return S.seated; }, get busy() { return B.wipe > 0; }, get distort() { return B.distort; },
     // test hooks
-    introScene, _plot: () => plotScene(), _click: (k, w) => click(k, w || 'test'), _errand: () => { R.errandT = 0; }, _req: R, _gatherEnded: () => gatherEnded(), _beckon: (id) => beckon(id), _motive: (k, kind, why, hidden) => motive(k, kind, why, hidden), _set: set, _canAct: () => G.canAct(), _gesture: gesture, _ask: ask, _startBleed: startBleed, _gather: gatherStart, _affect: affect
+    introScene, _leave: (k, then) => leaveHouse(k, then), _plot: () => plotScene(), _click: (k, w) => click(k, w || 'test'), _errand: () => { R.errandT = 0; }, _req: R, _gatherEnded: () => gatherEnded(), _beckon: (id) => beckon(id), _motive: (k, kind, why, hidden) => motive(k, kind, why, hidden), _set: set, _canAct: () => G.canAct(), _gesture: gesture, _ask: ask, _startBleed: startBleed, _gather: gatherStart, _affect: affect
   };
 }

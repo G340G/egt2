@@ -44,6 +44,16 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 26 — the doorway, the walk, the tragedy
+
+**The front door works when people are about.** The E key targets whatever is closest to the centre of the view; a doorway is aimed at its middle instead of its sill, and a person who is walking past can only be addressed when deliberately centred and close. At a doorway Tobia is facing, a person only wins over the door if they are standing still, clearly nearer and clearly more centred. The prompt always shows what E will do. People leaving the house wait beside the door, out of its line, while Tobia is standing in it.
+
+**Walking.** NPC walking is driven by distance covered, not by a clock, so a planted foot stays planted. The cycle follows the clinical gait cycle (stance ~60% / swing ~40%; heel contact, loading response, foot flat, heel rise and toe-off; knee folding early in swing for clearance), with the ankle path placed on the ground and hip and knee solved by two-bone IK. The pelvis height comes from the legs (a couple of centimetres of rise and fall); arms swing with the opposite leg, slightly behind it, and the thorax counter-rotates against the pelvis (Joseph et al. 2024; Collins, Adamczyk & Kuo 2009). People getting up from the table stand up properly first (feet drawn back, trunk forward, then up), shift their weight, accelerate over the first steps, slow into turns and to a stop. Each person has their own stride, sway, arm swing, lean and tempo.
+
+**Clues no longer kill.** Collecting a clue used to queue the next death; eight clues meant seven deaths. Clues are now only discovery.
+
+**Deaths follow the story.** Each death has its own preconditions (how far the story has come, who is alive, who is needed, what has happened), and deaths are spaced by fresh story between them. When one is coming, Tobia may see a sign of it at the table: he can say something (it is delayed, and he is noticed; say something twice and someone starts to watch him) or look away (doing nothing is looking away; it goes in the journal, and Il Primo notices his manners). Then the group acts by itself the next time Tobia goes somewhere: walking into the place, he arrives at the wrong moment and sees it (the existing station plays unchanged), or a minute too late; from near by he only hears it; elsewhere he misses it and finds the aftermath later — an empty place set at the table, a burnt shed, a new wall in the cellar.
+
 ## Version 25.1 — the car will not start
 
 - **Leaving no longer ends at a van across the lane.** When Tobia tries to drive away from the farmhouse, the car turns over and will not catch. Under the bonnet the black cap is loose and the rotor arm is gone; somebody has had it (the same part as Pino's van).
