@@ -56,7 +56,7 @@ The four slaughterhouse forms are sculptural and stylised rather than anatomical
 
 **Gabri walks.** When he left the house the stalker loop cleared his walking flag every frame while he was being moved, so his legs never moved. Anyone who is moved now walks, whatever flag the mover set.
 
-**Oaths.** Each person swears in their own register, more when angry with Tobia: Franco constantly and blasphemously, Gabri raw, Sergio and Walter flatly, Anna and Livia in the old women's words, Ines almost never; Ottavio, Dario and Il Primo never.
+**Oaths** (revised after v27). No random swearing. Five oaths in the whole game, written into specific moments: Pino when the van won’t start, Gabri coming round after the thermos, Sergio hearing Dario thinks he talked, Franco throwing Tobia out of his kitchen, and Franco’s own “Laugh, cazzo” after his knife joke. None is in anyone’s first line.
 
 ## Version 26 — the doorway, the walk, the tragedy
 

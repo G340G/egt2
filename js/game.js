@@ -5,7 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, BIANCO, personFor, swear } from './people.js';
+import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, BIANCO, personFor } from './people.js';
 import { makePerson, updatePerson, personalize, leatherJacket, faceShadows, perfectoOpen, poseHand } from './rig.js';
 import { armAngles } from './expression.js';
 import { createSociety } from './society.js';
@@ -2337,7 +2337,7 @@ function openDialogue(npc) {
   if (npc.isHomeFirst) { const j = jobFor(npc); if (j) offerJob(npc, j); else storyLine('IL PRIMO: ' + (primoAside() || 'Sit wherever the room puts you. You will know which chair.')); return; }
   if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { const j = jobFor(npc); if (j) { offerJob(npc, j); return; } openSecondDialogue(npc); return; }
   clearLines(); dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
-  $('speaker').textContent = (npc.displayName||npc.name).toUpperCase(); const firstLine = npc.dialogue?.line ? swear(`${npc.name}: ${npc.dialogue.line}`, arousalOf(`${npc.name}:`)).replace(/^[^:]+:\s*/, '') : 'No answer. Only the sound of clothes.'; $('subtitle').textContent = firstLine; speakVoice(firstLine,npc.name);
+  $('speaker').textContent = (npc.displayName||npc.name).toUpperCase(); const firstLine = npc.dialogue?.line || 'No answer. Only the sound of clothes.'; $('subtitle').textContent = firstLine; speakVoice(firstLine,npc.name);
   const options = $('dialogue-options'); options.innerHTML = '';
   (npc.dialogue?.choices || ['Listen.', 'Go away.']).forEach((choice, i) => {
     const b = document.createElement('button'); b.className = 'dialogue-option'; b.innerHTML = `<b>[${i + 1}]</b>${choice}`;
@@ -3498,9 +3498,7 @@ function endFirstTeaScene(){
   storyScene=null;dialogueOpen=false;$('subtitle-wrap').classList.remove('visible');camera.position.set(0,1.63,0);camera.rotation.set(0,s.savedRot?.[1]||0,0);resetLook();
   showToast('IL PRIMO IS GONE.');
 }
-// v27: spoken lines carry each person's oaths (people.js SWEAR), more of them when they are angry with Tobia
-function arousalOf(text) { const m = /^([^:(]{2,24}):/.exec(text || ''); if (!m) return 0; const k = m[1].trim().toLowerCase(), r = society?.S?.rel?.[k]; return r ? Math.max(0, Math.min(1.5, r.grievance * .3 + r.fear * .2)) : 0; }
-function storyLine(text) { text = swear(text, arousalOf(text)); presentLine(() => storyLineNow(text), text); }
+function storyLine(text) { presentLine(() => storyLineNow(text), text); }
 function storyLineNow(text) {
   if (TEST_MODE) (window.__lines = window.__lines || []).push([Math.round(performance.now()), text.slice(0, 60)]);
   const m = /^\(/.test(text) ? null : /^([^:]+):\s*/.exec(text);
