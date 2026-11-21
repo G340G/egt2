@@ -5,8 +5,9 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, BIANCO, personFor } from './people.js';
-import { makePerson, updatePerson, personalize, leatherJacket, faceShadows, perfectoOpen } from './rig.js';
+import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, BIANCO, personFor, swear } from './people.js';
+import { makePerson, updatePerson, personalize, leatherJacket, faceShadows, perfectoOpen, poseHand } from './rig.js';
+import { armAngles } from './expression.js';
 import { createSociety } from './society.js';
 
 // ---- v3.2 shared state: declared before any zone is built ----
@@ -2324,7 +2325,7 @@ function speakVoice(text, npcName = '') {
   const clean = String(text).replace(/^[^:]*:\s*/, '');
   const dur = Math.min(4.8, .9 + clean.length * .045);
   const seed = (npcName || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const pan = ((seed % 5) - 2) * .35; markTalking(npcName, dur);
+  const pan = ((seed % 5) - 2) * .35; markTalking(npcName, dur, clean);
   audio.whisper(dur, pan);
   setTimeout(() => audio.whisper(dur * .6, -pan), 280 + (seed % 3) * 90);
   const sub = $('subtitle'); if (sub) { sub.classList.add('distorted'); setTimeout(() => sub.classList.remove('distorted'), dur * 1000); }
@@ -2336,7 +2337,7 @@ function openDialogue(npc) {
   if (npc.isHomeFirst) { const j = jobFor(npc); if (j) offerJob(npc, j); else storyLine('IL PRIMO: ' + (primoAside() || 'Sit wherever the room puts you. You will know which chair.')); return; }
   if (npc.talkedOnce && !npc.isOpeningPrimo && !/primo|the first/i.test(npc.name || '')) { const j = jobFor(npc); if (j) { offerJob(npc, j); return; } openSecondDialogue(npc); return; }
   clearLines(); dialogueOpen = true; controls.unlock(); $('subtitle-wrap').classList.add('visible');
-  $('speaker').textContent = (npc.displayName||npc.name).toUpperCase(); $('subtitle').textContent = npc.dialogue?.line || 'No answer. Only the sound of clothes.'; speakVoice(npc.dialogue?.line || 'No answer.',npc.name);
+  $('speaker').textContent = (npc.displayName||npc.name).toUpperCase(); const firstLine = npc.dialogue?.line ? swear(`${npc.name}: ${npc.dialogue.line}`, arousalOf(`${npc.name}:`)).replace(/^[^:]+:\s*/, '') : 'No answer. Only the sound of clothes.'; $('subtitle').textContent = firstLine; speakVoice(firstLine,npc.name);
   const options = $('dialogue-options'); options.innerHTML = '';
   (npc.dialogue?.choices || ['Listen.', 'Go away.']).forEach((choice, i) => {
     const b = document.createElement('button'); b.className = 'dialogue-option'; b.innerHTML = `<b>[${i + 1}]</b>${choice}`;
@@ -3497,7 +3498,9 @@ function endFirstTeaScene(){
   storyScene=null;dialogueOpen=false;$('subtitle-wrap').classList.remove('visible');camera.position.set(0,1.63,0);camera.rotation.set(0,s.savedRot?.[1]||0,0);resetLook();
   showToast('IL PRIMO IS GONE.');
 }
-function storyLine(text) { presentLine(() => storyLineNow(text), text); }
+// v27: spoken lines carry each person's oaths (people.js SWEAR), more of them when they are angry with Tobia
+function arousalOf(text) { const m = /^([^:(]{2,24}):/.exec(text || ''); if (!m) return 0; const k = m[1].trim().toLowerCase(), r = society?.S?.rel?.[k]; return r ? Math.max(0, Math.min(1.5, r.grievance * .3 + r.fear * .2)) : 0; }
+function storyLine(text) { text = swear(text, arousalOf(text)); presentLine(() => storyLineNow(text), text); }
 function storyLineNow(text) {
   if (TEST_MODE) (window.__lines = window.__lines || []).push([Math.round(performance.now()), text.slice(0, 60)]);
   const m = /^\(/.test(text) ? null : /^([^:]+):\s*/.exec(text);
@@ -6444,10 +6447,19 @@ function findPersonaParts(npc) {
   };
   return npc._parts;
 }
-function markTalking(name, dur) {
+function talkMood(text) {
+  const t = String(text || '');
+  if (/\(laugh|\bha\b|haha/i.test(t)) return 'joy';
+  if (/cazzo|merda|vaffanculo|puttana|porco|stronz|!\s*$|!\s/i.test(t)) return 'anger';
+  if (/sorry|forgive|dead|died|gone|miss him|miss her|alone|cold/i.test(t)) return 'sad';
+  if (/\?\s*$/.test(t)) return 'surprise';
+  return null;
+}
+function markTalking(name, dur, text) {
   let key = (name || '').toLowerCase(); if (!key) return; if (key === 'il primo') key = 'the first';
+  const mood = talkMood(text);
   const all = [...cultRoster, ...Object.values(zones).flatMap(z => z.interactables || [])];
-  for (const n of all) if (n?.type === 'npc' && (n.name || '').toLowerCase() === key && n.object?.visible) n.talkT = Math.max(n.talkT || 0, dur);
+  for (const n of all) if (n?.type === 'npc' && (n.name || '').toLowerCase() === key && n.object?.visible) { n.talkT = Math.max(n.talkT || 0, dur); n.talkMood = mood; }
 }
 function bodyRealism(n, t, dt) {
   const parts = findPersonaParts(n), s = t * .001 + n.phase;
@@ -6928,33 +6940,73 @@ function attachRig(npc) {
   P.idle = (R, t, dt) => rigIdle(npc, R, t, dt);
 }
 // Habits on the articulated body, run inside the rig's own update.
+// Habits on the articulated body, run inside the rig's own update (v27: anatomical angles —
+// shoulder flexion / abduction / internal rotation, elbow flexion, forearm supination, wrist —
+// inside normal ranges of motion; the rig clamps them again afterwards).
 function rigIdle(n, R, t, dt) {
   const tic = n.persona?.tic, scripted = n.posed || (storyScene && storyScene.type !== 'hold'), s = t + n.phase;
-  if (n.raiseK) R.arms.forEach((a, i) => { a.sh.rotation.set(-.3 * n.raiseK, 0, (i === 0 ? -2.3 : 2.3) * n.raiseK); a.el.rotation.x = -.2; });
-  if (scripted || R.walking || n.porchOverride) return;
+  if (n.raiseK) R.arms.forEach((a, i) => { const q = armAngles(i, 160 * n.raiseK, 25 * n.raiseK, 0, 15, .3, 0); a.sh.rotation.set(q.shX, q.shY, q.shZ); a.el.rotation.x = q.elX; });
+  if (scripted || R.walking || R.rise || R.gesturing || n.porchOverride) return;
   const cyc = (period, dur) => { const c = (s % period + period) % period; return c < dur ? Math.sin(c / dur * Math.PI) : 0; };
   const A = R.arms;
-  if ((tic === 'fold' || tic === 'arms') && !n.seated) { const br = Math.sin(s * 1.3) * .02; A.forEach((a, i) => { const sd = i === 0 ? 1 : -1; a.sh.rotation.set(-.32 + br, 0, sd * .42); a.el.rotation.set(-1.85, 0, 0); a.wr.rotation.set(0, 0, sd * .5); }); if (tic === 'fold') A[0].el.rotation.x = -1.85 + Math.sin(s * 2.1) * .06; }
+  // set an arm from anatomical angles, blended by k against what the rig already holds
+  const arm = (i, f, ab, r, e, sup = -.15, w = 0, k = 1, shape) => { const q = armAngles(i, f, ab, r, e, sup, w), a = A[i], L = (x, y) => x + (y - x) * k; a.sh.rotation.x = L(a.sh.rotation.x, q.shX); a.sh.rotation.z = L(a.sh.rotation.z, q.shZ); a.sh.rotation.y = L(a.sh.rotation.y, q.shY); a.el.rotation.x = L(a.el.rotation.x, q.elX); a.wr.rotation.y = L(a.wr.rotation.y, q.wrY); a.wr.rotation.x = L(a.wr.rotation.x, q.wrX); if (shape && a.H) poseHand(a.H, shape, k, dt, a.sd); };
+  if ((tic === 'fold' || tic === 'arms') && !n.seated) {
+    // arms crossed over the lower chest: the forearms horizontal, one over the other, hands at the opposite elbow
+    const br = Math.sin(s * 1.3) * 1.2; arm(0, 28 + br, -22, 62, 112, -.5, 0, 1, 'relaxed'); arm(1, 34 + br, -24, 66, 108, -.6, 0, 1, 'relaxed');
+  }
   switch (tic) {
-    case 'tap': { const k = cyc(5, .6); if (k) A[1].el.rotation.x = -.95 + Math.abs(Math.sin(s * 14)) * .25; break; }
-    case 'wipe': { const k = cyc(6, 2.2); if (k) { A[0].el.rotation.x = -1.2 + Math.sin(s * 9) * .15 * k; A[1].el.rotation.x = -1.2 - Math.sin(s * 9) * .15 * k; } break; }
-    case 'stir': A[1].sh.rotation.x = -.6; A[1].el.rotation.x = -1.0 + Math.sin(s * 3) * .12; A[1].sh.rotation.z = -.15 + Math.cos(s * 3) * .08; break;
-    case 'carve': A[1].el.rotation.x = -1.1 + Math.sin(s * 12) * .04 * cyc(4, 2.5); A[0].el.rotation.x = -1.0; break;
-    case 'cross': { const k = cyc(9, 1.6); if (k) { A[1].sh.rotation.x = -.5 * k; A[1].el.rotation.x = -2.0 * k; A[1].sh.rotation.z = -.35 * k; } break; }
-    case 'measure': { const k = cyc(11, 2.2); if (k && !n.seated) { A[0].sh.rotation.z = 1.2 * k; A[1].sh.rotation.z = -1.2 * k; } break; }
-    case 'keys': { const k = cyc(5, 1.2); if (k) A[1].el.rotation.x = -.7 * k; break; }
+    case 'tap': { const k = cyc(5, .9); if (k) { arm(1, 25, 8, 20, 92, -.85, 12, k, 'open'); A[1].wr.rotation.x += Math.max(0, Math.sin(s * 13)) * .14 * k; } break; }
+    case 'wipe': { const k = cyc(6, 2.4); if (k) { const r = Math.sin(s * 8) * 7; arm(0, 18 + r * .4, -8, 34, 72 + r, 0, 0, k, 'open'); arm(1, 18 - r * .4, -8, 34, 72 - r, 0, 0, k, 'open'); } break; }
+    case 'stir': { const c = s * 2.6; arm(1, 34 + Math.sin(c) * 6, 12 + Math.cos(c) * 6, 22, 86, -.2, 0, 1, 'grip'); break; }
+    case 'carve': { const k = cyc(4, 2.5); arm(1, 30, 6, 30, 100 + Math.sin(s * 11) * 5 * k, -.3, 0, 1, 'grip'); arm(0, 26, -4, 36, 94, -.7, 0, 1, 'open'); break; }
+    case 'cross': {
+      // the sign of the cross with the right hand: forehead, breast, left shoulder, right shoulder
+      const P = 9, c = ((s % P) + P) % P, u = c / 2.4; if (u < 1) {
+        const K = [[0, 2, 5, 0, 10], [75, -18, 42, 142], [36, -12, 46, 124], [50, -30, 58, 132], [46, -4, 34, 138], [2, 5, 0, 10]];
+        const seg = Math.min(4, Math.floor(u * 5)), f = (u * 5) - seg, e = f * f * (3 - 2 * f), a0 = K[seg], a1 = K[seg + 1], L = (x, y) => x + (y - x) * e;
+        arm(0, L(a0[0], a1[0]), L(a0[1], a1[1]), L(a0[2], a1[2]), L(a0[3], a1[3]), -.6, 0, 1, 'open');
+      } break;
+    }
+    case 'measure': {
+      // Walter sizes things up: palms facing, hands apart showing a length; now and then he
+      // sights along his outstretched arm with the thumb up, the way builders estimate.
+      if (n.seated) break; const P = 14, c = ((s % P) + P) % P;
+      if (c < 4) { const k = Math.sin(Math.min(1, c / 4) * Math.PI), gap = 6 + Math.sin(c * 1.7) * 4; arm(0, 32, gap, 14, 86, 0, 4, k, 'open'); arm(1, 32, gap, 14, 86, 0, 4, k, 'open'); R.look = R.arms[1].wr.getWorldPosition(rigIdle.v || (rigIdle.v = new THREE.Vector3())); R.lookW = k; }
+      else if (c > 7 && c < 9.6) { const k = Math.sin((c - 7) / 2.6 * Math.PI); arm(1, 86, 12, 0, 6, -.05, 10, k, 'fist'); R.headTilt = -.12 * k; }
+      else if (R.look === rigIdle.v) R.look = 'cam';
+      break;
+    }
+    case 'keys': { const k = cyc(5, 1.4); if (k) { arm(1, 12, 10, 10, 62 + Math.sin(s * 15) * 4, -.2, 0, k, 'grip'); } break; }
     case 'hum': R.headTilt = Math.sin(s * 1.9) * .12; break;
     case 'glance': { const k = cyc(5.5, 1.4); if (k > .3) { R.look = rigIdle.fridge || (rigIdle.fridge = new THREE.Vector3(-6, 1.2, -8.3)); R.lookW = 1; } else if (R.look === rigIdle.fridge) R.look = 'cam'; break; }
   }
 }
+// What each person feels, as a blend of Ekman's emotions: their temperament, how they stand
+// with Tobia (society trust / grievance / fear), and what has just happened in the house.
+const EMO_BASE = { ines: { serene: .4 }, ottavio: { sad: .2 }, anna: { sad: .35 }, dario: { serene: .3, contempt: .15 }, sergio: { sad: .3 }, marta: { serene: .2 }, pino: {}, gabri: { fear: .25 }, walter: { contempt: .15 }, livia: { serene: .25, joy: .1 }, franco: { anger: .2, contempt: .2 }, 'the first': { serene: .5, contempt: .12 } };
+function emotionFor(n) {
+  const k = personaKey(n), e = { ...(EMO_BASE[k] || {}) }, add = (x, v) => { e[x] = Math.min(1, (e[x] || 0) + v); };
+  const r = society?.S?.rel?.[k === 'the first' ? 'primo' : k];
+  if (r) { if (r.grievance > .5) { add('anger', Math.min(.7, r.grievance * .22)); add('contempt', Math.min(.3, r.grievance * .08)); } if (r.fear > .2) add('fear', Math.min(.8, r.fear * .45)); if (r.trust > 1) add('joy', Math.min(.35, (r.trust - 1) * .3)); }
+  if (n.hunting) { add('anger', .5); e.joy = 0; }
+  const since = elapsed - (tragedy.lastAt ?? -999); if (since < 150 && k !== 'the first') add('sad', .45 * (1 - since / 150));
+  if (society?.distort > .2 && k !== 'the first') add('disgust', .25);
+  if (n.talkMood && n.talkT > 0) add(n.talkMood, .45);
+  if (k === 'the first' && since < 150) add('joy', .3 * (1 - since / 150)); // he likes to watch it happen
+  return e;
+}
 function driveRig(n, t, dt) {
   const P = n.rig; if (P._frame === renderer.info.render.frame) return; P._frame = renderer.info.render.frame;
   const cam = driveRig.v || (driveRig.v = new THREE.Vector3()); camera.getWorldPosition(cam);
-  P.parentYaw = n.object.rotation.y;
-  P.extWalk = P.extWalk || { on: false, dist: 0 }; P.extWalk.on = !!n.walking; P.extWalk.pre = !!(n.walking && n.preStep);
-  { // ground actually covered this frame, in the rig's own units (teleports are not steps)
-    const o = n.object.position, L = P._lastPos || (P._lastPos = o.clone()), d = Math.hypot(o.x - L.x, o.z - L.z);
-    if (n.walking && d < .5) { const sz = P._sz || (P._sz = Math.max(.3, P.root.getWorldScale(new THREE.Vector3()).z)); P.extWalk.dist += d / sz; }
+  P.parentYaw = n.object.rotation.y; P.styleKey = P.styleKey || (personaKey(n) === 'the first' ? 'first' : personaKey(n)); P.emo = n.forceEmo || emotionFor(n);
+  P.extWalk = P.extWalk || { on: false, dist: 0 }; P.extWalk.pre = !!(n.walking && n.preStep);
+  { // ground actually covered this frame, in the rig's own units (teleports are not steps). v27: a body
+    // that is being moved walks, whoever moved it and whatever flag they set (Gabri used to glide).
+    const o = n.object.position, L = P._lastPos || (P._lastPos = o.clone()), d = Math.hypot(o.x - L.x, o.z - L.z), carried = d > .002 && d < .5 && !n.posed && !n.seated;
+    P._movedT = carried ? .25 : Math.max(0, (P._movedT || 0) - dt);
+    P.extWalk.on = !!n.walking || P._movedT > 0;
+    if ((n.walking || carried) && d < .5) { const sz = P._sz || (P._sz = Math.max(.3, P.root.getWorldScale(new THREE.Vector3()).z)); P.extWalk.dist += d / sz; }
     L.copy(o);
   }
   const tic = n.persona?.tic, key = personaKey(n);
@@ -7365,14 +7417,14 @@ function applyCorruption(npc, P) {
     const lm = P.legs[0].th.children[0]?.material; if (lm?.map) { lm.map = grimeTexture(lm.map, C.stain === 'blood' ? 'soot' : C.stain, 3); lm.needsUpdate = true; }
     // the hands carry it most: a separate material so the face stays clean
     const hm = (skinMat || new THREE.MeshStandardMaterial()).clone(); hm.color.lerp(new THREE.Color(C.hands), .55);
-    P.arms.forEach(a => a.wr.children.forEach(m => { if (m.isMesh) m.material = hm; }));
+    P.arms.forEach(a => a.wr.traverse(m => { if (m.isMesh) m.material = hm; }));
     if (C.stain === 'blood') { const am = P.hips.children.find(c => c.isMesh && c.geometry.type === 'CylinderGeometry' && c.material.map); if (am) { am.material = am.material.clone(); am.material.map = grimeTexture(am.material.map, 'blood', 9); } }
   } else {
     if (C.skin) { skinMat?.color.lerp(new THREE.Color(C.skin), .45); P.headMat?.color.lerp(new THREE.Color(C.skin), .45); }
     // rot is in the colour, not in stuck-on shapes: the skin above, darker lips, a mark at the throat
-    if (C.lips && P.mouth) P.mouth.material = new THREE.MeshStandardMaterial({ color: C.lips, roughness: .6 });
+    if (C.lips && P.mouth) { const lm = new THREE.MeshStandardMaterial({ color: C.lips, roughness: .6 }); P.mouth.traverse(o => { if (o.isMesh && o !== P.cavity) o.material = lm; }); }
     if (C.bruise) { const bm = new THREE.MeshStandardMaterial({ color: 0x5a4250, roughness: 1, transparent: true, opacity: .35, depthWrite: false }); const b1 = new THREE.Mesh(new THREE.SphereGeometry(.026, 10, 8), bm); b1.scale.set(1.3, .7, .4); b1.position.set(.035, .02, .045); P.neck.add(b1); }
-    if (C.cuts) (P.forearms || []).forEach(fa => { for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(.03, .003, .004), new THREE.MeshStandardMaterial({ color: 0x6a2018, roughness: .8 })); c.position.set(0, -.04 + i * .025, .046 * P.spec.w); fa.add(c); } });
+    if (C.cuts) (P.forearms || []).forEach(fa => { for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(.03, .003, .004), new THREE.MeshStandardMaterial({ color: 0x6a2018, roughness: .8 })); c.position.set(0, -.15 - i * .022, (.033 - i * .002) * P.spec.w); fa.add(c); } });
   }
   // every face can come apart; the internal ones start further gone
   const sm = new THREE.Mesh(new THREE.PlaneGeometry(.2, .25), new THREE.MeshBasicMaterial({ map: smearTexture(personaKey(npc).length * 13 + 5), transparent: true, opacity: 0, depthWrite: false }));
