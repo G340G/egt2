@@ -44,6 +44,16 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 28.1 — arms that move like arms
+
+**No more twitching.** Everything that moves an arm in a frame (the pose, a speech gesture, a habit, a cigarette, the table) now produces a target, and the visible joints follow it with a critically damped spring (about 60 ms, no overshoot). The next frame starts again from the target, not from the smoothed pose, so the animation underneath stays continuous; a joint set directly by a cutscene is taken as given. Measured with the whole table talking for 15 seconds: Anna went from 452 frame-to-frame reversals to 3, Walter from 213 to 1, Dario's worst one-frame jump from 86° to 19° (a speech beat).
+
+**The table without the flicker.** The lift that keeps hands out of the tabletop is found by bisection on the smoothed pose, so it changes continuously; it takes hold at once and lets go slowly, and it fades in over the last 10 cm before the edge. Hands in a lap under the table are left alone.
+
+**Habits fade.** Crossed arms, stirring, carving and the rest are let go of over a third of a second when a person starts to gesture or walk, and taken up again over two thirds, instead of vanishing in one frame.
+
+**Il Primo's cigarette hand** no longer takes part in speech gestures, so its fingers hold the cigarette instead of flickering between gesture shapes.
+
 ## Version 28 — the game can be finished, and the house wants you dead
 
 **Il Primo is in the slaughterhouse again.** After the dark room he now stands by the hooks until the tea scene, so "speak with Il Primo again" can be done and the game can be finished. He had been hidden there since the first upload, and nothing ever showed him.

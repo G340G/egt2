@@ -414,6 +414,7 @@ export function setPose(P, pose) { P.pose = pose; }
 const tmpV = new THREE.Vector3();
 export function updatePerson(P, dt, t, camPos) {
   const k = P.k; const L = P.legs, Ar = P.arms;
+  restoreArms(P);
   P.breathe += dt;
   const br = Math.sin(P.breathe * 1.4 + P.t0) * 0.5 + 0.5;
   // defaults
@@ -459,7 +460,9 @@ export function updatePerson(P, dt, t, camPos) {
   if (lg > 0 || P.smile > 0) { em.au[12] = Math.max(em.au[12] || 0, Math.max(lg, P.smile)); em.au[6] = Math.max(em.au[6] || 0, lg * .8); }
   // v27: speech gestures (McNeill 1992; Kendon 2004), not while walking, rising or posed
   const free = !P.rise && !P.noGesture && !(ov && !ov.rise && ov.w > 0.3) && (P.pose === 'stand' || P.pose === 'sit' || P.pose === 'lean');
-  const gt = free ? gestureTargets(P, dt, t, P.talk > 0, eb.energy) : (P.gest && (P.gest.active = false), null);
+  let gt = free ? gestureTargets(P, dt, t, P.talk > 0, eb.energy) : (P.gest && (P.gest.active = false), null);
+  // an arm that is holding something (Il Primo's cigarette) does not take part in speech gestures
+  if (gt && P.holdArm >= 0) { gt = gt.slice(); gt[P.holdArm] = null; if (!gt[0] && !gt[1]) gt = null; }
   P.gesturing = !!gt;
   if (gt) for (let i = 0; i < 2; i++) { const g = gt[i]; if (!g) continue; const w = g.w * (P.pose === 'stand' ? 1 : 0.75), mx = (a, b) => a + (b - a) * w; shX[i] = mx(shX[i], g.shX); shZ[i] = mx(shZ[i], g.shZ); shY[i] = mx(shY[i], g.shY); elX[i] = mx(elX[i], g.elX); wrY[i] = mx(wrY[i], g.wrY); wrX[i] = mx(wrX[i], g.wrX); }
   // fear keeps the arms close to the body
@@ -482,6 +485,7 @@ export function updatePerson(P, dt, t, camPos) {
     P.hips.rotation.y *= 0.8; P.hips.rotation.z *= 0.8; P.hips.position.x *= 0.8; P.spine.rotation.y *= 0.8; P.chest.rotation.y *= 0.8; P.chest.rotation.z *= 0.8;
     L.forEach(l => { l.th.rotation.z *= 0.8; }); if (P.skirt) { P.skirt.rotation.x *= 0.9; P.skirt.rotation.z *= 0.9; }
   }
+  P.idleShape = P.idleShape || [null, null]; P.idleShape[0] = P.idleShape[1] = null;
   if (P.idle) P.idle(P, t, dt);
   P.spine.rotation.x = spineX; P.chest.rotation.x = chestX + br * 0.012; P.chestMesh.scale.y = 1 + br * 0.015;
   // head: look at a point (usually the camera) within limits
@@ -505,29 +509,69 @@ export function updatePerson(P, dt, t, camPos) {
   open = Math.max(open, (em.au[26] || 0) * .55);
   if (P.lips) updateFace(P, em.au, open, blink, dt);
   else if (P.lids) P.lids.forEach(l => { l.scale.y = 0.12 + blink * 0.62; });
-  if (P.arms[0].H) applyHands(P, gt || [], dt);
+  // one hand shape per hand per frame: the held object, else the speech gesture, else the habit
+  if (P.arms[0].H) applyHands(P, [0, 1].map(i => i === P.holdArm ? { shape: P.holdShape || 'ring', w: 1 } : (gt && gt[i]) || P.idleShape[i]), dt);
   enforceROM(P);
-  if (P.surfaces?.length) clearSurfaces(P);
 }
 
-// v28: hands and elbows stay on top of a table, never inside it. After the pose is final, each
-// arm is tested at the elbow, the wrist and the fingertips against nearby tabletops; while any point
-// is under the top (plus a little thickness for the hand), the elbow is bent further, which lifts a
-// forearm that is reaching forward, and an elbow that is itself under the top is drawn back to the
-// side of the body. A real person does the same: forearms rest on the table, they do not go into it.
-const _sp = new THREE.Vector3();
-function clearSurfaces(P) {
-  const S = P.surfaces, k = P.k, pad = 0.03 * k;
-  const pen = (obj, y) => { obj.localToWorld(_sp.set(0, y, 0)); let worst = 0; for (const b of S) { if (_sp.x < b.min.x - pad || _sp.x > b.max.x + pad || _sp.z < b.min.z - pad || _sp.z > b.max.z + pad) continue; const d = b.max.y + 0.035 * k - _sp.y; if (d > worst && _sp.y > b.min.y - 0.25) worst = d; } return worst; };
-  for (const a of P.arms) {
-    for (let it = 0; it < 14; it++) {
-      a.sh.updateWorldMatrix(true, true);
-      const pe = pen(a.el, 0), ph = Math.max(pen(a.wr, 0), pen(a.wr, -0.17 * k));
-      if (pe <= 0 && ph <= 0) break;
-      if (pe > 0 && a.sh.rotation.x < 0.15) a.sh.rotation.x += 0.07;
-      if (ph > 0) { if (a.el.rotation.x > -2.45) a.el.rotation.x -= 0.09; else if (a.sh.rotation.x > -1.6) a.sh.rotation.x -= 0.07; }
-    }
+// v28.1: arms that move like arms. Everything that writes an arm this frame (rig pose, speech
+// gesture, habit, smoking, table clearance) produces a raw pose; settleArms then moves the visible
+// joints toward it with a critically damped spring (no overshoot, ~60 ms to settle), so no single
+// frame can jump. Next frame starts again from the raw pose, not from the smoothed one, so the
+// animation underneath stays continuous. A joint that someone else has set directly in between
+// (a cutscene) is taken as given and snapped to.
+const ARM_CH = [['sh', 'x'], ['sh', 'y'], ['sh', 'z'], ['el', 'x'], ['wr', 'x'], ['wr', 'y'], ['wr', 'z']];
+function armJoints(P) { return P._jl || (P._jl = P.arms.flatMap(a => ARM_CH.map(([b, c]) => [a[b].rotation, c]))); }
+function restoreArms(P) {
+  if (!P._raw) return; const J = armJoints(P);
+  for (let j = 0; j < J.length; j++) { const [o, c] = J[j]; if (Math.abs(o[c] - P._wrote[j]) < 1e-6) o[c] = P._raw[j]; else { P._out[j] = o[c]; P._vel[j] = 0; } }
+}
+export function settleArms(P, dt) {
+  const J = armJoints(P), n = J.length;
+  const first = !P._raw; if (first) { P._raw = new Float64Array(n); P._out = new Float64Array(n); P._vel = new Float64Array(n); P._wrote = new Float64Array(n); }
+  for (let j = 0; j < n; j++) P._raw[j] = J[j][0][J[j][1]];
+  const w = P.armStiff || 22, e = Math.exp(-w * Math.min(dt, 0.1));
+  for (let j = 0; j < n; j++) {
+    const [o, c] = J[j], target = o[c];
+    if (first || dt > 0.25) { P._out[j] = target; P._vel[j] = 0; }
+    else { const x = P._out[j] - target, v = P._vel[j], h = v + w * x; P._out[j] = target + (x + h * dt) * e; P._vel[j] = (v - w * h * dt) * e; }
+    o[c] = P._out[j];
   }
+  // the table is a hard limit on what is shown: applied to the smoothed pose, as a lift that grows as
+  // continuously as the smoothed arm descends, so it is never late and never flickers
+  if (P.surfaces?.length) clearSurfaces(P, dt);
+  for (let j = 0; j < n; j++) P._wrote[j] = J[j][0][J[j][1]];
+}
+// v28: hands and elbows stay on top of a table, never inside it. Each arm is tested at the elbow,
+// the wrist and the fingertips against nearby tabletops; the lift that clears them (more elbow
+// flexion for a hand, the elbow drawn back to the body if the elbow itself is under the top) is
+// found on the smoothed pose in small steps, then held: it rises at once when more is needed and lets
+// go slowly when less is, so an arm resting near the edge does not flicker on and off.
+const _sp = new THREE.Vector3();
+function clearSurfaces(P, dt) {
+  const S = P.surfaces, k = P.k, pad = 0.03 * k, above = 0.035 * k, slab = 0.1;
+  // depth of a point inside the tabletop slab (hands resting in a lap, under the table, are fine)
+  // the required clearance fades in over the last 10 cm outside the edge and below the slab, so a hand
+  // sliding toward the table edge is eased up as it arrives, instead of being lifted in one frame
+  const ss = (x, a0, a1) => { const t = Math.max(0, Math.min(1, (x - a0) / (a1 - a0))); return t * t * (3 - 2 * t); };
+  const pen = (obj, y) => { obj.localToWorld(_sp.set(0, y, 0)); let worst = 0; for (const b of S) { const out = Math.max(b.min.x - pad - _sp.x, _sp.x - b.max.x - pad, b.min.z - pad - _sp.z, _sp.z - b.max.z - pad, 0); if (out > 0.1) continue; const under = b.max.y - _sp.y; if (under > slab + 0.06) continue; const d = (b.max.y + above - _sp.y) * (1 - ss(out, 0, 0.1)) * (1 - ss(under, slab - 0.04, slab + 0.06)); if (d > worst) worst = d; } return worst; };
+  P._clr = P._clr || P.arms.map(() => ({ sh: 0, el: 0 }));
+  P.arms.forEach((a, i) => {
+    const sh0 = a.sh.rotation.x, el0 = a.el.rotation.x;
+    const at = (dsh, del) => { a.sh.rotation.x = sh0 + dsh; a.el.rotation.x = el0 + del; a.sh.updateWorldMatrix(true, true); };
+    const elbowIn = (dsh) => { at(dsh, 0); return pen(a.el, 0) > 0; };
+    const handIn = (dsh, del) => { at(dsh, del); return Math.max(pen(a.wr, 0), pen(a.wr, -0.17 * k)) > 0; };
+    // smallest change that clears, found by bisection so it varies continuously with the pose
+    const solve = (bad, hi) => { if (!bad(0)) return 0; if (bad(hi)) return hi; let lo = 0; for (let it = 0; it < 12; it++) { const m = (lo + hi) / 2; if (bad(m)) lo = m; else hi = m; } return hi; };
+    const dsh = solve(elbowIn, Math.max(0, 0.15 - sh0));                       // elbow under the top: draw it back
+    const room = Math.max(0, el0 + 2.45);                                        // then bend the elbow, then lift the arm
+    const lam = solve((l) => handIn(dsh - Math.max(0, l - room), -Math.min(l, room)), room + 1.4);
+    const need = { sh: dsh - Math.max(0, lam - room), el: -Math.min(lam, room) };
+    const C = P._clr[i], rel = 1.1 * dt;
+    C.el = Math.min(need.el, C.el + rel);                                         // takes hold at once, lets go slowly
+    C.sh = (Math.abs(need.sh) >= Math.abs(C.sh) || need.sh * C.sh < 0) ? need.sh : C.sh + Math.sign(need.sh - C.sh) * Math.min(Math.abs(need.sh - C.sh), rel);
+    at(C.sh, C.el);
+  });
 }
 
 export function walkTo(P, x, z, speed = 1.2, face) {

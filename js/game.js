@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { PEOPLE, LIVED_MOMENTS, HOUSE_WORDS, JOBS, SUBCULTURE, CORRUPTION, SOCIAL, BIANCO, personFor } from './people.js';
-import { makePerson, updatePerson, personalize, leatherJacket, faceShadows, perfectoOpen, poseHand } from './rig.js';
+import { makePerson, updatePerson, personalize, leatherJacket, faceShadows, perfectoOpen, poseHand, settleArms } from './rig.js';
 import { armAngles } from './expression.js';
 import { createSociety } from './society.js';
 
@@ -6978,11 +6978,15 @@ const FOLD = [[30, -4, 85, 90, -.3], [38, -4, 82, 94, -.3]];
 function rigIdle(n, R, t, dt) {
   const tic = n.persona?.tic, scripted = n.posed || (storyScene && storyScene.type !== 'hold'), s = t + n.phase;
   if (n.raiseK) R.arms.forEach((a, i) => { const q = armAngles(i, 160 * n.raiseK, 25 * n.raiseK, 0, 15, .3, 0); a.sh.rotation.set(q.shX, q.shY, q.shZ); a.el.rotation.x = q.elX; });
-  if (scripted || R.walking || R.rise || R.gesturing || n.porchOverride) return;
+  if (scripted || n.porchOverride) { R.habW = 0; return; }
+  // v28.1: a habit is let go of, and taken up again, over a moment: it fades out when the person starts
+  // to gesture, walk or stand, instead of vanishing in one frame and snapping the arms to rest.
+  R.habW = Math.max(0, Math.min(1, (R.habW ?? 1) + ((R.walking || R.rise || R.gesturing) ? -dt * 3 : dt * 1.5)));
+  if (R.habW <= .001) return; const HW = R.habW * R.habW * (3 - 2 * R.habW);
   const cyc = (period, dur) => { const c = (s % period + period) % period; return c < dur ? Math.sin(c / dur * Math.PI) : 0; };
   const A = R.arms;
   // set an arm from anatomical angles, blended by k against what the rig already holds
-  const arm = (i, f, ab, r, e, sup = -.15, w = 0, k = 1, shape) => { const q = armAngles(i, f, ab, r, e, sup, w), a = A[i], L = (x, y) => x + (y - x) * k; a.sh.rotation.x = L(a.sh.rotation.x, q.shX); a.sh.rotation.z = L(a.sh.rotation.z, q.shZ); a.sh.rotation.y = L(a.sh.rotation.y, q.shY); a.el.rotation.x = L(a.el.rotation.x, q.elX); a.wr.rotation.y = L(a.wr.rotation.y, q.wrY); a.wr.rotation.x = L(a.wr.rotation.x, q.wrX); if (shape && a.H) poseHand(a.H, shape, k, dt, a.sd); };
+  const arm = (i, f, ab, r, e, sup = -.15, w = 0, k = 1, shape) => { k *= HW; const q = armAngles(i, f, ab, r, e, sup, w), a = A[i], L = (x, y) => x + (y - x) * k; a.sh.rotation.x = L(a.sh.rotation.x, q.shX); a.sh.rotation.z = L(a.sh.rotation.z, q.shZ); a.sh.rotation.y = L(a.sh.rotation.y, q.shY); a.el.rotation.x = L(a.el.rotation.x, q.elX); a.wr.rotation.y = L(a.wr.rotation.y, q.wrY); a.wr.rotation.x = L(a.wr.rotation.x, q.wrX); if (shape && a.H) R.idleShape[i] = { shape, w: k }; };
   if ((tic === 'fold' || tic === 'arms') && !n.seated) {
     // arms crossed over the lower chest: the forearms horizontal, one over the other, hands at the opposite elbow
     const br = Math.sin(s * 1.3) * 1.2, F = n.foldArgs || FOLD; arm(0, F[0][0] + br, F[0][1], F[0][2], F[0][3], F[0][4], 0, 1, 'relaxed'); arm(1, F[1][0] + br, F[1][1], F[1][2], F[1][3], F[1][4], 0, 1, 'relaxed');
@@ -7057,8 +7061,10 @@ function driveRig(n, t, dt) {
   if (n.lookAt) { P.look = n.lookAt; want = 1; }
   P.lookW += (want - P.lookW) * Math.min(1, dt * 2.5);
   if (n.talkT > 0) { P.talk = Math.max(P.talk, n.talkT); n.talkT -= dt; }
+  P.holdArm = n.smoker?.on ? 1 : -1;
   updatePerson(P, dt, t * .001, cam);
   if (n.smoker?.on) smokerArm(n.smoker);
+  settleArms(P, dt);
 }
 function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent || !isVisibleChain(n.object)) return; driveRig(n, t, dt); }); }
 
