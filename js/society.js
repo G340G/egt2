@@ -470,7 +470,7 @@ export function createSociety(G) {
   function noticeBlood() {
     for (const k of witnesses(playerPos(), { range: 4.2 })) {
       if (B.seen.has(k) || k === 'primo') continue; B.seen.add(k);
-      const line = { dario: 'DARIO: (very quietly, not to you) There. You see. It marks the ones it wants.', franco: 'FRANCO: (He looks at your face and puts his fork down.) Christ.', sergio: 'SERGIO: Head forward. Forward, not back. Here — pinch it.', gabri: '(Gabri stares at the blood and does not look away.)', marta: 'MARTA: Do not drip on the floor. It goes into the wood.', walter: '(Walter looks at your nose, then at the floor under you, then at the door.)', anna: 'ANNA: Not on the cloth. Not on the cloth.', pino: 'PINO: You need air. Outside. Come on.', livia: '(Livia hums the four notes very softly, the way you hum to a child.)', ottavio: '(Ottavio looks at your mouth, then at your hand, and folds his arms.)' }[k];
+      const line = { dario: 'DARIO: (very quietly, not to you) There. You see. It marks the ones it wants.', franco: 'FRANCO: (He looks at your face and puts his fork down.) Cristo santo.', sergio: 'SERGIO: Head forward. Forward, not back. Here — pinch it.', gabri: '(Gabri stares at the blood and does not look away.)', marta: 'MARTA: Do not drip on the floor. It goes into the wood.', walter: '(Walter looks at your nose, then at the floor under you, then at the door.)', anna: 'ANNA: Not on the cloth. Not on the cloth.', pino: 'PINO: You need air. Outside. Come on.', livia: '(Livia hums the four notes very softly, the way you hum to a child.)', ottavio: '(Ottavio looks at your mouth, then at your hand, and folds his arms.)' }[k];
       if (k === 'dario') { S.rel.dario.marked = true; S.rel.dario.causes.push({ text: 'Dario watched you bleed and decided it was a sign.', w: .8, at: now() }); }
       if (k === 'franco') affect('franco', { t: -.3 });
       if (k === 'sergio') affect('sergio', { t: .3 });
@@ -517,7 +517,7 @@ export function createSociety(G) {
     { const sp = requestSituation(); if (sp) return sp; }
     const n = S.gather.n, list = [];
     const has = (k) => !!who(k);
-    if (n === 1 && has('franco') && has('anna')) return () => humiliation('franco', 'anna', 'FRANCO: Anna made the coffee again. Dishwater with ambitions.', 'ANNA: (She says nothing. She refills his cup.)');
+    if (n === 1 && has('franco') && has('anna')) return () => humiliation('franco', 'anna', 'FRANCO: Anna made the coffee again. Madonna, dishwater with ambitions.', 'ANNA: (She says nothing. She refills his cup.)');
     if (S.missingEarplugs && !S.asked?.has('dario:earplugs') && has('dario')) list.push(() => ask('dario', 'earplugs'));
     if (G.flags.has('sergio-truth') && !S.asked?.has('walter:report') && has('walter')) list.push(() => ask('walter', 'report'));
     if (!S.asked?.has('dario:aurelio') && has('dario') && n >= 2) list.push(() => ask('dario', 'aurelio'));
@@ -750,7 +750,11 @@ export function createSociety(G) {
   // ---- the request engine -------------------------------------------------------------
   // Someone catches Tobia's eye. They do not come to him from nowhere: he has to go to them,
   // or let them come across the room. Ignoring them is an answer too.
-  function showVan() { if (!R.van || R.van.visible) return; R.van.visible = true; zoneOf('road').interactables.push(R.vanEntry); }
+  // v28: the van stands in the yard from the first time Tobia has been inside the house (never in the
+  // opening walk); it only becomes something to open once Pino has mentioned it.
+  function yardVanOn() { if (!R.van || R.van.visible || R.vanGone) return; R.van.visible = true; const Z = zoneOf('road'); R.van.updateWorldMatrix(true, true); const b = new THREE.Box3().setFromObject(R.van); R.vanSolid = { minX: b.min.x + .05, maxX: b.max.x - .05, minZ: b.min.z + .05, maxZ: b.max.z - .05 }; Z.solids.push(R.vanSolid); }
+  function yardVanOff() { R.vanGone = true; if (R.van) R.van.visible = false; const Z = zoneOf('road'), i = R.vanSolid ? Z.solids.indexOf(R.vanSolid) : -1; if (i >= 0) Z.solids.splice(i, 1); }
+  function showVan() { if (!R.van || R.vanOpen) return; R.vanOpen = true; yardVanOn(); zoneOf('road').interactables.push(R.vanEntry); }
   function beckon(id) {
     if (id === 'pino') showVan();
     const q = REQ[id]; R.reqs[id] = { state: 'beckon', at: now() }; R.beckon = { id, k: q.k, t: 0 };
@@ -945,7 +949,7 @@ export function createSociety(G) {
     if (k === 'dario' && has('named-sergio') && !has('retracted') && !R.dead.has('sergio')) opts.push(['“It wasn’t Sergio who told me. I lied.”', () => retract()]);
     if (k === 'walter' && has('walter-inform') && has('pino-leaving') && !has('told-walter')) opts.push(['“Pino’s going. Now.”', () => { set('told-walter'); me('Pino’s going. Now.'); say('walter', '(He is already putting on his coat.) Thank you.'); affect('walter', { t: 1 }); walterStopsPino(); }]);
     if (k === 'pino' && has('pino-yes') && has('walter-yes') && !has('warned-pino') && !has('pino-gone')) opts.push(['“Walter wants your van not to start.”', () => warnPino()]);
-    if (k === 'franco' && has('named-franco') && !has('franco-apology') && live('franco')) opts.push(['“I’m sorry I said your name.”', () => { set('franco-apology'); me('I’m sorry I said your name.'); say('franco', '(The joke he starts dies before the end.) Sorry is what you say to a customer.'); }]);
+    if (k === 'franco' && has('named-franco') && !has('franco-apology') && live('franco')) opts.push(['“I’m sorry I said your name.”', () => { set('franco-apology'); me('I’m sorry I said your name.'); say('franco', '(The joke he starts dies before the end.) Sorry. Vaffanculo with your sorry. Sorry is what you say to a customer.'); }]);
     if (!opts.length) return false;
     opts.push(['(Say something else.)', () => { R.passThrough = npc; }]);
     offer(UP(k), '', opts);
@@ -963,7 +967,7 @@ export function createSociety(G) {
   function gabriAsleep() {
     offer('GABRI — ASLEEP', '(His lips are pale. When you say his name, nothing.)', [
       ['Shake him awake.', () => wakeGabri('you')],
-      ['Call Sergio.', () => { if (!alive('sergio')) { G.line('(Sergio’s chair is empty.)'); return; } say('sergio', '(He comes at once, slaps Gabri’s face, hauls him to the sink.) Up. Up. What did he drink? What did you give him?'); wakeGabri('sergio'); }],
+      ['Call Sergio.', () => { if (!alive('sergio')) { G.line('(Sergio’s chair is empty.)'); return; } say('sergio', '(He comes at once, slaps Gabri’s face, hauls him to the sink.) Up. Up. Madonna — what did he drink? What did you give him?'); wakeGabri('sergio'); }],
       ['Call Ines.', () => { say('ines', '(She comes and sits beside him and puts her hand on his chest.) Shh. Let him. He’s not afraid. Look at him. (She does not get up again.)'); set('ines-sat'); }],
       ['Let him sleep.', () => { set('let-sleep'); note('gabri', 'You let Gabri sleep.'); }]
     ]);
@@ -996,7 +1000,7 @@ export function createSociety(G) {
   }
   function publicConfrontation() {
     set('gabri-confronted');
-    say('gabri', '(Loudly, to the whole table.) Ines. Were you going to put me to sleep? With the thermos? Were you?');
+    say('gabri', '(Loudly, to the whole table.) Ines. Were you going to put me to sleep? With the thermos? Cazzo, were you?');
     say(null, 'Every spoon stops. Ines folds her cloth in half, and in half again.');
     say('ines', '(Very quietly.) Who told you that.');
     say(null, 'Gabri looks at you. So does everyone else.');
@@ -1035,14 +1039,14 @@ export function createSociety(G) {
   }
   function vanChoice(withGabri) {
     const opts = [['Get in.', () => { set('tobia-left'); if (withGabri) set('gabri-came'); departWithPino(withGabri); }]];
-    if (has('gabri-promised') && !withGabri) opts.push(['“Wait. Gabri.”', () => { me('Wait. Gabri.'); say('pino', 'No. (The door is still open.) Now or not.'); ch([['Get in.', () => { set('tobia-left'); departWithPino(false); }], ['“Go without me.”', () => { pinoLeavesAlone(); }]]); }]);
+    if (has('gabri-promised') && !withGabri) opts.push(['“Wait. Gabri.”', () => { me('Wait. Gabri.'); say('pino', 'No. Porca miseria, no. (The door is still open.) Now or not.'); ch([['Get in.', () => { set('tobia-left'); departWithPino(false); }], ['“Go without me.”', () => { pinoLeavesAlone(); }]]); }]);
     opts.push(['“Go. I’m staying.”', () => { me('Go. I’m staying.'); pinoLeavesAlone(); }]);
     ch(opts, { silence: () => pinoLeavesAlone() });
   }
   function pinoLeavesAlone() {
     set('pino-gone'); G.flags.add('pino-left-alive'); say('pino', '(He looks at you once more, and pulls the door shut, and goes.)');
     const n = npcOf('pino'); if (n) { n.object.visible = false; n.fate = 'gone'; const L = G.home().interactables, i = L.indexOf(n); if (i >= 0) L.splice(i, 1); }
-    if (R.van) R.van.visible = false;
+    yardVanOff();
     S.truths.push('Pino drove away before dawn, alone.');
     // the count is short, and Walter has to know where the weight went
     if (alive('walter') && (has('walter-yes') || has('walter-inform'))) later(25, () => motive('walter', 'lead', has('walter-yes') ? 'You told him you would take the rotor out, and Pino drove away. The count was short on the day Il Primo needed it whole. He needs to know where the weight went, and it went to you.' : 'You promised to tell him before Pino went, and you stood in the yard and watched him go.'));
@@ -1211,6 +1215,49 @@ export function createSociety(G) {
     if (R.dead.has(k) || live(k) || (SOCIAL[k]?.violence ?? 0) < .1) return;
     motive(k, 'stalk', why, !!HIDDEN[k]);
     if (G.zone() === 'home' && near(k, 9)) G.line(pick([`(${nm(k)} looks at you, once, and then very carefully at nothing.)`, `(Something goes out of ${nm(k)}’s face, the way a light goes out in another room.)`, `(${nm(k)} laughs at something nobody said.)`]));
+  }
+  // ===================================================================================
+  // v28 — PRESSURE. From the default difficulty up, the house does not wait for Tobia to steal
+  // something before somebody decides he has to go. If nobody wants him dead for long enough,
+  // somebody starts to, for one of two reasons that need no theft:
+  //  · he will not take a side. A man who agrees with everybody belongs to nobody, and a man
+  //    who belongs to nobody is the one who will talk to the carabinieri;
+  //  · they are high. After the record the little brown bottle goes round the kitchen, and
+  //    Il Bianco tells whoever drank most that the fourteenth chair has to be emptied.
+  // The click comes with a visible sign at the table first, so it can be read and answered.
+  // ===================================================================================
+  const NEUTRAL = {
+    dario: ['DARIO: (to his plate) He eats our bread and keeps his own counsel. Judas kept his own counsel.', 'You would not choose, at the table or anywhere. Dario has decided that a man who belongs to nobody will talk to somebody.'],
+    walter: ['WALTER: Everybody else in this house is on one side of a line. You stand on the line. (He says it like a measurement.)', 'You never took a side. Walter does not leave an unknown load in a structure.'],
+    franco: ['FRANCO: Every night the same face. Nods at me, nods at Dario, nods at the soup. Porca puttana, pick one. (Nobody laughs.)', 'You agreed with everyone, so Franco decided you would agree with the carabinieri too.'],
+    marta: ['MARTA: I have carved thirteen faces. Yours won’t hold still. It looks at everyone the same.', 'You belonged to nobody. Marta cannot carve a man who belongs to nobody, so she has decided to finish him another way.'],
+    gabri: ['GABRI: You’re nice to everybody. That’s worse. That’s what the ones who leave are like.', 'You were kind to everyone and chose no one. Gabri has decided you are about to leave without him.']
+  };
+  const HIGH = {
+    gabri: ['(Gabri’s pupils are huge and black. He is laughing at the fridge light. The brown bottle by the sink is half empty.)', 'GABRI: (too close, grinning) Il Bianco talks to me when I drink it. Guess who it talks about. Cazzo, guess.', 'He was out of his head on what goes round after the record, and Il Bianco told him the fourteenth chair has to be emptied.'],
+    franco: ['(Franco is sweating. He has had the bottle and the grappa on top of it. He sharpens the cleaver on the step and keeps losing count of the strokes.)', 'FRANCO: (to nobody) Fourteen chairs. Thirteen arses. Somebody’s counting wrong.', 'He was drunk and high, and in the white noise in his head the extra chair was yours.'],
+    marta: ['(Marta’s hands are shaking. She has taken the drops twice tonight. She is carving with her eyes shut.)', 'MARTA: (dreamy) The fourteenth figure is finished. I only have to make it true.', 'She was high on the drops, and the beam told her the fourteenth figure had to be made true.'],
+    dario: ['(Dario has not blinked for a long time. The brown bottle is in his cassock pocket. His nose is bleeding and he is smiling.)', 'DARIO: Il Bianco filled me while you were asleep. It told me what you are.', 'He was high and praying, and Il Bianco told him you were what keeps it from coming.'],
+    walter: ['(Walter has had the bottle. He is measuring the doorway again and again, and the numbers keep coming out different.)', 'WALTER: Two metres forty. Two metres forty-one. Something in this house is the wrong size. (He looks at you.)', 'He was high, and the house stopped adding up, and you were the extra figure.']
+  };
+  function updatePressure(dt) {
+    const d = G.difficulty(); if (d < 1 || !G.welcomed() || S.ending || (R.pressN || 0) >= 4) return;
+    if (Object.values(R.motives).some(m => m.alive && !R.dead.has(m.k))) { R.calmT = 0; return; }
+    if (G.canAct()) R.calmT = (R.calmT || 0) + dt;
+    const need = (R.pressN ? [0, 160, 120, 80] : [0, 200, 150, 100])[Math.min(3, d)];
+    if (R.calmT < need || S.ui || R.scene || R.active || G.linesBusy() || S.gather?.active) return;
+    const ok = (k) => alive(k) && !R.dead.has(k) && !live(k) && (SOCIAL[k]?.violence ?? 0) >= .3 && !R.motives[k]?.defused && S.rel[k];
+    // neutral: nobody in the house can count on him (no one trusts him much and he has hardly picked a quarrel)
+    const ally = Math.max(0, ...Object.keys(S.rel).map(k => S.rel[k].trust || 0)), sides = Object.keys(S.between).filter(k => /tobia/.test(k)).length;
+    const neutral = ally < 2.4 && sides < 2, wantHigh = R.lastPress === 'neutral' || (!neutral && R.lastPress !== 'high') || Math.random() < .35;
+    const kind = wantHigh ? 'high' : 'neutral', pool = kind === 'high' ? HIGH : NEUTRAL;
+    const cands = Object.keys(pool).filter(ok).sort((a, b) => (S.rel[b].grievance + SOCIAL[b].violence * 2 - S.rel[b].trust) - (S.rel[a].grievance + SOCIAL[a].violence * 2 - S.rel[a].trust));
+    if (!cands.length) { R.calmT = need * .6; return; }
+    const k = Math.random() < .7 ? cands[0] : pick(cands), L = pool[k];
+    R.pressN = (R.pressN || 0) + 1; R.lastPress = kind; R.calmT = 0;
+    if (G.zone() === 'home' && present().some(p => p.key === k)) L.slice(0, -1).forEach(l => G.line(l));
+    else R.pendingNews = (R.pendingNews || []).concat(kind === 'high' ? [L[0]] : []);
+    later(kind === 'high' ? 4 : 6, () => click(k, L[L.length - 1]));
   }
   // ---- following ---------------------------------------------------------------------
   const solidAt = (Z, x, z, m = .3) => Z.solids.some(o => x + m > o.minX && x - m < o.maxX && z + m > o.minZ && z - m < o.maxZ);
@@ -1446,7 +1493,8 @@ export function createSociety(G) {
       else if (now() - R.pinoWait > 160) { if (!R.rotorIn) pinoStuck(false); else if (has('pino-yes')) { set('pino-turned'); const n = npcOf('pino'); if (n) returnHome(n); affect('pino', { g: 1.5 }, 'You told Pino you would come, and he sat in the van in the yard for an hour, and you didn’t.'); } else pinoLeavesAlone(); }
     }
     if (has('dario-down') && !has('cellar-came') && !has('cellar-over') && G.zone() === 'cellar' && near('dario', 4) && G.canAct() && !S.ui) cellarScene();
-    updateMotives(dt); updateStalkers(dt); updateErrands(dt);
+    if (R.van && !R.vanGone && !R.van.visible && G.flags.has('visited-home')) yardVanOn();
+    updateMotives(dt); updatePressure(dt); updateStalkers(dt); updateErrands(dt);
     if (has('dario-no') && S.rel.dario?.marked && !R.darioClick) { R.darioClick = true; later(60, () => click('dario', 'You bleed, and you would not watch him. He has decided Il Bianco must finish in you instead.')); }
     if (has('ines-sat') && !has('hand-asked') && G.zone() === 'home' && near('gabri', 4) && !S.ui && G.canAct()) gabriComplicity();
     // a request, when the house is quiet and nobody is already talking to you

@@ -867,8 +867,23 @@ function branchBetween(parent, a, b, radius, material) {
   mesh.position.copy(A).add(B).multiplyScalar(.5); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());
   mesh.castShadow=true; parent.add(mesh); return mesh;
 }
+// v28: the collapse is watched from the road at CROLLO_CAM. A tree placed (at random) between that
+// point and the church, or close in front of the camera where the lens is widest, would stand in front
+// of the moment. True when a crown of ~3 m radius at (x, z) would cover any part of the church front.
+const CROLLO_CAM = [38.4, -4.6], CHURCH_BOX = [29.6, -35.6, 43.6, -17];
+function inChurchSightline(x, z) {
+  const [cx, cz] = CROLLO_CAM, dx = x - cx, dz = z - cz, d = Math.hypot(dx, dz);
+  if (dz > 3) return false;                                   // behind the camera
+  const ang = Math.atan2(dx, -dz);
+  if (d < 15 && Math.abs(ang) < 1.25) return true;            // the near foreground of a 90-degree lens
+  if (z < CHURCH_BOX[1] - 2) return false;                     // behind the church
+  const corners = [[CHURCH_BOX[0], CHURCH_BOX[3]], [CHURCH_BOX[2], CHURCH_BOX[3]], [CHURCH_BOX[0], CHURCH_BOX[1]], [CHURCH_BOX[2], CHURCH_BOX[1]]].map(([px, pz]) => Math.atan2(px - cx, -(pz - cz)));
+  const wid = Math.asin(Math.min(1, 3.2 / Math.max(d, 3.2)));
+  return ang > Math.min(...corners) - wid && ang < Math.max(...corners) + wid;
+}
 function addTree(group, x, z, h = 8, seed = 1) {
   const root = new THREE.Group(); root.position.set(x, 0, z); group.add(root);
+  root.userData.tree = true;
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.13, .38, h * .67, 9), M.darkWood);
   trunk.position.y = h * .335; trunk.castShadow = true; root.add(trunk);
   const crown=new THREE.Group(); crown.position.y=h*.43; root.add(crown);
@@ -1085,8 +1100,21 @@ function buildCRT(group,x,y,z){
   tubeBetween(aerial,[0,0,0],[.24,.52,0],.012,bezelMat,6);tubeBetween(aerial,[0,0,0],[-.2,.42,0],.012,bezelMat,6);
   return root;
 }
+// v28: tabletops that arms must not pass through (see clearSurfaces in rig.js). World boxes are
+// computed once, the first time anyone sits or stands near them; tables do not move.
+const SURFACES = [];
+function surfacesNear(o) {
+  const out = surfacesNear.out || (surfacesNear.out = []); out.length = 0;
+  for (const r of SURFACES) {
+    if (!r.userData.box) { r.updateWorldMatrix(true, true); r.userData.box = new THREE.Box3().setFromObject(r); }
+    const b = r.userData.box, wp = o.getWorldPosition(surfacesNear.v || (surfacesNear.v = new THREE.Vector3()));
+    if (wp.x > b.min.x - 1.3 && wp.x < b.max.x + 1.3 && wp.z > b.min.z - 1.3 && wp.z < b.max.z + 1.3 && Math.abs(wp.y - b.min.y) < 1.5) out.push(b);
+  }
+  return out;
+}
 function addWoodTable(group,x,z,w=2.6,d=1.25,h=.82,seed=1){
   const root=new THREE.Group();root.position.set(x,0,z);group.add(root);
+  SURFACES.push(root);
   const top=roundedHousing(w,h*.09,d,.07,seed%2?M.wood:M.darkWood,.025);top.position.y=h;root.add(top);
   const grain=mat(0x6b523a,.98,{map:TEX.wood});
   const n=Math.max(3,Math.round(d/.28));
@@ -1307,6 +1335,7 @@ function buildRoad() {
     const x = (Math.random() - .5) * 125; const zz = (Math.random() - .5) * 115;
     if (Math.abs(x) < 11 && zz > -20 && zz < 62) continue;   // keep the lane clear: the opening walk starts at z 47
     if (Math.abs(x + 31) < 10) continue;
+    if (inChurchSightline(x, zz)) continue;   // v28: nothing grows between the road and the church in the collapse shot
     addTree(z.group, x, zz, 5 + Math.random() * 6, i + 1);
   }
   // Po Valley cultivation: maize rows, winter wheat and a flooded rice plot with narrow banks.
@@ -1768,7 +1797,7 @@ function enterZone(name, spawn) {
   scene.fog = zone.fog || new THREE.FogExp2(zone.fogColor, zone.density);
   scene.background.set(zone.fogColor);
   $('location').textContent = ({ road: 'FOG ROAD', home: 'THE HOUSE / THIRTEEN PLACES', church: 'THE DECONSECRATED CHURCH', ruin: 'THE EMPTY HOUSE', cellar: 'THE CELLAR / 14-B', darkroom: 'THE DARK ROOM / 14-B', abattoir: 'THE SLAUGHTERHOUSE / THE VOID ROOM', forest: 'THE CANAL FOREST' })[name];
-  glitchPulse = Math.max(glitchPulse, .42); audio?.stinger(.32); audio?.setZone(name); if(name==='abattoir'){fear=Math.min(1,fear+.19);audio?.mechanicalEvent('hoist');} if(name==='church' && collected.size>=2 && !scenePlayed) showToast('THE BELL ROPE IS WET.'); if(name==='cellar'||name==='darkroom'){fear=Math.min(1,fear+.18);} if(name==='darkroom'){darkroomHunt.active=!noEnemies()&&!storyFlags.has('darkroom-cleared');if(noEnemies()&&storyRef.darkroomHunter?.object)storyRef.darkroomHunter.object.visible=false;if(!storyFlags.has('darkroom-entered')){storyFlags.add('darkroom-entered');darkroomHunt.elapsed=0;darkroomHunt.reappear=3.2;startMonologue(['Il Primo: The lamp is not a weapon. It is a question you can only ask in one direction.','Voice: The room is full. You cannot see what it contains.','Il Primo: Find what the tape cannot carry. Do not mistake being watched for being seen.'],13);}}
+  glitchPulse = Math.max(glitchPulse, .42); audio?.stinger(.32); audio?.setZone(name); if(name==='abattoir'){fear=Math.min(1,fear+.19);audio?.mechanicalEvent('hoist');if(storyRef.first){const on=storyFlags.has('darkroom-cleared')&&!storyFlags.has('first-tea');storyRef.first.object.visible=on;}} if(name==='church' && collected.size>=2 && !scenePlayed) showToast('THE BELL ROPE IS WET.'); if(name==='cellar'||name==='darkroom'){fear=Math.min(1,fear+.18);} if(name==='darkroom'){darkroomHunt.active=!noEnemies()&&!storyFlags.has('darkroom-cleared');if(noEnemies()&&storyRef.darkroomHunter?.object)storyRef.darkroomHunter.object.visible=false;if(!storyFlags.has('darkroom-entered')){storyFlags.add('darkroom-entered');darkroomHunt.elapsed=0;darkroomHunt.reappear=3.2;startMonologue(['Il Primo: The lamp is not a weapon. It is a question you can only ask in one direction.','Voice: The room is full. You cannot see what it contains.','Il Primo: Find what the tape cannot carry. Do not mistake being watched for being seen.'],13);}}
   showToast(({ road: 'THE ROAD IS NOT WHERE YOU LEFT IT', home: 'NO ONE ASKED YOUR NAME', church: 'THE NAVE IS LONGER FROM THE INSIDE', ruin: 'SOMEONE IS WAITING BY THE TELEPHONE', cellar: 'THE ROOM HAS KEPT ITS HEAT', darkroom: 'THE DARK HAS BEEN ARRANGED BY HAND', forest: 'THE FOREST KEEPS YOUR POSITION', abattoir: 'HERE THE FLESH HAS A LONG MEMORY' })[name]);
   placeStalker(name); showChapterCard(name); resetTensionFor(name); society?.onEnterZone(name); tragedyOnEnter(name);
 }
@@ -6816,6 +6845,7 @@ function startCrollo() {
   for (let i = 0; i < 70; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex(), color: 0xb8b2a4, transparent: true, opacity: 0, depthWrite: false })); s.position.set(cg.x + (Math.random() - .5) * 14, .5 + Math.random() * 3, cg.z + (Math.random() - .5) * 16); s.userData.v = new THREE.Vector3((Math.random() - .5) * 2.2, .5 + Math.random() * 1.4, Math.random() * 2.4); g.add(s); crollo.dust.push(s); }
   const target = new THREE.Vector3(cg.x - .6, 4.6, cg.z);
   storyRef.shedMeshes?.forEach(m => { if (storyFlags.has('shed-gone')) m.visible = false; });
+  crollo.hidden = g.children.filter(o => o.userData.tree && o.visible && inChurchSightline(o.position.x, o.position.z)); crollo.hidden.forEach(o => o.visible = false);
   storyScene = { type: 'v8', t: 0, dur: 27, i: 0, lines: [[.8, '(Il Primo puts in both earplugs.)'], [16.2, '(Someone laughs once, and covers her mouth. Ottavio sits down in the road.)'], [18.0, 'TOBIA: You knew it would come down.'], [20.0, 'IL PRIMO: We built it so that it could.'], [22.0, 'TOBIA: You called this freedom.'], [24.0, 'IL PRIMO: I called it a place where nothing had to remain standing.']], update(s, dt) {
     playerAnchor.position.set(38.4, 0, -4.6); camera.position.set(0, 1.5, 0); aimCamera(target, Math.min(1, dt * 2));
     const ct = s.t - 4; if (ct > 0) applyCollapse(ct);
@@ -6832,7 +6862,7 @@ function startCrollo() {
 }
 function endCrollo(save) {
   applyCollapse(99); crollo.dust.forEach(d => d.material.opacity = 0);
-  crollo.extras.forEach(n => n.object.parent?.remove(n.object)); crollo.extras = [];
+  crollo.extras.forEach(n => n.object.parent?.remove(n.object)); crollo.extras = []; (crollo.hidden || []).forEach(o => o.visible = true); crollo.hidden = [];
   storyScene = null; setCinema(false); setFov(save.fov); camera.rotation.z = 0; audio?.setMuffle(false, .5); audio?.setDuck?.(1, .5); $('subtitle-wrap').classList.remove('visible');
   playerAnchor.position.copy(save.pos); camera.position.set(0, 1.63, 0); camera.rotation.set(save.rx, save.ry, 0); resetLook();
   storyFlags.add('church-collapsed');
@@ -6941,6 +6971,10 @@ function attachRig(npc) {
 // Habits on the articulated body, run inside the rig's own update (v27: anatomical angles —
 // shoulder flexion / abduction / internal rotation, elbow flexion, forearm supination, wrist —
 // inside normal ranges of motion; the rig clamps them again afterwards).
+// arms crossed under the chest: upper arms near vertical and slightly forward, forearms level and stacked
+// (the left one in front), each hand resting at the opposite elbow. Solved so the forearm is horizontal
+// (shoulder flexion + elbow flexion under internal rotation) and clears the front of the torso.
+const FOLD = [[30, -4, 85, 90, -.3], [38, -4, 82, 94, -.3]];
 function rigIdle(n, R, t, dt) {
   const tic = n.persona?.tic, scripted = n.posed || (storyScene && storyScene.type !== 'hold'), s = t + n.phase;
   if (n.raiseK) R.arms.forEach((a, i) => { const q = armAngles(i, 160 * n.raiseK, 25 * n.raiseK, 0, 15, .3, 0); a.sh.rotation.set(q.shX, q.shY, q.shZ); a.el.rotation.x = q.elX; });
@@ -6951,7 +6985,7 @@ function rigIdle(n, R, t, dt) {
   const arm = (i, f, ab, r, e, sup = -.15, w = 0, k = 1, shape) => { const q = armAngles(i, f, ab, r, e, sup, w), a = A[i], L = (x, y) => x + (y - x) * k; a.sh.rotation.x = L(a.sh.rotation.x, q.shX); a.sh.rotation.z = L(a.sh.rotation.z, q.shZ); a.sh.rotation.y = L(a.sh.rotation.y, q.shY); a.el.rotation.x = L(a.el.rotation.x, q.elX); a.wr.rotation.y = L(a.wr.rotation.y, q.wrY); a.wr.rotation.x = L(a.wr.rotation.x, q.wrX); if (shape && a.H) poseHand(a.H, shape, k, dt, a.sd); };
   if ((tic === 'fold' || tic === 'arms') && !n.seated) {
     // arms crossed over the lower chest: the forearms horizontal, one over the other, hands at the opposite elbow
-    const br = Math.sin(s * 1.3) * 1.2; arm(0, 28 + br, -22, 62, 112, -.5, 0, 1, 'relaxed'); arm(1, 34 + br, -24, 66, 108, -.6, 0, 1, 'relaxed');
+    const br = Math.sin(s * 1.3) * 1.2, F = n.foldArgs || FOLD; arm(0, F[0][0] + br, F[0][1], F[0][2], F[0][3], F[0][4], 0, 1, 'relaxed'); arm(1, F[1][0] + br, F[1][1], F[1][2], F[1][3], F[1][4], 0, 1, 'relaxed');
   }
   switch (tic) {
     case 'tap': { const k = cyc(5, .9); if (k) { arm(1, 25, 8, 20, 92, -.85, 12, k, 'open'); A[1].wr.rotation.x += Math.max(0, Math.sin(s * 13)) * .14 * k; } break; }
@@ -6997,6 +7031,7 @@ function emotionFor(n) {
 function driveRig(n, t, dt) {
   const P = n.rig; if (P._frame === renderer.info.render.frame) return; P._frame = renderer.info.render.frame;
   const cam = driveRig.v || (driveRig.v = new THREE.Vector3()); camera.getWorldPosition(cam);
+  P.surfaces = surfacesNear(n.object);
   P.parentYaw = n.object.rotation.y; P.styleKey = P.styleKey || (personaKey(n) === 'the first' ? 'first' : personaKey(n)); P.emo = n.forceEmo || emotionFor(n);
   P.extWalk = P.extWalk || { on: false, dist: 0 }; P.extWalk.pre = !!(n.walking && n.preStep);
   { // ground actually covered this frame, in the rig's own units (teleports are not steps). v27: a body
