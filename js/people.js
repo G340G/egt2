@@ -505,32 +505,3 @@ export const BIANCO = {
   livia: ['(She hums the four notes, then stops on the fifth, where there is only breath. That is Il Bianco, her eyes say.)', '(A napkin:) il bianco is the note after the last note'],
   franco: ['Il Bianco. Thirty years cutting meat and I never heard a cow go so quiet.', 'You want to know what Il Bianco is? Ask Aurelio. Oh — you can’t.']
 };
-
-// v27: how each person swears. Rate is the base chance a spoken line carries an oath; anger
-// and grievance raise it. Words are the regional Italian of the lower Po valley, matched to
-// the person: Franco the butcher swears like breathing, blasphemy included; Gabri young and
-// raw; Walter flat and exact; Anna and Livia in the old women's register (Madonna, vacca);
-// Ines almost never; Ottavio, Il Primo and Dario never (deafness, control, faith).
-export const SWEAR = {
-  franco: { rate: .5, start: ['Porca puttana.', 'Porco Dio.', 'Madonna cane.', 'Cazzo.'], end: ['Cazzo.', 'Porca puttana.', 'Dio cane.'] },
-  gabri: { rate: .42, start: ['Cazzo.', 'Che palle.', 'Minchia.', 'Ma porca troia.'], end: ['Cazzo.', 'Vaffanculo.', 'Che cazzo.'] },
-  sergio: { rate: .32, start: ['Madonna.', 'Cristo.', 'Che cazzo.'], end: ['Madonna.', 'Testa di cazzo.', 'Cristo santo.'] },
-  walter: { rate: .28, start: ['Merda.', 'Cazzo.'], end: ['Merda.', 'Porca puttana.'] },
-  pino: { rate: .24, start: ['Porca miseria.', 'Porca vacca.', 'Accidenti.'], end: ['Porca miseria.', 'Accidenti.'] },
-  marta: { rate: .22, start: ['Cristo.', 'Merda.'], end: ['Merda.', 'Porca miseria.'] },
-  anna: { rate: .16, start: ['Madonna santa.', 'Gesù.', 'Porca miseria.'], end: ['Madonna.', 'Porca miseria.'] },
-  livia: { rate: .12, start: ['Porca vacca.', 'Dio mio.'], end: ['Accidenti.', 'Porca vacca.'] },
-  ines: { rate: .05, start: ['Madonna.'], end: ['Madonna.'] },
-  tobia: { rate: .04, start: ['Cristo.'], end: ['(under his breath) Merda.'] },
-};
-const OATH = /cazzo|merda|vaffanculo|puttana|porc[ao]|madonna|cristo|minchia|troia|accidenti|fuck|dio cane|gesù/i;
-export function swear(text, arousal = 0) {
-  const m = /^([A-Za-zÀ-ÿ' ]{2,24}):\s*(.+)$/s.exec(String(text || '')); if (!m) return text;
-  const who = m[1].trim().toLowerCase(), body = m[2], S = SWEAR[who];
-  if (!S || body.length < 14 || /^\(.*\)$/s.test(body.trim()) || OATH.test(body)) return text;
-  let h = 2166136261; for (const c of who + body) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-  const roll = (h % 1000) / 1000, rate = Math.min(.9, S.rate * (1 + arousal));
-  if (roll >= rate) return text;
-  const atEnd = (h >>> 10) % 2 === 1, list = atEnd ? S.end : S.start, w = list[(h >>> 12) % list.length];
-  return `${m[1]}: ${atEnd ? body.replace(/\s*$/, '') + ' ' + w : w + ' ' + body}`;
-}

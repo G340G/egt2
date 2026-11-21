@@ -970,7 +970,7 @@ export function createSociety(G) {
   }
   function wakeGabri(by) {
     set('gabri-woken'); S.ui = null; const n = npcOf('gabri'); if (n) n.lookAt = null;
-    say('gabri', '(He comes up gasping, and is sick in the basin, and holds on to the sink.) What— what was in it?');
+    say('gabri', '(He comes up gasping, and is sick in the basin, and holds on to the sink.) Cazzo— what was in it? What was in it?');
     const knew = has('thermos-knew'), gave = has('thermos-given') && !has('thermos-by-nobody');
     ch([
       ['“Ines put something in it. To make you sleep.”', () => { me('Ines put something in it. To make you sleep.'); say('gabri', '(He looks across the kitchen at Ines. She doesn’t look away.)'); conflict('gabri', 'ines', 'Gabri learned what was in the thermos'); set('gabri-knows-ines'); affect('gabri', { t: knew && gave ? .2 : 1 }); later(20, () => inesLosesGabri()); }],
@@ -1022,7 +1022,7 @@ export function createSociety(G) {
   function vanScene() {
     if (has('van-scene')) return; set('van-scene'); set('van-came'); const promisedGabri = has('gabri-promised'), withGabri = promisedGabri && alive('gabri') && !has('gabri-asleep');
     if (!R.rotorIn) {
-      say('pino', '(In the driver’s seat. He turns the key. Nothing. He turns it again.) …It’s gone. The rotor. Somebody’s had the rotor.');
+      say('pino', '(In the driver’s seat. He turns the key. Nothing. He turns it again.) …Porca puttana. It’s gone. The rotor. Somebody’s had the rotor.');
       const opts = [];
       if (R.carry.has('rotor')) opts.push(['(Give him the rotor.)', () => { R.carry.delete('rotor'); R.rotorIn = true; say('pino', '(He stares at it in your hand. He doesn’t ask.) Get in.'); vanChoice(withGabri); }]);
       if (R.rotorBy === 'tobia') opts.push(['“I took it.”', () => { me('I took it.'); say('pino', '(He gets out of the van very slowly. He doesn’t touch you. He walks back toward the house.) You could have just said no.'); affect('pino', { g: 3, t: -2 }, 'You told Pino you had taken the rotor out of his van.'); pinoStuck(true); }]);
@@ -1071,7 +1071,7 @@ export function createSociety(G) {
     // Dario will take Sergio to see the canal after the next dinner, unless something changes
     set('dario-sergio-plan');
   }
-  function warnSergio() { set('warned-sergio'); me('Stay away from Dario tonight. He thinks you told me about the priest.'); say('sergio', '(He takes a long time to light his cigarette.) And who told him that.'); affect('sergio', { g: 1.6, t: -1 }, 'Sergio worked out you had given Dario his name to protect someone else.'); say('sergio', 'Fifty years I didn’t go in. I can not go in for one more night.'); }
+  function warnSergio() { set('warned-sergio'); me('Stay away from Dario tonight. He thinks you told me about the priest.'); say('sergio', '(He takes a long time to light his cigarette.) Cristo. And who told him that.'); affect('sergio', { g: 1.6, t: -1 }, 'Sergio worked out you had given Dario his name to protect someone else.'); say('sergio', 'Fifty years I didn’t go in. I can not go in for one more night.'); }
   function retract() { set('retracted'); me('It wasn’t Sergio who told me. I lied.'); say('dario', '(He looks at you the way he looks at the altar.) Then who.'); ch([['“Franco.”', () => { me('Franco.'); namedFranco('dario'); affect('dario', { g: .6 }, 'You lied to Dario about Sergio before you told him the truth.'); }], ['“I won’t say.”', () => { me('I won’t say.'); affect('dario', { g: 1.2 }, 'You admitted you had lied to Dario and would not say who had really told you.'); }]]); }
   function sergioCanal() {
     if (!has('dario-sergio-plan') || has('retracted') || has('warned-sergio') || !alive('sergio') || !alive('dario')) return;
@@ -1151,7 +1151,7 @@ export function createSociety(G) {
     ch([
       ['(Hold the joint.)', () => { if (mercy()) { say(null, 'The cleaver comes down an inch from your fingers and stays there.'); defuse('franco', 'Franco missed on purpose.'); R.scene = null; return; } kill('franco', 'cleaver'); }],
       ['“Why do you keep the knife so clean, Franco?”', () => { me('Why do you keep the knife so clean, Franco?'); say(null, 'Franco looks at the blade. Thirty years, and nobody has asked.'); say('franco', 'So it doesn’t look like what it is. (He puts it down.) Go on. Go and eat.'); defuse('franco', 'You asked Franco why he keeps the knife clean.'); R.scene = null; }],
-      ...(has('named-franco') && !has('dario-sergio-plan') ? [['“Dario made me say it. I’m sorry.”', () => { me('Dario made me say it. I’m sorry.'); say('franco', 'Dario didn’t make you. (But he puts the cleaver down.) Get out of my kitchen.'); defuse('franco', 'You apologised to Franco in the kitchen.'); R.scene = null; }]] : []),
+      ...(has('named-franco') && !has('dario-sergio-plan') ? [['“Dario made me say it. I’m sorry.”', () => { me('Dario made me say it. I’m sorry.'); say('franco', 'Dario didn’t make you. (But he puts the cleaver down.) Madonna cane. Get out of my kitchen.'); defuse('franco', 'You apologised to Franco in the kitchen.'); R.scene = null; }]] : []),
       ['(Walk out of the kitchen.)', () => { m.born = now(); R.scene = null; }]
     ], { timeout: 12, leave: () => { m.born = now(); R.scene = null; }, silence: () => { if (mercy()) { defuse('franco', 'He couldn’t.'); R.scene = null; } else kill('franco', 'cleaver'); } });
   }
