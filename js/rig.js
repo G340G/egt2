@@ -507,6 +507,27 @@ export function updatePerson(P, dt, t, camPos) {
   else if (P.lids) P.lids.forEach(l => { l.scale.y = 0.12 + blink * 0.62; });
   if (P.arms[0].H) applyHands(P, gt || [], dt);
   enforceROM(P);
+  if (P.surfaces?.length) clearSurfaces(P);
+}
+
+// v28: hands and elbows stay on top of a table, never inside it. After the pose is final, each
+// arm is tested at the elbow, the wrist and the fingertips against nearby tabletops; while any point
+// is under the top (plus a little thickness for the hand), the elbow is bent further, which lifts a
+// forearm that is reaching forward, and an elbow that is itself under the top is drawn back to the
+// side of the body. A real person does the same: forearms rest on the table, they do not go into it.
+const _sp = new THREE.Vector3();
+function clearSurfaces(P) {
+  const S = P.surfaces, k = P.k, pad = 0.03 * k;
+  const pen = (obj, y) => { obj.localToWorld(_sp.set(0, y, 0)); let worst = 0; for (const b of S) { if (_sp.x < b.min.x - pad || _sp.x > b.max.x + pad || _sp.z < b.min.z - pad || _sp.z > b.max.z + pad) continue; const d = b.max.y + 0.035 * k - _sp.y; if (d > worst && _sp.y > b.min.y - 0.25) worst = d; } return worst; };
+  for (const a of P.arms) {
+    for (let it = 0; it < 14; it++) {
+      a.sh.updateWorldMatrix(true, true);
+      const pe = pen(a.el, 0), ph = Math.max(pen(a.wr, 0), pen(a.wr, -0.17 * k));
+      if (pe <= 0 && ph <= 0) break;
+      if (pe > 0 && a.sh.rotation.x < 0.15) a.sh.rotation.x += 0.07;
+      if (ph > 0) { if (a.el.rotation.x > -2.45) a.el.rotation.x -= 0.09; else if (a.sh.rotation.x > -1.6) a.sh.rotation.x -= 0.07; }
+    }
+  }
 }
 
 export function walkTo(P, x, z, speed = 1.2, face) {

@@ -44,6 +44,24 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 28 — the game can be finished, and the house wants you dead
+
+**Il Primo is in the slaughterhouse again.** After the dark room he now stands by the hooks until the tea scene, so "speak with Il Primo again" can be done and the game can be finished. He had been hidden there since the first upload, and nothing ever showed him.
+
+**Pressure.** From the default difficulty up, the house no longer waits for Tobia to steal something. After a few quiet minutes with nobody wanting him dead (about 3½ minutes at difficulty 1, less on harder settings, shorter again after the first), somebody decides to, for a reason that needs no theft:
+- he will not take a side, and a man who belongs to nobody is the one who will talk (Dario, Walter, Franco, Marta, Gabri);
+- they are high on the brown bottle that goes round after the record, and Il Bianco tells them the fourteenth chair has to be emptied (Gabri, Franco, Marta, Dario, Walter).
+
+A visible sign comes first: a line at the table, enormous pupils, a cleaver on the step. Then the existing stalker and trap systems take over, and they can kill. At most four times a game.
+
+**Arms.** Ines's crossed arms are rebuilt so the forearms rest level under the chest, each hand at the opposite elbow, instead of passing through her bust. At the table, elbows, wrists and fingertips are kept on top of the tabletop: every frame the elbow bends further, or draws back to the body, until they clear it. Measured with the whole table talking: before, 61% of hand samples over the table were inside it, by up to 38 cm; after, none.
+
+**The church collapse** is no longer blocked by trees. Trees are still scattered at random, but never in the sightline from the road to the church or in the near foreground of the shot.
+
+**The van** is parked in the farmyard from the first time Tobia has been in the house, never in the opening walk. It becomes Pino's van to open only once he mentions it, and it is solid.
+
+**Oaths**, a few more, still placed by hand and never in a first line: Franco at Anna's coffee, at his own joke and when Tobia says sorry; Gabri shouting at Ines about the thermos; Sergio hauling Gabri to the sink; Pino refusing to wait; Marta at cards; the ambient grumbles of Walter, Gabri and Sergio; and the two new pressure scenes.
+
 ## Version 27 — bodies, faces, hands, oaths
 
 **Anatomy from real measurements.** Everyone is rebuilt from anatomical cross-sections instead of capsules (`js/anatomy.js`). Segment lengths follow Drillis & Contini (1966); girths and breadths come from the ANSUR II survey means (neck, chest, waist, hips, thigh, calf, ankle, arm, forearm, wrist, shoulder and hip breadth, for men and for women); muscle contours follow surface anatomy (deltoid cap, biceps and triceps, the forearm's flexor mass and flat wrist, quadriceps with the vastus medialis teardrop, the patella, the calf high on the shank, a narrow ankle, gluteal mass); women's waist-to-hip ratio differs from men's (Singh 1993). Segment volumes land in the real range (thigh ~7.6 L, shank 2.4 L, upper arm 2 L, forearm 1 L, trunk ~44 L). Knees and elbows have joint caps; hands have a palm, four two-segment fingers and an opposable thumb, resting in the natural flexion cascade (Kapandji); shoes are lasts with heel, waist, ball and toe spring. Garments (Il Primo's Perfecto, the leather jackets, rosaries, pins, belts, aprons, tattoos) are refitted to the new trunk and limbs.
@@ -56,7 +74,7 @@ The four slaughterhouse forms are sculptural and stylised rather than anatomical
 
 **Gabri walks.** When he left the house the stalker loop cleared his walking flag every frame while he was being moved, so his legs never moved. Anyone who is moved now walks, whatever flag the mover set.
 
-**Oaths** (revised after v27). No random swearing. Five oaths in the whole game, written into specific moments: Pino when the van won’t start, Gabri coming round after the thermos, Sergio hearing Dario thinks he talked, Franco throwing Tobia out of his kitchen, and Franco’s own “Laugh, cazzo” after his knife joke. None is in anyone’s first line.
+**Oaths** (revised after v27, raised in v28). No random swearing: oaths are written into particular lines that are angry, frightened or a joke, never anyone's first line.
 
 ## Version 26 — the doorway, the walk, the tragedy
 
