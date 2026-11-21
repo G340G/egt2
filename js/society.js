@@ -1250,7 +1250,7 @@ export function createSociety(G) {
       const h = m.hunt; h.t += dt; h.cd = Math.max(0, h.cd - dt);
       if (h.state === 'follow' && now() >= h.followAt) { if (G.zone() === h.followZone && act) { const sp = zoneOf(G.zone()).spawn; placeH(m, G.zone(), sp.x + (Math.random() - .5), sp.z + (Math.random() - .5), 0); h.state = 'stalk'; G.audio()?.doorCreak?.(); G.line(pick(['(Behind you, the door. Somebody else has come in.)', '(A latch. Footsteps that stop when yours stop.)', '(The door again. Nobody says anything.)'])); } else h.state = 'away'; }
       if (h.vanAt && now() >= h.vanAt && G.zone() === 'road' && !R.van2 && act) { h.vanAt = 0; launchVan(m); }
-      if (h.where !== G.zone() || !act || R.scene) { const n = npcOf(m.k); if (n?.walking) n.walking = false; continue; }
+      if (h.where !== G.zone() || !act || R.scene) { const n = npcOf(m.k); if (n?.walking && !R.moves.some(mv => mv.k === m.k)) n.walking = false; continue; }
       const n = npcOf(m.k), o = n.object.position, p = playerPos(), d = Math.hypot(o.x - p.x, o.z - p.z), seen = sees(n);
       const others = G.zone() === 'home' ? present().filter(x => x.key !== m.k && !live(x.key) && dist2(x) < 6.5).length : 0;
       if (seen) { h.seenT += dt; n.walking = false; G.turn(n, p.x, p.z, dt, 2); if (h.state === 'stalk' && d < 3.2 && !h.faced && !S.ui) faceH(m, false); if (h.seenT > 6 && d > 5) reHideH(m); continue; }
