@@ -105,7 +105,7 @@ export const PEOPLE = {
     look: { build: 'heavy', height: .97, heft: 1.2, stoop: .1, skin: 0x8c6f5c, hair: 'long', hairColor: 0x9a958b, grey: .9, garment: 'tee-long', coat: 0x141414, print: 'reel', legs: 0x3c4655, denim: true, shoes: 0x272421, extras: ['beard-grey', 'cigarette'] },
     source: 'Black long-sleeve tee with a cracked screen print, worn soft — the shirt of a man who went to concerts in Reggio in 1979 and never stopped wearing the same kind.',
     tic: 'lean', gaze: 'away', gait: .78,
-    barks: ['The weather’s turning. Inside, I mean.', 'Don’t look at me. Madonna, I was outside.', 'Somebody tell the scooter joke. No, not you, testa di cazzo.'],
+    barks: ['The weather’s turning. Inside, I mean.', 'Don’t look at me. I was outside.', 'Somebody tell the scooter joke. No, not you.'],
     barksAfter: ['(The chair stays on four legs now.)'],
     second: {
       line: 'You want to know why I didn’t warn the boy. (He takes the cigarette from behind his ear, looks at it, puts it back.) Because the last time I stood outside a door, thirteen people died and I was still a person afterwards. I learned you can survive anything if you stay outside.',
@@ -146,7 +146,7 @@ export const PEOPLE = {
     look: { build: 'lean', height: 1.07, heft: .9, stoop: .04, skin: 0x977a63, hair: 'long', hairColor: 0x8b7d63, grey: .5, garment: 'tee', coat: 0x111111, print: 'road', legs: 0x23262b, shoes: 0x1b1712, extras: ['beard-full', 'cap', 'shades', 'sleeve-tattoo'] },
     source: 'Black tee with a faded tour-style print (no name, only a road and a date), a knit cap, wraparound shades worn at night — the uniform of drivers who sleep in the cab.',
     tic: 'keys', gaze: 'door', gait: 1.12,
-    barks: ['Past the canal. Don’t stop there.', 'Fog lifts at five. It always does, porca miseria.', 'I’m just getting some fucking air.'],
+    barks: ['Past the canal. Don’t stop there.', 'Fog lifts at five. It always does.', 'I’m just getting some air.'],
     barksAfter: [],
     second: {
       line: 'You keep looking at the door. So do I. (He tosses the van keys from hand to hand.) I could have you on the county road in forty minutes. Nobody would stop us. That is not the problem.',
@@ -166,7 +166,7 @@ export const PEOPLE = {
     ties: { ines: 'She fixes his collar without asking. He pulls away, then comes back and lets her finish.' },
     look: { build: 'wiry', height: .97, heft: .8, stoop: .06, skin: 0xb59c86, hair: 'fringe-eye', hairColor: 0x2b231d, garment: 'track', coat: 0x22303f, under: 0xcfcac0, legs: 0x253041, shoes: 0xe2ded6, extras: ['earring', 'piping'] },
     tic: 'glance', gaze: 'eager', gait: 1.15,
-    barks: ['Are you looking? You’re looking.', 'Did you see that? No? Vaffanculo, then.', 'Ines says I sit too close to the light.'],
+    barks: ['Are you looking? You’re looking.', 'Did you see that? No? Never mind, then.', 'Ines says I sit too close to the light.'],
     barksAfter: ['(The refrigerator light stays on in an empty corner.)'],
     second: {
       line: 'Everyone else has a job. Ines pours, Ottavio listens, Franco cuts. I sit in the light. (He grins too fast.) That’s a job too. Somebody has to be what gets looked at.',
@@ -187,7 +187,7 @@ export const PEOPLE = {
     look: { build: 'broad', height: 1.04, heft: 1.22, stoop: .02, skin: 0x8a6c58, hair: 'curls-short', hairColor: 0x35302a, garment: 'workjacket', coat: 0x434634, under: 0x22211f, legs: 0x3c4655, denim: true, shoes: 0x2a251d, extras: ['reflective', 'tape', 'stubble'] },
     source: 'Olive M-65-pattern field jacket bought surplus, reflective tape from a quarry vest stitched on and half torn off; jeans.',
     tic: 'measure', gaze: 'structure', gait: .95,
-    barks: ['That beam’s doing more than it should. Merda.', 'Two metres forty. Give or take your head.', 'Tell me where. I’ll do the rest.'],
+    barks: ['That beam’s doing more than it should.', 'Two metres forty. Give or take your head.', 'Tell me where. I’ll do the rest.'],
     barksAfter: [],
     second: {
       line: 'He gave me the church. Four charges, one each side of the nave. (He spreads his hand along the table edge.) It’s clean work. The roof comes down inward. Nobody outside gets so much as dust.',
@@ -228,10 +228,10 @@ export const PEOPLE = {
     look: { build: 'broad', height: 1.02, heft: 1.3, stoop: .04, skin: 0x93715c, hair: 'long-curls', hairColor: 0x2a201a, grey: .25, garment: 'tee', coat: 0x121212, print: 'beast', legs: 0x1c1c1c, shoes: 0x161412, extras: ['apron-half', 'beard-full', 'sleeve-tattoo'] },
     source: 'Butcher’s half apron (grembiule da macellaio) tied low over a black tee, the way counter staff wear it in the Emilian markets; inked forearms.',
     tic: 'wipe', gaze: 'checking', gait: .95,
-    barks: ['Anna, the coffee. Porca puttana, write it down.', 'Clean knife, clean conscience. That’s a joke. Laugh, cazzo.', 'The handle’s worth more than the hand, eh?'],
+    barks: ['Anna, the coffee. Write it down.', 'Clean knife, clean conscience. That’s a joke. Laugh, cazzo.', 'The handle’s worth more than the hand, eh?'],
     barksAfter: ['(Nobody tells the scooter joke anymore.)'],
     second: {
-      line: 'My father said a butcher thinks about Sunday. Somebody else’s Sunday. (He wipes his dry hands.) Thirty years, porco Dio. Never once for a reason. He says tonight there’s a reason. You think a man can be glad of that?',
+      line: 'My father said a butcher thinks about Sunday. Somebody else’s Sunday. (He wipes his dry hands.) Thirty years. Never once for a reason. He says tonight there’s a reason. You think a man can be glad of that?',
       choices: ['“Then be glad. It’s more than most people get.”', '“Ask him whose Sunday it is.”'],
       replies: ['(He laughs, too loud, and looks round to see who laughed with him.) More than most. Yes. Write that on the beam, Marta.', '(He stops wiping.) …I did. Once. He asked me what I thought. Nobody ever asked me that. So I stopped asking him anything.'],
       effect: ['accordo', 'rifiuto'], heal: [0, 0]
