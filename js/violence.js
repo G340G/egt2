@@ -621,7 +621,9 @@ export function createViolence(C) {
     { const pos = tarp.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i), r = Math.hypot(x, y); pos.setZ(i, -Math.max(0, (PIT_R - r)) * .18 + (Math.random() - .5) * .01); } tarp.geometry.computeVertexNormals(); }
     tarp.rotation.x = -Math.PI / 2; tarp.position.y = .02; tarp.visible = false; g.add(tarp);
     for (let i = 0; i < 26; i++) { const s = new THREE.Mesh(new THREE.BoxGeometry(.18, .004, .012), G.mat(0x8c7a4c, 1)); const a = Math.random() * 6.28, r = Math.random() * (PIT_R + .3); s.position.set(Math.cos(a) * r, .03, Math.sin(a) * r); s.rotation.y = Math.random() * 3; tarp.add(s); s.rotation.x = Math.PI / 2; }
-    V.pit = { g, lid, tarp, hole, state: 'closed', used: false, Z };
+    // seen from inside, the ground has an underside: only the circle of the opening shows the sky
+    const under = new THREE.Mesh(new THREE.RingGeometry(PIT_R, 40, 32, 1), new THREE.MeshBasicMaterial({ color: 0x050504, side: THREE.DoubleSide })); under.rotation.x = -Math.PI / 2; under.position.y = -.03; under.visible = false; g.add(under);
+    V.pit = { g, lid, tarp, hole, under, state: 'closed', used: false, Z };
     return V.pit;
   }
   function openPit(k) {
@@ -652,7 +654,7 @@ export function createViolence(C) {
   }
   function fall(Pt) {
     Pt.state = 'used'; Pt.used = true; Pt.tarp.visible = false; const i = Pt.Z.interactables.indexOf(Pt.entry); if (i >= 0) Pt.Z.interactables.splice(i, 1);
-    C.closeUI(); R.scene = 'pit'; const A = G.peril, a = G.anchor, start = { x: a.position.x, z: a.position.z };
+    C.closeUI(); R.scene = 'pit'; const A = G.peril, a = G.anchor, start = { x: a.position.x, z: a.position.z }; Pt.under.visible = true; Pt.hole.visible = false;
     a.position.set(PIT[0], 0, PIT[1]);
     G.audio()?.mechanicalNoise(.4, 900, .6, .2, 0);
     const sc = { t: 0, phase: 'fall', rungs: 0, lid: 0, k: Pt.by, Pt };
@@ -680,7 +682,7 @@ export function createViolence(C) {
       sc.lid = Math.min(1, sc.lid + dt / ([16, 11, 9, 7.5][G.difficulty()] ?? 11));
       Pt.lid.rotation.set(0, 0, 0); Pt.lid.position.set(-(1 - sc.lid) * (PIT_R * 2 + .1), .04, 0);
       if (Math.random() < dt * 3) G.audio()?.mechanicalNoise(.3, 160, .7, .1, 0);
-      if (sc.lid >= 1) { sc.phase = 'shut'; C.closeUI(); G.fade?.(true, 1.2); setTimeout(() => { V.scene = null; R.scene = null; G.endScene(); a.position.y = 0; G.fade?.(false, .1); C.kill(k, 'pit'); }, 1600); }
+      if (sc.lid >= 1) { sc.phase = 'shut'; Pt.under.visible = false; C.closeUI(); G.fade?.(true, 1.2); setTimeout(() => { V.scene = null; R.scene = null; G.endScene(); a.position.y = 0; G.fade?.(false, .1); C.kill(k, 'pit'); }, 1600); }
     }
   }
   function climbChoice(sc) {
@@ -696,7 +698,7 @@ export function createViolence(C) {
     if (sc.rungs === 1) G.line('(The rung is rust and holds. Your ankle doesn’t.)'); step();
   }
   function out(sc) {
-    if (sc.phase !== 'in') return; sc.phase = 'out'; const a = G.anchor; a.position.set(PIT[0] - PIT_R - .5, 0, PIT[1] + .6);
+    if (sc.phase !== 'in') return; sc.phase = 'out'; const a = G.anchor; a.position.set(PIT[0] - PIT_R - .5, 0, PIT[1] + .6); sc.Pt.under.visible = false; sc.Pt.hole.visible = true;
     G.endScene(); G.resetLook(); V.scene = null; R.scene = null; C.closeUI();
     const k = sc.k, n = k && C.npcOf(k);
     if (sc.came && n) { G.line(`${UP(k)}: (stepping back from the lid, wiping ${his(k)} hands) There you are. I told Pino a hundred times about that lid. Didn’t I? A hundred times.`); n.lookAt = null; later(4, () => { if (n._home) C.returnHome(n); }); }
