@@ -180,6 +180,7 @@ export function createViolence(C) {
   function strike(m, kind, n, fromPose) {
     if (V.scene || R.scene === 'dead') return;
     const k = m.k, def = STRIKES[kind]; n = n || C.npcOf(k); if (!n) return;
+    if (kind !== 'blast' && (!n.object.visible || !C.sameZone(n))) return;      // nobody can strike from where they are not
     C.closeUI(); R.scene = 'strike'; V.scene = { k, kind };
     m.v = m.v || { stage: 'strike', t: 0 }; m.v.stage = 'strike';
     n.walking = false; n.seated = false; n.lookAt = null;
@@ -781,7 +782,8 @@ export function createViolence(C) {
         ].filter(Boolean);
         later(1.4, () => G.line(pick(opts))); return;
       }
-      if (name === 'road' && m.k === 'pino' && R.van?.visible && !V.van && m.v?.stage !== 'approach') {
+      // the van is Pino's second way, after his hands have failed him (or Walter's, any time)
+      if (name === 'road' && ((m.k === 'pino' && (m.retries || 0) > 0 && m.v?.stage !== 'carry') || m.k === 'walter') && R.van?.visible && !V.van) {
         // his van, moved, and the engine still ticking
         if (Math.random() < .6 && launchVan(m)) return;
       }
