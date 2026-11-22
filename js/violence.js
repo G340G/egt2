@@ -180,6 +180,7 @@ export function createViolence(C) {
   function strike(m, kind, n, fromPose) {
     if (V.scene || R.scene === 'dead') return;
     const k = m.k, def = STRIKES[kind]; n = n || C.npcOf(k); if (!n) return;
+    if (kind !== 'blast' && (!n.object.visible || !C.sameZone(n))) return;      // nobody can strike from where they are not
     C.closeUI(); R.scene = 'strike'; V.scene = { k, kind };
     m.v = m.v || { stage: 'strike', t: 0 }; m.v.stage = 'strike';
     n.walking = false; n.seated = false; n.lookAt = null;
@@ -742,7 +743,7 @@ export function createViolence(C) {
       o.x = nx; o.z = nz; v.rotation.y = Math.atan2(W.dir.x, W.dir.z) + Math.PI;
       if (Math.random() < dt * 5) G.audio()?.mechanicalTone(60 + W.sp * 4, 55 + W.sp * 4, .4, 'sawtooth', .02 + Math.min(.06, 2.5 / Math.max(2.5, d)), 0);
       const rel = new THREE.Vector3(p.x - o.x, 0, p.z - o.z), along = rel.dot(W.dir), lat = Math.abs(rel.x * W.dir.z - rel.z * W.dir.x);
-      if (along > 0) W.minLat = Math.min(W.minLat, lat);
+      if (along > 0) W.minLat = lat;                                   // where he is as it reaches him, not where he once stood
       // the last moment: a body can still throw itself sideways
       if (!W.reflexed && along > 0 && along / Math.max(1, W.sp) < .95 && lat < 1.6) {
         W.reflexed = true; const k = W.m.k;
@@ -781,7 +782,8 @@ export function createViolence(C) {
         ].filter(Boolean);
         later(1.4, () => G.line(pick(opts))); return;
       }
-      if (name === 'road' && m.k === 'pino' && R.van?.visible && !V.van && m.v?.stage !== 'approach') {
+      // the van is Pino's second way, after his hands have failed him (or Walter's, any time)
+      if (name === 'road' && ((m.k === 'pino' && (m.retries || 0) > 0 && m.v?.stage !== 'carry') || m.k === 'walter') && R.van?.visible && !V.van) {
         // his van, moved, and the engine still ticking
         if (Math.random() < .6 && launchVan(m)) return;
       }
