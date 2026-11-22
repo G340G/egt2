@@ -100,7 +100,8 @@ export function createViolence(C) {
       G.turn(n, p.x, p.z, dt, 4); n.lookAt = G.camera.getWorldPosition(v3());
       const k = ease(E.t / 2.6); G.peril.pose(n, 'knifeHold', 'knifeRaise', k);
       if (d > 3.3) C.stepTo(n, p.x, p.z, 1.25, dt, 'home');                  // he follows; he does not give up because you stepped back
-      if ((d < 1.55 && E.t > 1.9) || E.t > 7) { if (S.seated) C.stand?.(); strike(m, 'knife', n, 'knifeRaise'); }
+      if (d < 1.7 && E.t > 1.9) { if (S.seated) C.stand?.(); strike(m, 'knife', n, 'knifeRaise'); }
+      else if (E.t > 12) abortKnife(m, n, E);
     }
   }
   function abortKnife(m, n, E) {
@@ -124,7 +125,8 @@ export function createViolence(C) {
     if (E.stage === 'brew') {
       if (now() - m.born < 15) return;
       // he goes out to the van; if Tobia is in the room he sees him go, with the toolbox
-      const go = () => { C.sendTo('pino', 'road', vp.x - 1.25, vp.z + .2, Math.PI / 2); const k = C.npcOf('pino'); if (k) { k.seated = false; G.peril.wield(k, 'wrench'); } E.stage = 'carry'; E.t = 0; };
+      const sol = R.vanSolid, sx = sol ? sol.minX - .55 : vp.x - 3, sz = sol ? (sol.minZ + sol.maxZ) / 2 : vp.z;
+      const go = () => { C.sendTo('pino', 'road', sx, sz, -Math.PI / 2); const k = C.npcOf('pino'); if (k) { k.seated = false; G.peril.wield(k, 'wrench'); } E.stage = 'carry'; E.t = 0; };
       if (G.zone() === 'home' && C.sameZone(n)) { if (!canStart()) return; say(null, 'Pino gets up without finishing, and takes the toolbox from under the coats, and goes out to the van.'); E.stage = 'going'; C.leaveHouse('pino', go); }
       else if (G.zone() !== 'road') go();
       return;
@@ -143,7 +145,10 @@ export function createViolence(C) {
     // he takes the line between Tobia and the farmhouse door
     const door = [0, -7.4], bx = p.x + (door[0] - p.x) * .45, bz = p.z + (door[1] - p.z) * .45;
     if (E.stage === 'approach') {
+      const o0 = { x: n.object.position.x, z: n.object.position.z };
       if (Math.hypot(n.object.position.x - bx, n.object.position.z - bz) > .6 && d > 2.4) C.stepTo(n, bx, bz, 1.15, dt, 'road');
+      E.stuck = Math.hypot(n.object.position.x - o0.x, n.object.position.z - o0.z) < .002 && d > 2.4 ? (E.stuck || 0) + dt : 0;
+      if (E.stuck > 2.5) { E.stage = 'carry'; m.cool = now() + 30; E.stuck = 0; n.walking = false; return; }
       G.turn(n, p.x, p.z, dt, 3);
       if (d < 5.2) { E.stage = 'smash'; E.t = 0; }
       if (d > 20) { E.stage = 'carry'; m.cool = now() + 45; }
@@ -161,7 +166,8 @@ export function createViolence(C) {
     if (E.stage === 'corner') {
       n.lookAt = G.camera.getWorldPosition(v3()); G.turn(n, p.x, p.z, dt, 4); G.peril.pose(n, 'wrenchSmash', 'wrenchHold', ease(E.t / .6));
       if (d > 2.0) C.stepTo(n, p.x, p.z, 1.35, dt, 'road');
-      if ((d < 2.2 && E.t > .8) || E.t > 6) strike(m, 'wrench', n, 'wrenchHold');
+      if (d < 2.3 && E.t > .8) strike(m, 'wrench', n, 'wrenchHold');
+      else if (E.t > 9) { E.stage = 'carry'; m.cool = now() + 25; G.peril.pose(n, null); n.lookAt = null; }   // he could not get to you; not this time
     }
   }
 
