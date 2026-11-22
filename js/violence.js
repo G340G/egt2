@@ -100,7 +100,8 @@ export function createViolence(C) {
       G.turn(n, p.x, p.z, dt, 4); n.lookAt = G.camera.getWorldPosition(v3());
       const k = ease(E.t / 2.6); G.peril.pose(n, 'knifeHold', 'knifeRaise', k);
       if (d > 3.3) C.stepTo(n, p.x, p.z, 1.25, dt, 'home');                  // he follows; he does not give up because you stepped back
-      if ((d < 1.55 && E.t > 1.9) || E.t > 7) { if (S.seated) C.stand?.(); strike(m, 'knife', n, 'knifeRaise'); }
+      if (d < 1.7 && E.t > 1.9) { if (S.seated) C.stand?.(); strike(m, 'knife', n, 'knifeRaise'); }
+      else if (E.t > 12) abortKnife(m, n, E);
     }
   }
   function abortKnife(m, n, E) {
@@ -124,7 +125,8 @@ export function createViolence(C) {
     if (E.stage === 'brew') {
       if (now() - m.born < 15) return;
       // he goes out to the van; if Tobia is in the room he sees him go, with the toolbox
-      const go = () => { C.sendTo('pino', 'road', vp.x - 1.25, vp.z + .2, Math.PI / 2); const k = C.npcOf('pino'); if (k) { k.seated = false; G.peril.wield(k, 'wrench'); } E.stage = 'carry'; E.t = 0; };
+      const sol = R.vanSolid, sx = sol ? sol.minX - .55 : vp.x - 3, sz = sol ? (sol.minZ + sol.maxZ) / 2 : vp.z;
+      const go = () => { C.sendTo('pino', 'road', sx, sz, -Math.PI / 2); const k = C.npcOf('pino'); if (k) { k.seated = false; G.peril.wield(k, 'wrench'); } E.stage = 'carry'; E.t = 0; };
       if (G.zone() === 'home' && C.sameZone(n)) { if (!canStart()) return; say(null, 'Pino gets up without finishing, and takes the toolbox from under the coats, and goes out to the van.'); E.stage = 'going'; C.leaveHouse('pino', go); }
       else if (G.zone() !== 'road') go();
       return;
@@ -143,7 +145,10 @@ export function createViolence(C) {
     // he takes the line between Tobia and the farmhouse door
     const door = [0, -7.4], bx = p.x + (door[0] - p.x) * .45, bz = p.z + (door[1] - p.z) * .45;
     if (E.stage === 'approach') {
+      const o0 = { x: n.object.position.x, z: n.object.position.z };
       if (Math.hypot(n.object.position.x - bx, n.object.position.z - bz) > .6 && d > 2.4) C.stepTo(n, bx, bz, 1.15, dt, 'road');
+      E.stuck = Math.hypot(n.object.position.x - o0.x, n.object.position.z - o0.z) < .002 && d > 2.4 ? (E.stuck || 0) + dt : 0;
+      if (E.stuck > 2.5) { E.stage = 'carry'; m.cool = now() + 30; E.stuck = 0; n.walking = false; return; }
       G.turn(n, p.x, p.z, dt, 3);
       if (d < 5.2) { E.stage = 'smash'; E.t = 0; }
       if (d > 20) { E.stage = 'carry'; m.cool = now() + 45; }
@@ -161,7 +166,8 @@ export function createViolence(C) {
     if (E.stage === 'corner') {
       n.lookAt = G.camera.getWorldPosition(v3()); G.turn(n, p.x, p.z, dt, 4); G.peril.pose(n, 'wrenchSmash', 'wrenchHold', ease(E.t / .6));
       if (d > 2.0) C.stepTo(n, p.x, p.z, 1.35, dt, 'road');
-      if ((d < 2.2 && E.t > .8) || E.t > 6) strike(m, 'wrench', n, 'wrenchHold');
+      if (d < 2.3 && E.t > .8) strike(m, 'wrench', n, 'wrenchHold');
+      else if (E.t > 9) { E.stage = 'carry'; m.cool = now() + 25; G.peril.pose(n, null); n.lookAt = null; }   // he could not get to you; not this time
     }
   }
 
@@ -613,9 +619,9 @@ export function createViolence(C) {
     const conc = G.mat(0x77746b, .95), dark = new THREE.MeshBasicMaterial({ color: 0x020202 });
     const rim = new THREE.Mesh(new THREE.RingGeometry(PIT_R, PIT_R + .14, 28), conc); rim.rotation.x = -Math.PI / 2; rim.position.y = .012; g.add(rim);
     const hole = new THREE.Mesh(new THREE.CircleGeometry(PIT_R, 28), dark); hole.rotation.x = -Math.PI / 2; hole.position.y = .008; g.add(hole);
-    const wall = new THREE.Mesh(new THREE.CylinderGeometry(PIT_R, PIT_R * .92, 2.7, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x2a2822, roughness: 1, side: THREE.BackSide })); wall.position.y = -1.35; g.add(wall);
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(PIT_R * .92, 20), new THREE.MeshStandardMaterial({ color: 0x15130e, roughness: .4 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -2.68; g.add(floor);
-    for (let i = 0; i < 3; i++) { const rung = new THREE.Mesh(new THREE.TorusGeometry(.12, .012, 5, 10, Math.PI), G.mat(0x4a2a18, .8, { metalness: .5 })); rung.position.set(0, -.55 - i * .62, -PIT_R + .03); g.add(rung); }
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(PIT_R, PIT_R * .92, 3.4, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x2a2822, roughness: 1, side: THREE.BackSide })); wall.position.y = -1.7; g.add(wall);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(PIT_R * .92, 20), new THREE.MeshStandardMaterial({ color: 0x15130e, roughness: .4 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -3.38; g.add(floor);
+    for (let i = 0; i < 3; i++) { const rung = new THREE.Mesh(new THREE.TorusGeometry(.12, .012, 5, 10, Math.PI), G.mat(0x4a2a18, .8, { metalness: .5 })); rung.position.set(0, -.75 - i * .85, -PIT_R + .03); g.add(rung); }
     const lid = new THREE.Mesh(new THREE.CylinderGeometry(PIT_R + .1, PIT_R + .1, .07, 24), conc); lid.position.y = .04; g.add(lid);
     const tarp = new THREE.Mesh(new THREE.CircleGeometry(PIT_R + .45, 18), new THREE.MeshStandardMaterial({ color: 0x0b0c0b, roughness: .35, side: THREE.DoubleSide }));
     { const pos = tarp.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i), r = Math.hypot(x, y); pos.setZ(i, -Math.max(0, (PIT_R - r)) * .18 + (Math.random() - .5) * .01); } tarp.geometry.computeVertexNormals(); }
@@ -664,9 +670,9 @@ export function createViolence(C) {
   function pitScene(sc, dt) {
     sc.t += dt; const a = G.anchor, t = sc.t, Pt = sc.Pt;
     if (sc.phase === 'fall') {
-      const q = Math.min(1, t / .55); a.position.y = -2.25 * q * q;
+      const q = Math.min(1, t / .65); a.position.y = -3.3 * q * q;
       G.aim(new THREE.Vector3(PIT[0] + .2, 3, PIT[1] + .1), Math.min(1, dt * 3));
-      if (q >= 1 && !sc.landed) { sc.landed = true; G.peril.impact('body'); G.peril.shake(1.2); G.peril.shock(1); G.peril.PERIL.limp = Math.max(G.peril.PERIL.limp, .75); G.line('(You land on something soft and then on something hard. Your ankle goes under you. The circle of sky is very small and very far up.)'); }
+      if (q >= 1 && !sc.landed) { sc.landed = true; a.position.y = -3.3; G.peril.impact('body'); G.peril.shake(1.2); G.peril.shock(1); G.peril.PERIL.limp = Math.max(G.peril.PERIL.limp, .75); G.line('(You land on something soft and then on something hard. Your ankle goes under you. The circle of sky is very small and very far up.)'); }
       if (t > 2.4) { sc.phase = 'in'; sc.t0 = t; climbChoice(sc); }
       return;
     }
@@ -693,7 +699,7 @@ export function createViolence(C) {
     ch(opts, { timeout: 0, title: '' });
   }
   function climb(sc) {
-    if (sc.phase !== 'in') return; sc.rungs++; const a = G.anchor, y0 = a.position.y, y1 = -2.25 + sc.rungs * .78; G.peril.impact('breath');
+    if (sc.phase !== 'in') return; sc.rungs++; const a = G.anchor, y0 = a.position.y, y1 = -3.3 + sc.rungs * 1.1; G.peril.impact('breath');
     const t0 = performance.now(); const step = () => { const q = Math.min(1, (performance.now() - t0) / (1100 + G.peril.PERIL.limp * 500)); a.position.y = y0 + (y1 - y0) * q * q * (3 - 2 * q); if (q < 1) requestAnimationFrame(step); else if (sc.rungs >= 3) out(sc); else climbChoice(sc); };
     if (sc.rungs === 1) G.line('(The rung is rust and holds. Your ankle doesn’t.)'); step();
   }
