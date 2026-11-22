@@ -100,6 +100,7 @@ export function createViolence(C) {
       G.turn(n, p.x, p.z, dt, 4); n.lookAt = G.camera.getWorldPosition(v3());
       const k = ease(E.t / 2.6); G.peril.pose(n, 'knifeHold', 'knifeRaise', k);
       if (d > 3.3) C.stepTo(n, p.x, p.z, 1.25, dt, 'home');                  // he follows; he does not give up because you stepped back
+      else if (d > 1.45 && E.t > .8) C.stepTo(n, p.x, p.z, .45, dt, 'home');  // and while he talks, he edges in
       if (d < 1.7 && E.t > 1.9) { if (S.seated) C.stand?.(); strike(m, 'knife', n, 'knifeRaise'); }
       else if (E.t > 12) abortKnife(m, n, E);
     }
