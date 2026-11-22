@@ -31,16 +31,18 @@ const TEST_MODE = new URLSearchParams(location.search).has('test');
 const lowFx = new URLSearchParams(location.search).has('lowfx');
 const candles = [], rituals = [], tools = new Set(), seenMissions = new Set(), chapterCardsShown = new Set();
 let HEAD_TEX = null, JUMP_URL = null, PAINT_TEX = {}, atmo = { zone: null, nodes: [], timers: [], gain: null }, zoomPulse2 = 0;
+// v29: what an answer gives (a map, a key, a breath). An answer that goes badly no longer throws a
+// face, a flash or a sting at the player; the person goes quiet and keeps looking (see coldStare).
 const CHOICE_EFFECTS = {
-  ines:['good:map','bad:jumpscare'],
-  'father remo':['bad:closer','good:health'],
-  'don remo':['bad:closer','good:health'],
-  'the widow':['bad:trip','good:key'],
-  'la vedova':['bad:trip','good:key'],
-  ottavio: ['bad:trip', 'good:health'],
-  sergio: ['good:key', 'bad:closer'],
-  dario: ['good:health', 'bad:jumpscare'],
-  anna: ['good:map', 'bad:closer']
+  ines:['good:map','bad:none'],
+  'father remo':['bad:none','good:health'],
+  'don remo':['bad:none','good:health'],
+  'the widow':['bad:none','good:key'],
+  'la vedova':['bad:none','good:key'],
+  ottavio: ['bad:none', 'good:health'],
+  sergio: ['good:key', 'bad:none'],
+  dario: ['good:health', 'bad:none'],
+  anna: ['good:map', 'bad:none']
 };
 const camDir2 = new THREE.Vector3();
 let society = null;
@@ -2387,16 +2389,11 @@ function chooseDialogue(npc, index) {
   if(lower==='the widow'||lower==='widow')storyFlags.add('talked-widow');
   if(lower==='ottavio'){storyFlags.add('talked-ottavio');if(index===1)storyFlags.add('ottavio-audio');}
   if(lower==='anna')storyFlags.add(index===0?'anna-mercy':'anna-table');
-  if(lower==='pino'){storyFlags.add('talked-pino');if(index===0){storyFlags.add('pino-sent');flashFragment('collapse',140);}}
-  if(lower==='marta'&&index===1)flashFragment('nosebleed',120);
-  if(lower==='gabri'&&index===0)flashFragment('tea',120);
+  if(lower==='pino'){storyFlags.add('talked-pino');if(index===0)storyFlags.add('pino-sent');}
   if(lower==='livia')storyFlags.add('livia-song');
-  if(lower==='ottavio')flashFragment('reel',105);
-  if(lower==='ines'&&index===0){storyFlags.add('ines-wiped-blood');flashFragment('nosebleed',165);showToast('INES WIPES THE BLOOD WITHOUT ASKING WHAT CAUSED IT.');const left=npc.leftArm?.rotation.z??0,fore=npc.leftForearm?.rotation.z??0;if(npc.leftArm)npc.leftArm.rotation.z=-1.05;if(npc.leftForearm)npc.leftForearm.rotation.z=-.72;setTimeout(()=>{if(npc.leftArm)npc.leftArm.rotation.z=left;if(npc.leftForearm)npc.leftForearm.rotation.z=fore;},1150);}
-  if(lower==='ines'&&index===1)flashFragment('tea',180);
+  if(lower==='ines'&&index===0){storyFlags.add('ines-wiped-blood');showToast('INES WIPES THE BLOOD WITHOUT ASKING WHAT CAUSED IT.');const left=npc.leftArm?.rotation.z??0,fore=npc.leftForearm?.rotation.z??0;if(npc.leftArm)npc.leftArm.rotation.z=-1.05;if(npc.leftForearm)npc.leftForearm.rotation.z=-.72;setTimeout(()=>{if(npc.leftArm)npc.leftArm.rotation.z=left;if(npc.leftForearm)npc.leftForearm.rotation.z=fore;},1150);}
   $('subtitle').textContent = reply; speakVoice(reply,npc.name); $('dialogue-options').innerHTML = '<button class="dialogue-option" id="dialogue-end"><b>[↵]</b>Say nothing more.</button>'; 
   $('dialogue-end').addEventListener('click', closeDialogue);
-  glitchPulse = Math.max(glitchPulse, .28); audio.stinger(.25);
   applyConsequences(npc, index);
 }
 function closeDialogue(relock = true) { dialogueOpen = false; $('subtitle-wrap').classList.remove('visible'); if('speechSynthesis' in window)window.speechSynthesis.cancel(); if(relock)requestMouseLock(); }
@@ -2683,7 +2680,7 @@ function updatePlayer(dt) {
   if (!playerInputEnabled()) { velocity.multiplyScalar(Math.max(0, 1 - dt * 8)); bobAmount *= Math.max(0, 1 - dt * 6); return; }
   applyLook(dt);
   if (society?.seated) { velocity.set(0, 0, 0); bobAmount = 0; camera.position.y = 1.12; return; }
-  const sprinting=keys.has('ShiftLeft') || keys.has('ShiftRight'); const speed = sprinting ? 5.4 : 3.2; if(sprinting&&wishVec.lengthSq()>.1)fear=Math.min(1,fear+dt*.012);
+  const sprinting=(keys.has('ShiftLeft') || keys.has('ShiftRight')) && PERIL.limp < .4; const speed = (sprinting ? 5.4 : 3.2) * PERIL.speedMul; if(sprinting&&wishVec.lengthSq()>.1)fear=Math.min(1,fear+dt*.012);
   const f = hiddenBreath ? 0 : ((keys.has('KeyW') || keys.has('ArrowUp')) ? 1 : 0) - ((keys.has('KeyS') || keys.has('ArrowDown')) ? 1 : 0);
   const s = hiddenBreath ? 0 : ((keys.has('KeyD') || keys.has('ArrowRight')) ? 1 : 0) - ((keys.has('KeyA') || keys.has('ArrowLeft')) ? 1 : 0);
   controls.getDirection(forward); forward.y = 0; forward.normalize();
@@ -2817,6 +2814,7 @@ const movementCodes = new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown'
 window.addEventListener('keydown', (e) => {
   if (playerInputEnabled() && movementCodes.has(e.code)) e.preventDefault();
   keys.add(e.code);
+  if (PERIL.reflex && !e.repeat && gameStarted && !gameEnded && reflexKey(e.code)) { e.preventDefault(); return; }
   if (gameStarted && !gameEnded && society && !e.repeat && !dialogueOpen && !journalOpen && !settingsOpen && !bench && society.onKey(e.code)) { e.preventDefault(); return; }
   if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !e.repeat && !dialogueOpen && !society?.S?.ui && performance.now() < LINES.until) { LINES.until = 0; clearTimeout(LINES.timer); pumpLines(); }
   if (e.code === 'KeyF' && !e.repeat && playerInputEnabled()) toggleFlashlight();
@@ -3995,7 +3993,7 @@ function primoSpeedBonus() { return difficultyTier() * .13; }
 function applyChoiceEffect(key,index,npc=null){
  const row=CHOICE_EFFECTS[key],entry=row?.[index]||null;
  const [severity,effect]=entry?entry.split(':'):[index>0?'bad':'good','none'];
- if(severity==='bad'){flashFragment(npc?.name?.toLowerCase()==='ines'?'tea':npc?.name?.toLowerCase()==='ottavio'?'reel':'collapse',125);fear=Math.min(1,fear+.08);}
+ if(severity==='bad'&&npc)coldStare(npc);
   if (effect === 'map') {
     if (storyFlags.has('map')) return; storyFlags.add('map');
     journal.push({ id: 'map', title: 'Folded map', description: 'The farmhouse plan. The road runs north to the house. The slaughterhouse lies east, behind the barn. The church is past the canal. The forest begins where the lamp goes out.', kind: 'map', zone: currentZone });
@@ -4010,13 +4008,12 @@ function applyChoiceEffect(key,index,npc=null){
     journal.push({ id: 'key-east', title: 'Key to the east room', description: 'A brass key with a paper tag: "East room. Two paintings. Do not turn them round."', kind: 'key', zone: currentZone });
     updateJournalCount(); showToast('A KEY TO THE EAST ROOM.');
   }
-  else if (effect === 'closer') {
-    // Preserve the story beat without moving the stationary enemy.
-    storyFlags.add('primo-closer');
-    showToast('SOMETHING IS STILL WAITING.');
-  }
-  else if (effect === 'jumpscare') jumpscare();
-  else if (effect === 'trip') trip();
+}
+// v29: the answer landed badly. Nothing jumps out. The person stops talking, and their face goes
+// cold, and they keep looking at Tobia after the conversation is over, for longer than is polite.
+function coldStare(npc) {
+  npc.forceEmo = { contempt: .55, anger: .2 }; npc.stareUntil = elapsed + 14; society?.tenseExt?.(.12);
+  setTimeout(() => { if (npc.forceEmo?.contempt === .55) npc.forceEmo = null; }, 14000);
 }
 let demiseVision=null;
 function showThirteenDemises(sourceNpc=null){
@@ -4408,7 +4405,8 @@ function loop() {
   { const fa = society?.distort || 0; fleshPass.uniforms.amount.value = fa; fleshPass.uniforms.time.value = t * .001; fleshPass.enabled = fa > .004; }
   bloom.strength = .24 + dread * .15; bloom.threshold = .78 - dread * .12;
   storyTick(dt, t);
-  composer.render();
+  updateReflex(dt); updateLurch(dt); woundTick(dt);
+  perilCamPre(t); composer.render(); perilCamPost();
 }
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
@@ -6244,7 +6242,7 @@ function chooseSecond(npc, i) {
   if (personaKey(npc) === 'livia' && i === 1) audio?.mechanicalTone(220, 207, 1.6, 'sine', .02);
   $('dialogue-options').innerHTML = '<button class="dialogue-option" id="dialogue-end"><b>[↵]</b>Say nothing more.</button>';
   $('dialogue-end').addEventListener('click', () => { $('subtitle-wrap').classList.remove('second'); closeDialogue(); });
-  glitchPulse = Math.max(glitchPulse, .22); audio?.stinger(.18);
+
 }
 function pinoLeaves(npc) {
   if (npc.fate !== 'present' || storyFlags.has('pino-sent')) return;
@@ -7059,11 +7057,15 @@ function driveRig(n, t, dt) {
   if (m?.rig) { P.look = m.rig.head.getWorldPosition(new THREE.Vector3()); want = 1; } else if (P.look !== rigIdle.fridge) P.look = 'cam';
   { const sg = society?.gazeFor(n); if (sg != null && !n.posed) { want = sg; if (P.look !== 'cam' && sg > 0) P.look = 'cam'; } }
   if (n.lookAt) { P.look = n.lookAt; want = 1; }
+  if ((n.stareUntil || 0) > elapsed && !n.posed) { P.look = 'cam'; want = 1; }
   P.lookW += (want - P.lookW) * Math.min(1, dt * 2.5);
   if (n.talkT > 0) { P.talk = Math.max(P.talk, n.talkT); n.talkT -= dt; }
-  P.holdArm = n.smoker?.on ? 1 : -1;
+  // v29: a hand that holds something (a cigarette, a knife, a wrench, a cup) keeps its grip and stays out of
+  // speech gestures; an arm driven by a scene (a threat, a strike) is posed after the rig, then smoothed
+  P.holdArm = n.smoker?.on ? 1 : n.wielding ? 0 : -1; P.holdShape = n.wielding ? 'grip' : 'ring';
   updatePerson(P, dt, t * .001, cam);
   if (n.smoker?.on) smokerArm(n.smoker);
+  if (n.armPose) n.armPose(P, dt);
   settleArms(P, dt);
 }
 function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent || !isVisibleChain(n.object)) return; driveRig(n, t, dt); }); }
@@ -7696,12 +7698,151 @@ function socialPhotoTexture() {
     g.globalAlpha = .25; g.fillStyle = '#7a4a20'; g.beginPath(); g.ellipse(150, 196, 18, 14, .4, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
   });
 }
+// =============================================================================
+// v29 — PERIL. What a body does when somebody in the house tries to kill Tobia.
+// Not a combat system: one reflex, in the right place, for the right danger; the body's
+// memory of it afterwards; and the objects people were already holding.
+// =============================================================================
+const PERIL = { speedMul: 1, tremor: 0, unease: 0, poison: 0, limp: 0, reflex: null, hinted: new Set(), shakeA: 0, lurch: null, off: new THREE.Vector3(), tilt: 0, roll: 0, beatT: 0, breathT: 0, muffled: false, undo: null };
+// A reflex: a short window, opened by something you can see or hear coming. keys maps key codes to
+// what Tobia does (dodge-left, duck, grab...). Too early is a flinch that costs a moment; too late
+// is hurt; nothing is worse. The window is wider on easier settings. The hint shows only the first
+// time a kind of danger happens, faintly, and only while the window is open.
+function startReflex(def) {
+  const scale = [1.4, 1, .8, .66][SETTINGS.difficulty] ?? 1, w = def.window * scale;
+  PERIL.reflex = { def, t: 0, open: def.lead, close: def.lead + w, lateEnd: def.lead + w + (def.late ?? .3), done: false, flinchT: -9 };
+}
+function reflexKey(code) {
+  const R = PERIL.reflex; if (!R || R.done) return false; const act = R.def.keys[code]; if (!act) return false;
+  if (R.t - R.flinchT < .45) return true;                                   // still recovering from a flinch
+  if (R.t < R.open - .18) { R.flinchT = R.t; R.def.onFlinch?.(act); PERIL.shakeA = Math.max(PERIL.shakeA, .25); return true; }
+  endReflex(R.t <= R.close ? 'clean' : 'late', act); return true;
+}
+function endReflex(res, act) { const R = PERIL.reflex; if (!R || R.done) return; R.done = true; PERIL.reflex = null; reflexHint(null); R.def.onResult(res, act); }
+function updateReflex(dt) {
+  const R = PERIL.reflex; if (!R || R.done) return; R.t += dt;
+  if (R.def.hint && !PERIL.hinted.has(R.def.kind) && R.t >= R.open - .1) { reflexHint(R.def.hint); }
+  if (R.t > R.close && R.def.hint) { PERIL.hinted.add(R.def.kind); reflexHint(null); }
+  if (R.t > R.lateEnd) endReflex('none', null);
+}
+function reflexHint(text) {
+  let el = $('reflex-hint'); if (!el) { el = document.createElement('div'); el.id = 'reflex-hint'; el.style.cssText = 'position:fixed;left:50%;bottom:19%;transform:translateX(-50%);z-index:40;font:500 12px/1.2 "IBM Plex Mono",monospace;letter-spacing:.32em;color:rgba(232,224,206,.62);text-shadow:0 0 6px #000;pointer-events:none;transition:opacity .12s;opacity:0;white-space:pre'; document.body.appendChild(el); }
+  if (text) { el.textContent = text; el.style.opacity = '1'; } else el.style.opacity = '0';
+}
+// The body moves: a dodge to one side, a duck, a stagger back, a fall. Offsets are in the camera's own
+// frame (x right, y up, z back) and can be kept afterwards (commit) or let go.
+function lurch(to, dur = .25, { hold = 0, back = .5, commit = false } = {}) { PERIL.lurch = { from: PERIL.off.clone(), to: new THREE.Vector3(...to), t: 0, dur, hold, back, commit }; }
+function updateLurch(dt) {
+  const L = PERIL.lurch; if (!L) return; L.t += dt; const e = (x) => x * x * (3 - 2 * x);
+  if (L.t <= L.dur) PERIL.off.lerpVectors(L.from, L.to, e(L.t / L.dur));
+  else if (L.t <= L.dur + L.hold) PERIL.off.copy(L.to);
+  else if (L.commit) { commitOffset(); PERIL.lurch = null; }
+  else { const k = Math.min(1, (L.t - L.dur - L.hold) / L.back); PERIL.off.lerpVectors(L.to, new THREE.Vector3(), e(k)); if (k >= 1) PERIL.lurch = null; }
+}
+// a dodge that stays: the body really is a step to the side afterwards, if there is room
+function commitOffset() {
+  const o = PERIL.off, yaw = camera.rotation.y, dx = Math.cos(yaw) * o.x + Math.sin(yaw) * o.z, dz = -Math.sin(yaw) * o.x + Math.cos(yaw) * o.z, p = playerAnchor.position, r = .34;
+  const free = (x, z) => zone && !zone.solids.some(s => x + r > s.minX && x - r < s.maxX && z + r > s.minZ && z - r < s.maxZ) && x >= zone.bounds.minX && x <= zone.bounds.maxX && z >= zone.bounds.minZ && z <= zone.bounds.maxZ;
+  if (free(p.x + dx, p.z + dz)) { p.x += dx; p.z += dz; }
+  o.set(0, 0, 0);
+}
+function shake(a) { PERIL.shakeA = Math.max(PERIL.shakeA, a); }
+// What stays in the body: a tremor that rises when the person who did it is near, a heartbeat you
+// can hear, breath that catches, the world going far away; a leg that will not take weight.
+function shock(level) { PERIL.tremor = Math.max(PERIL.tremor, level); }
+function woundTick(dt) {
+  PERIL.tremor += (PERIL.unease - PERIL.tremor) * Math.min(1, dt * (PERIL.tremor > PERIL.unease ? .12 : .9));
+  PERIL.limp = Math.max(0, PERIL.limp - dt * .0035);
+  PERIL.speedMul = (1 - PERIL.limp * .5) * (1 - PERIL.poison * .55);
+  PERIL.shakeA = Math.max(0, PERIL.shakeA - dt * 1.8);
+  if (!audio?.ctx || gameEnded) return; const T = Math.max(PERIL.tremor, PERIL.poison * .8);
+  if (T > .32) { PERIL.beatT -= dt; if (PERIL.beatT <= 0) { PERIL.beatT = 60 / (62 + T * 70); audio.mechanicalTone(58, 40, .11, 'sine', .035 + T * .05, 0); setTimeout(() => audio?.mechanicalTone(52, 38, .09, 'sine', .025 + T * .035, 0), 170); } }
+  if (T > .5) { PERIL.breathT -= dt; if (PERIL.breathT <= 0) { PERIL.breathT = 2.6 + Math.random() * 2.4; audio.mechanicalNoise(.5 + T * .3, 900, .5, .018 + T * .02, 0); } }
+  const far = PERIL.tremor > .72 || PERIL.poison > .35; if (far !== PERIL.muffled) { PERIL.muffled = far; audio.setMuffle(far, far ? .8 : 2.5); }
+}
+function perilCamPre(t) {
+  const T = Math.max(PERIL.tremor - .12, 0), P = PERIL.poison, o = PERIL.off;
+  const rx = (Math.sin(t * .0213) * .5 + Math.sin(t * .0371) * .5) * .0035 * T + (Math.random() - .5) * PERIL.shakeA * .05 + Math.sin(t * .0011) * .02 * P;
+  const rz = (Math.sin(t * .0177) + Math.sin(t * .0289)) * .0025 * T + (Math.random() - .5) * PERIL.shakeA * .04 + Math.sin(t * .0007) * .05 * P;
+  if (!rx && !rz && !o.lengthSq()) { PERIL.undo = null; return; }
+  const yaw = camera.rotation.y, wx = Math.cos(yaw) * o.x + Math.sin(yaw) * o.z, wz = -Math.sin(yaw) * o.x + Math.cos(yaw) * o.z;
+  PERIL.undo = { rx, rz, x: wx, y: o.y, z: wz }; camera.rotation.x += rx; camera.rotation.z += rz; camera.position.x += wx; camera.position.y += o.y; camera.position.z += wz;
+}
+function perilCamPost() { const u = PERIL.undo; if (!u) return; camera.rotation.x -= u.rx; camera.rotation.z -= u.rz; camera.position.x -= u.x; camera.position.y -= u.y; camera.position.z -= u.z; PERIL.undo = null; }
+function poisonLevel(v) {
+  PERIL.poison = Math.max(0, Math.min(1, v)); const w = $('world'); if (!w) return; const p = PERIL.poison;
+  w.style.filter = p > .01 ? `blur(${(p * 1.6).toFixed(2)}px) saturate(${(1 - p * .45).toFixed(2)}) brightness(${(1 - p * .22).toFixed(2)}) contrast(${(1 + p * .25).toFixed(2)})` : '';
+}
+// Objects in hands. They are what the person already uses: Franco's butcher's knife from the board,
+// Pino's pipe wrench from the van's toolbox, Ines's cup. Held in the right hand (arm 0).
+function wield(n, kind) {
+  unwield(n); const P = n.rig; if (!P) return null; const wr = P.arms[0].wr, k = P.k || 1, g = new THREE.Group(); g.userData.kind = kind;
+  const steel = new THREE.MeshStandardMaterial({ color: 0xb9b8b0, metalness: .85, roughness: .32 }), dull = new THREE.MeshStandardMaterial({ color: 0x8e8c84, metalness: .7, roughness: .55 });
+  if (kind === 'knife') {
+    // a butcher's knife: a broad, worn blade, a riveted dark handle; held in a fist, the blade out of the thumb side
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(.026, .028, .125), mat(0x2b1d14, .7)); g.add(handle);
+    for (const z of [-.035, .03]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(.005, .005, .03, 8), mat(0xb08d4a, .4, { metalness: .8 })); r.rotation.z = Math.PI / 2; r.position.z = z; g.add(r); }
+    const sh = new THREE.Shape(); sh.moveTo(0, -.022); sh.lineTo(.235, -.012); sh.quadraticCurveTo(.262, .004, .245, .022); sh.lineTo(0, .03); sh.closePath();
+    const blade = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: .0025, bevelEnabled: false }), steel); blade.rotation.y = -Math.PI / 2; blade.position.set(-.001, 0, .062); g.add(blade);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(.003, .004, .2), dull); edge.position.set(0, -.019, .17); g.add(edge);
+    g.position.set(0, -.085 * k, .012); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -.45, .9).normalize());
+  } else if (kind === 'wrench') {
+    // a 24-inch pipe wrench, red handle chipped to the metal, carried hanging from the fist
+    const red = new THREE.MeshStandardMaterial({ color: 0x7a1d14, roughness: .75, metalness: .25 });
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(.03, .022, .5), red); handle.position.z = .12; g.add(handle);
+    const jawB = new THREE.Mesh(new THREE.BoxGeometry(.05, .04, .13), dull); jawB.position.set(0, 0, .42); g.add(jawB);
+    const hook = new THREE.Mesh(new THREE.BoxGeometry(.045, .09, .035), dull); hook.position.set(0, .045, .47); g.add(hook);
+    const nut = new THREE.Mesh(new THREE.CylinderGeometry(.024, .024, .05, 10), dull); nut.rotation.x = Math.PI / 2; nut.position.set(0, .03, .37); g.add(nut);
+    g.position.set(0, -.085 * k, 0); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -.8, .6).normalize());
+  } else if (kind === 'cup') {
+    const c = buildTeacup(g, 0, 0, 0); c.scale.setScalar(.9); g.position.set(.012, -.1 * k, .04); g.rotation.set(-Math.PI / 2, 0, 0);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; }); wr.add(g); n.wielding = g; return g;
+}
+function unwield(n, drop = false) {
+  const g = n?.wielding; if (!g) return null; n.wielding = null;
+  if (drop) { const wp = new THREE.Vector3(); g.getWorldPosition(wp); const par = n.object.parent; g.parent.remove(g); par.worldToLocal(wp); g.position.set(wp.x, .02, wp.z); g.rotation.set(Math.PI / 2, 0, Math.random() * 6.28); par.add(g); return g; }
+  g.parent?.remove(g); return null;
+}
+// Arm poses for the moments when a body becomes a weapon. Angles are anatomical (flexion,
+// abduction, rotation, elbow), blended by w against whatever the rig is already doing.
+const ATTACK_POSES = {
+  knifeHold: [[12, 8, 8, 38, -.2]], knifeRaise: [[62, 16, 0, 96, -.3]], knifeCock: [[18, 26, -12, 112, -.4]], knifeThrust: [[78, 6, 12, 12, -.4]],
+  wrenchHold: [[4, 9, 0, 16, -.1]], wrenchHigh: [[155, 22, 0, 38, 0]], wrenchSmash: [[38, 12, 0, 12, 0]],
+  wrenchBack: [[-28, 86, -22, 52, 0], [62, -8, 58, 92, .2]], wrenchThrough: [[72, 12, 34, 14, 0], [44, 4, 30, 40, .2]],
+  cupOffer: [[44, 6, 18, 70, .55]], gripBehind: [[70, 14, 46, 118, -.2], [70, 14, 46, 118, -.2]], reachOut: [[66, 8, 6, 24, .2]]
+};
+function setAttackPose(n, from, to, k) {
+  if (!n?.rig) return; if (!to) { n.armPose = null; return; }
+  const A = ATTACK_POSES[from] || ATTACK_POSES[to], B = ATTACK_POSES[to], e = k * k * (3 - 2 * k);
+  n.armPose = (P) => {
+    for (let i = 0; i < B.length; i++) {
+      const a = A[i] || B[i], b = B[i], q = armAngles(i, a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e, a[3] + (b[3] - a[3]) * e, a[4] + (b[4] - a[4]) * e, 0), r = P.arms[i];
+      r.sh.rotation.x = q.shX; r.sh.rotation.y = q.shY; r.sh.rotation.z = q.shZ; r.el.rotation.x = q.elX; r.wr.rotation.y = q.wrY; r.wr.rotation.x = q.wrX;
+    }
+  };
+}
+// a sound for each thing that happens to a body or near it
+function impact(kind) {
+  if (!audio?.ctx) return;
+  if (kind === 'wood') { audio.mechanicalNoise(.18, 260, 1.4, .3, 0); audio.mechanicalTone(140, 70, .2, 'triangle', .12, 0); }
+  else if (kind === 'metal') { audio.mechanicalNoise(.5, 2400, 6, .22, 0); audio.mechanicalTone(820, 760, .9, 'triangle', .07, 0); audio.mechanicalTone(1340, 1290, .7, 'sine', .04, 0); }
+  else if (kind === 'glass') { audio.playSample?.('glass', { gain: .9 }); audio.mechanicalNoise(.4, 5200, 3, .16, 0); }
+  else if (kind === 'flesh') { audio.mechanicalNoise(.12, 420, .9, .35, 0); audio.mechanicalTone(90, 50, .18, 'sine', .2, 0); }
+  else if (kind === 'body') { audio.mechanicalNoise(.3, 160, .8, .45, 0); audio.mechanicalTone(70, 30, .4, 'sine', .3, 0); }
+  else if (kind === 'breath') { audio.mechanicalNoise(.45, 1100, .6, .06, 0); }
+  else if (kind === 'engine') { audio.mechanicalTone(48, 62, 2.8, 'sawtooth', .05, 0); audio.mechanicalNoise(2.8, 120, .7, .1, 0); }
+  else if (kind === 'starter') { audio.mechanicalTone(180, 240, .6, 'square', .03, 0); setTimeout(() => audio?.mechanicalTone(180, 250, .7, 'square', .03, 0), 700); }
+  else if (kind === 'stone') { audio.mechanicalNoise(1.6, 220, .6, .2, 0); audio.mechanicalTone(55, 48, 1.6, 'sawtooth', .04, 0); }
+  else if (kind === 'kettle') { audio.mechanicalTone(1800, 2300, 2.4, 'sine', .018, 0); }
+}
 society = createSociety({ THREE, camera, playerAnchor, look, zone: () => currentZone, home: () => zones.home, elapsed: () => elapsed, people: socialPeople, seats: () => storyRef.tableSeats,
   line: storyLine, lineNow: storyLine, say: storyLine, queueAction, linesBusy: () => linesPending(), clearLines,
   scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), enter: (name, sp) => enterZone(name, sp), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, parkedVan: () => storyRef.van?.visible ? storyRef.van : null, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
-  end: (E) => showSocialEnding(E, true) });
-if (TEST_MODE) window.__epi = { people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+  end: (E) => showSocialEnding(E, true),
+  peril: { PERIL, startReflex, lurch, shake, shock, poison: poisonLevel, wield, unwield, pose: setAttackPose, impact, flash: (k, d) => flashFragment(k, d), fragment: (k, d) => flashFragment(k, d), extraFigure: (g, x, z, name, coat, v) => extraFigure(g, x, z, name, coat, v), seat: (n, x, z, r) => seatNPC(n, x, z, r), cup: (g, x, y, z) => buildTeacup(g, x, y, z), bleed: () => { blood.bleedT = Math.max(blood.bleedT || 0, 30); }, input: () => playerInputEnabled(), cam: camera, anchor: playerAnchor, fovSet: setFov } });
+if (TEST_MODE) window.__epi = { peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);

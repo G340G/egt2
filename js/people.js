@@ -458,7 +458,7 @@ export const SOCIAL = {
     warm: ['I could carve you. Small. Somewhere they would not look.', 'You have a good face for wood.'],
     kitchen: { open: 'Hold the board still. Still.', help: 'There is a beam with your name already on it. Help me take it down before he reads it.', pretend: '(She is sharpening the burin on the back step of the stove.) It goes blunt on the old wood.' },
     kill: 'Marta remembered it differently each time she told it. In every version you had done something to her first.' },
-  pino: { loyalty: .2, violence: .2, care: .5, distorts: .2, confidant: 'dario', protects: [], leaving: true,
+  pino: { loyalty: .2, violence: .38, care: .5, distorts: .2, confidant: 'dario', protects: [], leaving: true,
     cold: ['We have arranged the cars for Sunday. (He counts with his finger. He does not count you.)', 'No room. Sorry.'],
     warm: ['Before dawn. You do not look back. Remember that.', 'The van has three seats. I only need one.'],
     kitchen: { open: 'Is that the good knife? Give it here, I’ll do the bread.', help: 'I am going. Tonight, maybe. There is a seat. Come or do not, but do not tell Walter.', pretend: '(He is filling a thermos for the road.) Long drive. Long drive.' },
