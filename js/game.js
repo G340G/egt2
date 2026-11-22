@@ -4406,6 +4406,7 @@ function loop() {
   bloom.strength = .24 + dread * .15; bloom.threshold = .78 - dread * .12;
   storyTick(dt, t);
   updateReflex(dt); updateLurch(dt); woundTick(dt);
+  lightBudget(dt); shadowTick();
   perilCamPre(t); composer.render(); perilCamPost();
 }
 window.addEventListener('resize', () => {
@@ -7699,6 +7700,28 @@ function socialPhotoTexture() {
   });
 }
 // =============================================================================
+// v29.1 — light budget. Outdoors the road zone carries ~29 lights: lamps along the lane, the
+// cemetery, the church front. Most are 30–45 m away and reach 5–18 m, yet every one of them is
+// evaluated for every pixel on screen. Only the nearest few of each kind are kept on. The number kept
+// per kind never changes (a light that is too far is swapped for one that is near), so the shaders are
+// never recompiled while walking about. Shadow maps are redrawn every other frame instead of every frame.
+// =============================================================================
+const LIGHT_BUDGET = { point: 6, spot: 3, spotShadow: 2 }, _lb = { zone: null, list: [], t: 0, v: new THREE.Vector3(), c: new THREE.Vector3() };
+function lightBudget(dt) {
+  if (!zone) return;
+  _lb.t -= dt; if (_lb.zone === zone && _lb.t > 0) return; _lb.t = .35;
+  if (_lb.zone !== zone) { _lb.zone = zone; _lb.list = []; _lb.seen = new WeakSet(); }
+  // lights found in the zone the first time they are switched on are managed; ones that game code keeps
+  // switched off by hiding them (car headlights) are left alone
+  zone.group.traverse(o => { if (o.isLight && (o.isPointLight || o.isSpotLight) && !_lb.seen.has(o)) { _lb.seen.add(o); if (o.visible) _lb.list.push(o); } });
+  camera.getWorldPosition(_lb.c);
+  const kinds = { point: [], spot: [], spotShadow: [] };
+  for (const l of _lb.list) { const k = l.isPointLight ? 'point' : l.castShadow ? 'spotShadow' : 'spot'; l.getWorldPosition(_lb.v); const reach = (l.distance || 30) + 6, d = _lb.v.distanceTo(_lb.c); kinds[k].push({ l, score: (l.intensity > .01 ? 0 : 1000) + Math.max(0, d - reach) * 10 + d * .05 }); }
+  for (const [k, arr] of Object.entries(kinds)) { if (arr.length <= LIGHT_BUDGET[k]) { arr.forEach(x => x.l.visible = true); continue; } arr.sort((a, b) => a.score - b.score); arr.forEach((x, i) => { x.l.visible = i < LIGHT_BUDGET[k]; }); }
+}
+renderer.shadowMap.autoUpdate = false; let _shadowFrame = 0;
+function shadowTick() { renderer.shadowMap.needsUpdate = (++_shadowFrame & 1) === 0 || !!storyScene; }
+// =============================================================================
 // v29 — PERIL. What a body does when somebody in the house tries to kill Tobia.
 // Not a combat system: one reflex, in the right place, for the right danger; the body's
 // memory of it afterwards; and the objects people were already holding.
@@ -7842,7 +7865,7 @@ society = createSociety({ THREE, camera, playerAnchor, look, zone: () => current
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, parkedVan: () => storyRef.van?.visible ? storyRef.van : null, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true),
   peril: { PERIL, startReflex, lurch, shake, shock, poison: poisonLevel, wield, unwield, pose: setAttackPose, impact, flash: (k, d) => flashFragment(k, d), fragment: (k, d) => flashFragment(k, d), extraFigure: (g, x, z, name, coat, v) => extraFigure(g, x, z, name, coat, v), seat: (n, x, z, r) => seatNPC(n, x, z, r), cup: (g, x, y, z) => buildTeacup(g, x, y, z), bleed: () => { blood.bleedT = Math.max(blood.bleedT || 0, 30); }, input: () => playerInputEnabled(), cam: camera, anchor: playerAnchor, fovSet: setFov } });
-if (TEST_MODE) window.__epi = { peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { renderer, scene3: scene, peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);
