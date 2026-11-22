@@ -742,7 +742,7 @@ export function createViolence(C) {
       o.x = nx; o.z = nz; v.rotation.y = Math.atan2(W.dir.x, W.dir.z) + Math.PI;
       if (Math.random() < dt * 5) G.audio()?.mechanicalTone(60 + W.sp * 4, 55 + W.sp * 4, .4, 'sawtooth', .02 + Math.min(.06, 2.5 / Math.max(2.5, d)), 0);
       const rel = new THREE.Vector3(p.x - o.x, 0, p.z - o.z), along = rel.dot(W.dir), lat = Math.abs(rel.x * W.dir.z - rel.z * W.dir.x);
-      if (along > 0) W.minLat = Math.min(W.minLat, lat);
+      if (along > 0) W.minLat = lat;                                   // where he is as it reaches him, not where he once stood
       // the last moment: a body can still throw itself sideways
       if (!W.reflexed && along > 0 && along / Math.max(1, W.sp) < .95 && lat < 1.6) {
         W.reflexed = true; const k = W.m.k;
