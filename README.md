@@ -44,6 +44,10 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 29.1 — the road runs smoother
+
+Outdoors the road zone carried 29 lights (lamps along the lane, the industrial cemetery, the church front, the porch) and five shadow-casting lights. Most of the lamps are 30–45 m from the player and reach only 5–18 m, but every light was still evaluated for every pixel on screen. Now only the nearest few of each kind stay on (6 point lights, 3 spotlights, 2 shadow-casting spotlights); a lamp that is too far is swapped for one that is near, and because the number kept per kind never changes, the shaders are never recompiled while walking about (no stutter). Shadow maps are redrawn every other frame (every frame during cutscenes). Measured in the test renderer at the farmyard: 29 → 14 active lights, 3,747 → 2,591 draw calls, frame time down by about a third; the house improves similarly (6,177 → 3,441 draw calls).
+
 ## Version 29 — people who could kill you
 
 Nobody in the house is an enemy. They are people who have decided something about Tobia, for a reason with a history, and who go on cutting bread and complaining about the coffee while they wait for the room to empty. When they act, they act with what is already in their hands. The new code is in `js/violence.js`, built on the relationships, motives and stalking already in `js/society.js`; the body-level effects (reflexes, the wound, poisoning, objects in hands, attack poses) are a small "peril" toolkit in `js/game.js`.
