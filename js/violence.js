@@ -619,9 +619,9 @@ export function createViolence(C) {
     const conc = G.mat(0x77746b, .95), dark = new THREE.MeshBasicMaterial({ color: 0x020202 });
     const rim = new THREE.Mesh(new THREE.RingGeometry(PIT_R, PIT_R + .14, 28), conc); rim.rotation.x = -Math.PI / 2; rim.position.y = .012; g.add(rim);
     const hole = new THREE.Mesh(new THREE.CircleGeometry(PIT_R, 28), dark); hole.rotation.x = -Math.PI / 2; hole.position.y = .008; g.add(hole);
-    const wall = new THREE.Mesh(new THREE.CylinderGeometry(PIT_R, PIT_R * .92, 2.7, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x2a2822, roughness: 1, side: THREE.BackSide })); wall.position.y = -1.35; g.add(wall);
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(PIT_R * .92, 20), new THREE.MeshStandardMaterial({ color: 0x15130e, roughness: .4 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -2.68; g.add(floor);
-    for (let i = 0; i < 3; i++) { const rung = new THREE.Mesh(new THREE.TorusGeometry(.12, .012, 5, 10, Math.PI), G.mat(0x4a2a18, .8, { metalness: .5 })); rung.position.set(0, -.55 - i * .62, -PIT_R + .03); g.add(rung); }
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(PIT_R, PIT_R * .92, 3.4, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x2a2822, roughness: 1, side: THREE.BackSide })); wall.position.y = -1.7; g.add(wall);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(PIT_R * .92, 20), new THREE.MeshStandardMaterial({ color: 0x15130e, roughness: .4 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -3.38; g.add(floor);
+    for (let i = 0; i < 3; i++) { const rung = new THREE.Mesh(new THREE.TorusGeometry(.12, .012, 5, 10, Math.PI), G.mat(0x4a2a18, .8, { metalness: .5 })); rung.position.set(0, -.75 - i * .85, -PIT_R + .03); g.add(rung); }
     const lid = new THREE.Mesh(new THREE.CylinderGeometry(PIT_R + .1, PIT_R + .1, .07, 24), conc); lid.position.y = .04; g.add(lid);
     const tarp = new THREE.Mesh(new THREE.CircleGeometry(PIT_R + .45, 18), new THREE.MeshStandardMaterial({ color: 0x0b0c0b, roughness: .35, side: THREE.DoubleSide }));
     { const pos = tarp.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i), r = Math.hypot(x, y); pos.setZ(i, -Math.max(0, (PIT_R - r)) * .18 + (Math.random() - .5) * .01); } tarp.geometry.computeVertexNormals(); }
@@ -670,9 +670,9 @@ export function createViolence(C) {
   function pitScene(sc, dt) {
     sc.t += dt; const a = G.anchor, t = sc.t, Pt = sc.Pt;
     if (sc.phase === 'fall') {
-      const q = Math.min(1, t / .55); a.position.y = -2.25 * q * q;
+      const q = Math.min(1, t / .65); a.position.y = -3.3 * q * q;
       G.aim(new THREE.Vector3(PIT[0] + .2, 3, PIT[1] + .1), Math.min(1, dt * 3));
-      if (q >= 1 && !sc.landed) { sc.landed = true; G.peril.impact('body'); G.peril.shake(1.2); G.peril.shock(1); G.peril.PERIL.limp = Math.max(G.peril.PERIL.limp, .75); G.line('(You land on something soft and then on something hard. Your ankle goes under you. The circle of sky is very small and very far up.)'); }
+      if (q >= 1 && !sc.landed) { sc.landed = true; a.position.y = -3.3; G.peril.impact('body'); G.peril.shake(1.2); G.peril.shock(1); G.peril.PERIL.limp = Math.max(G.peril.PERIL.limp, .75); G.line('(You land on something soft and then on something hard. Your ankle goes under you. The circle of sky is very small and very far up.)'); }
       if (t > 2.4) { sc.phase = 'in'; sc.t0 = t; climbChoice(sc); }
       return;
     }
@@ -699,7 +699,7 @@ export function createViolence(C) {
     ch(opts, { timeout: 0, title: '' });
   }
   function climb(sc) {
-    if (sc.phase !== 'in') return; sc.rungs++; const a = G.anchor, y0 = a.position.y, y1 = -2.25 + sc.rungs * .78; G.peril.impact('breath');
+    if (sc.phase !== 'in') return; sc.rungs++; const a = G.anchor, y0 = a.position.y, y1 = -3.3 + sc.rungs * 1.1; G.peril.impact('breath');
     const t0 = performance.now(); const step = () => { const q = Math.min(1, (performance.now() - t0) / (1100 + G.peril.PERIL.limp * 500)); a.position.y = y0 + (y1 - y0) * q * q * (3 - 2 * q); if (q < 1) requestAnimationFrame(step); else if (sc.rungs >= 3) out(sc); else climbChoice(sc); };
     if (sc.rungs === 1) G.line('(The rung is rust and holds. Your ankle doesn’t.)'); step();
   }
