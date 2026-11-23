@@ -1287,6 +1287,8 @@ export function createSociety(G) {
   }
   const visRange = () => (G.flashlight() ? 13 : 7.5) * (1 - .6 * B.distort) * (B.wipe > 0 ? 0 : 1);
   function sees(n) { const Z = zoneOf(G.zone()), o = n.object.position, p = playerPos(), d = Math.hypot(o.x - p.x, o.z - p.z); if (d > visRange()) return false; G.camera.getWorldDirection(tmp2); const dot = (tmp2.x * (o.x - p.x) + tmp2.z * (o.z - p.z)) / (Math.hypot(tmp2.x, tmp2.z) * (d || 1)); if (dot < (d < 2 ? .35 : .72)) return false; return los(Z, p, o); }
+  const DIFF = (a) => a[Math.min(3, G.difficulty())];
+  function envyDelay() { return DIFF([32, 14, 9, 6]) + Math.random() * DIFF([20, 10, 6, 4]); }
   function stalkers() { return Object.values(R.motives).filter(m => m.alive && !R.dead.has(m.k) && m.hunt); }
   function release(m) { m.hunt = { state: 'away', where: null, t: 0, seenT: 0, cd: 0 }; const n = npcOf(m.k); if (n) { keepHome(n); n.hunting = true; if (G.zone() === 'home' && sameZone(n)) leaveHouse(m.k, () => { n.object.visible = false; }); else n.object.visible = false; } }
   function placeH(m, zone, x, z, yaw) { sendTo(m.k, zone, x, z, yaw); const n = npcOf(m.k); n.hunting = true; n.borrowed = true; m.hunt.where = zone; m.hunt.t = 0; m.hunt.seenT = 0; const Z = zoneOf(zone); if (m.hunt.entry) { const L = m.hunt.entryZone.interactables, i = L.indexOf(m.hunt.entry); if (i >= 0) L.splice(i, 1); } m.hunt.entry = { id: 'stalk-' + m.k, type: 'social', object: n.object, point: n.object.position, radius: 2.6, prompt: '[ E ] SPEAK — ' + UP(m.k), run: () => faceH(m, true) }; m.hunt.entryZone = Z; Z.interactables.push(m.hunt.entry); }
@@ -1294,6 +1296,14 @@ export function createSociety(G) {
   function stalkersOnEnter(name) {
     for (const m of stalkers()) {
       const h = m.hunt; if (h.where && h.where !== name) offH(m);
+      if (m.kind === 'envy') {
+        const n = npcOf(m.k);
+        if (name === 'home') { if (n) { n.hunting = false; n.borrowed = false; returnHome(n); n.object.visible = true; n.stareUntil = G.elapsed() + 25; n.forceEmo = { anger: .7, contempt: .45 }; } h.state = 'home'; h.where = null; continue; }
+        if (n) { n.hunting = true; n.forceEmo = { anger: .85, contempt: .3 }; }
+        const Z = zoneOf(name); if (!Z) continue;
+        if (Math.random() < DIFF([.35, .55, .7, .85])) { const sp = hidingSpot(Z, playerPos()); if (sp) { placeH(m, name, sp.x, sp.z, Math.random() * 6.28); h.state = 'hide'; continue; } }
+        h.state = 'follow'; h.followAt = now() + envyDelay(); h.followZone = name; continue;
+      }
       if (R.trap && R.trap.zone === name && R.trap.k === m.k) continue;   // the trap places them itself
       const Z = zoneOf(name); if (!Z) continue;
       if ((m.k === 'pino' || m.k === 'walter') && name === 'road' && Math.random() < .5) { h.vanAt = now() + 10 + Math.random() * 20; continue; }
@@ -1306,6 +1316,8 @@ export function createSociety(G) {
   function updateStalkers(dt) {
     for (const m of Object.values(R.motives)) {
       if (!m.alive || R.dead.has(m.k) || m.hunt) continue;
+      if (['knife', 'wrench', 'cup', 'pit'].includes(m.kind)) continue;          // v29 plans act in person, not by stalking
+      if (m.kind === 'envy') { if (G.zone() === 'home' || now() - m.born < 3) continue; release(m); const n = npcOf(m.k); if (n) n.object.visible = false; m.hunt.state = 'follow'; m.hunt.followAt = now() + envyDelay(); m.hunt.followZone = G.zone(); continue; }
       // the face at the table lasts a while; the placed ones wait in their place first
       const wait = m.kind === 'stalk' ? (m.hidden ? 50 : 18) : 150;
       if (now() - m.born > wait && !(G.zone() === 'home' && near(m.k, 4))) { if (m.placed) { const n = npcOf(m.k); if (n) returnHome(n); } release(m); }
@@ -1315,16 +1327,18 @@ export function createSociety(G) {
       const h = m.hunt; h.t += dt; h.cd = Math.max(0, h.cd - dt);
       if (h.state === 'follow' && now() >= h.followAt) { if (G.zone() === h.followZone && act) { const sp = zoneOf(G.zone()).spawn; placeH(m, G.zone(), sp.x + (Math.random() - .5), sp.z + (Math.random() - .5), 0); h.state = 'stalk'; G.audio()?.doorCreak?.(); G.line(pick(['(Behind you, the door. Somebody else has come in.)', '(A latch. Footsteps that stop when yours stop.)', '(The door again. Nobody says anything.)'])); } else h.state = 'away'; }
       if (h.vanAt && now() >= h.vanAt && G.zone() === 'road' && act) { h.vanAt = 0; vio().launchVan(m); }
+      if (m.kind === 'envy' && G.zone() === 'home') continue;
       if (h.where !== G.zone() || !act || R.scene) { const n = npcOf(m.k); if (n?.walking && !R.moves.some(mv => mv.k === m.k)) n.walking = false; continue; }
       const n = npcOf(m.k), o = n.object.position, p = playerPos(), d = Math.hypot(o.x - p.x, o.z - p.z), seen = sees(n);
       const others = G.zone() === 'home' ? present().filter(x => x.key !== m.k && !live(x.key) && dist2(x) < 6.5).length : 0;
       if (h.state === 'withdraw') { const away = { x: o.x + (o.x - p.x), z: o.z + (o.z - p.z) }; stepH(m, away.x, away.z, .9, dt); if (d > 9 || (!seen && d > 6)) reHideH(m); continue; }
+      if (seen && m.kind === 'envy' && G.difficulty() >= 2 && (h.state === 'stalk' || h.state === 'faced') && d > 1.2) { stepH(m, p.x, p.z, DIFF([0, 0, .35, .55]), dt); G.turn(n, p.x, p.z, dt, 3); if (d < 1.15 && h.cd <= 0 && !S.ui) { strikeH(m); return; } continue; }
       if (seen) { h.seenT += dt; n.walking = false; G.turn(n, p.x, p.z, dt, 2); if (h.state === 'stalk' && d < 3.2 && !h.faced && !S.ui) faceH(m, false); if (h.seenT > 6 && d > 5) { h.state = 'withdraw'; h.seenT = 0; } continue; }
       h.seenT = 0; if (d < 9) tense(dt * .012);
       if (h.state === 'hide' && (d < 5.5 || (h.t > 25 && Math.random() < dt * .05))) h.state = 'stalk';
       if (h.state === 'stalk' || h.state === 'faced') {
         if (others) { n.walking = false; continue; }
-        const sp = (1.05 + Math.min(.6, S.rel[m.k].grievance * .05)) * (B.wipe > 0 ? 2.2 : 1) * (now() < (h.boldUntil || 0) ? 1.5 : 1);
+        const sp = (1.05 + Math.min(.6, S.rel[m.k].grievance * .05)) * (B.wipe > 0 ? 2.2 : 1) * (now() < (h.boldUntil || 0) ? 1.5 : 1) * (m.kind === 'envy' ? (m.envySpeed || 1) * DIFF([.8, 1, 1.15, 1.3]) : 1);
         stepH(m, p.x, p.z, sp, dt);
         if (d < 2.7) { h.cueT = (h.cueT || 0) - dt; if (h.cueT <= 0) { h.cueT = 2.2; G.audio()?.footstep?.('wood', false, Math.random() < .5 ? -1 : 1); if (Math.random() < .4) G.audio()?.mechanicalNoise(.8, 380, .7, .03, 0); } }
         if (d < 1.0 && h.cd <= 0 && !S.ui) { strikeH(m); return; }
@@ -1336,6 +1350,7 @@ export function createSociety(G) {
   // face to face, they are ordinary; whatever they needed is still the way out
   function faceH(m, asked) {
     if (S.ui || R.scene) return; const h = m.hunt; h.faced = 1; h.state = 'faced';
+    if (m.kind === 'envy') { vio().envyFace(m); h.state = 'stalk'; h.boldUntil = now() + 4; later(20, () => { h.faced = 0; }); return; }
     G.line(`${UP(m.k)}: ${LIES[m.k] || '…'}`);
     const opts = [], give = returnTo(m.k);
     if (give) opts.push([`Give back the ${({ photo: 'photograph', keys: 'keys', earplugs: 'earplugs' })[give]}.`, () => { S.carried.delete(give); defuse(m.k, `You gave ${nm(m.k)} back what you had taken.`); offH(m); returnHome(npcOf(m.k)); say(m.k, '(A long look.) Go and eat something.'); }]);
@@ -1347,7 +1362,7 @@ export function createSociety(G) {
     later(25, () => { h.faced = 0; });
   }
   // v29: a stalker who reaches Tobia attacks; Tobia can answer it (see violence.js)
-  function strikeH(m) { const n = npcOf(m.k); if (n && TOOL[m.k]?.[0] === 'knife') G.peril.wield(n, 'knife'); vio().strike(m); }
+  function strikeH(m) { const n = npcOf(m.k); if (m.kind === 'envy') { if (n) G.peril.wield(n, 'knife'); vio().strike(m, 'thrust'); return; } if (n && TOOL[m.k]?.[0] === 'knife') G.peril.wield(n, 'knife'); vio().strike(m); }
   // ---- the van, driven by a person with a reason ---------------------------------------
   function launchVan(m) {
     const Z = zoneOf('road'), p = playerPos(); G.camera.getWorldDirection(tmp2); const back = new THREE.Vector3(-tmp2.x, 0, -tmp2.z).normalize();

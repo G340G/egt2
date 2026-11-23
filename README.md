@@ -44,6 +44,24 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 29.2 — envy
+
+**In every game, someone envies Tobia.** It no longer matters whether he steals, lies or takes a side. The house notices that he is acting strangely: he listens at doors, he finds things, the record seems to speak to him. To the faithful this is the worst thing a stranger can do: reach Il Bianco before them. One of them turns, at the table, in a short scene that does not hide the anger. Dario stands too fast and the chair goes over ("A week. You have been here a week, and it speaks to you"); Marta has the burin shaking in her fist; Walter speaks very quietly, which is worse. The zealots go first (Dario, Marta, Walter, Gabri, Anna, Franco, Sergio, Pino, Ines).
+
+From then on they follow him **everywhere except the farmhouse**. In the farmhouse they sit at the table and stare, cold with anger, and do nothing. Outside — the road, the church, the cellar, the empty house, the slaughterhouse — they come after him and try to **stab him** (the knife reflex, from behind: A/D to get out of the way, E for the arm). They cannot be talked down: face to face they say it to you ("It was supposed to be me. Do you understand? Me."), and at the strike they scream it. Surviving does not end it: they withdraw, and come back.
+
+**The closer Tobia gets to the truth, the worse it is.** Each clue, the altar, the dark room, the collapse, the forest: the envious get faster and bolder, a voice comes from the dark ("That one was mine to find."), and more of the house turns.
+
+**Difficulty.** At 1 (Ascolto) the first turns within about two minutes and a second by the fifth clue; at 2 (Messa) sooner, faster, and they keep coming slowly even while looked at; at 3 (Il Bianco) from the start, faster still, up to four of them, recovering quickly after a failed attempt. The reflex window narrows with difficulty (0.42 s at 1, 0.34 s at 2, 0.28 s at 3). At 0 (Pastorale), as before, they cannot go through with it.
+
+| Envious people | 30 s | 100 s | 230 s | 1 clue | 3 | 5 | 7 clues |
+|---|---|---|---|---|---|---|---|
+| Difficulty 1 | 0 | 0 | 1 | 1 | 1 | 1 | 2 |
+| Difficulty 2 | 0 | 1 | 1 | 1 | 1 | 2 | 2 |
+| Difficulty 3 | 1 | 1 | 1 | 1 | 2 | 2 | 3 |
+
+**The bell.** In Don Remo's station the bell rope was pinned at the top while the bell swung, and the bell died away after one strike. Now the rope hangs from the wheel on the headstock: it rides up when the bell swings one way and is hauled down the other, the hand on it goes up and down, and the bell tolls once per swing until the hand opens.
+
 ## Version 29.1 — the road runs smoother
 
 Outdoors the road zone carried 29 lights (lamps along the lane, the industrial cemetery, the church front, the porch) and five shadow-casting lights. Most of the lamps are 30–45 m from the player and reach only 5–18 m, but every light was still evaluated for every pixel on screen. Now only the nearest few of each kind stay on (6 point lights, 3 spotlights, 2 shadow-casting spotlights); a lamp that is too far is swapped for one that is near, and because the number kept per kind never changes, the shaders are never recompiled while walking about (no stutter). Shadow maps are redrawn every other frame (every frame during cutscenes). Measured in the test renderer at the farmyard: 29 → 14 active lights, 3,747 → 2,591 draw calls, frame time down by about a third; the house improves similarly (6,177 → 3,441 draw calls).

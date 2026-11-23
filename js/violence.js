@@ -195,6 +195,7 @@ export function createViolence(C) {
     const behind = (kind === 'grip' || kind === 'thrust') && !C.sees(n);
     if (kind === 'grip') { const p = C.playerPos(); G.camera.getWorldDirection(tmp); n.object.position.set(p.x - tmp.x * .55, n.object.position.y, p.z - tmp.z * .55); G.turn(n, p.x, p.z, 1, 99); base.x = n.object.position.x; base.z = n.object.position.z; base.r = n.object.rotation.y; }
     const sc = { t: 0, res: null, act: null, rt: 0, k, kind, n, base, behind, done: false };
+    if (R.motives[k]?.kind === 'envy') { n.forceEmo = { anger: 1, contempt: .4 }; G.line(pick([`${UP(k)}: (screaming it) It was mine!`, `${UP(k)}: You don’t get to hear it first!`, `${UP(k)}: (sobbing with rage) Give it back. Give it back to me.`, `${UP(k)}: It chose wrong. I’ll fix it.`])); }
     // the body tells you first: sounds that belong to the movement
     if (kind === 'knife' || kind === 'thrust') { G.peril.impact('breath'); if (behind) G.audio()?.footstep?.('wood', true, 1); }
     if (kind === 'wrench') { G.audio()?.mechanicalNoise(.7, 300, .6, .08, 0); }
@@ -318,7 +319,7 @@ export function createViolence(C) {
     if (!C.B.on && Math.random() < .7) C.startBleed();
     // the one who did it: their own state, coloured by who they are and how it ended
     const after = afterState(k, kind, how, act);
-    if (m) { m.after = after; m.cool = now() + (after === 'humiliated' ? 120 : after === 'afraid' ? 220 : 160) + Math.random() * 60; m.retries = (m.retries || 0) + 1; if (m.v) { m.v.stage = 'after'; m.v.t = 0; } }
+    if (m) { m.after = m.kind === 'envy' ? 'resentful' : after; m.cool = now() + ((after === 'humiliated' ? 120 : after === 'afraid' ? 220 : 160) + Math.random() * 60) * (m.kind === 'envy' ? DIFFV([1, .5, .35, .25]) : 1); m.retries = (m.retries || 0) + 1; if (m.v) { m.v.stage = 'after'; m.v.t = 0; } }
     affect(k, { g: after === 'humiliated' ? 1.6 : after === 'resentful' ? 1 : .3, f: after === 'afraid' ? 1.2 : .4 }, `${nm(k)} came at you with ${WEAPON[kind] || 'something'} ${PLACE_OF[inc.zone] || ''}, and you are still alive.`);
     note(k, `${nm(k)} came at you with ${WEAPON[kind] || 'something'} ${PLACE_OF[inc.zone] || ''}. You ${how === 'hurt' ? 'were hurt, and lived' : 'got out of the way'}.`);
     S.truths.push(`${nm(k)} tried to kill you with ${WEAPON[kind]}. You lived.`);
@@ -330,7 +331,8 @@ export function createViolence(C) {
     later(2.5 + Math.random() * 1.5, () => {
       if (!n || !C.alive(k)) return;
       if (kind === 'knife' && k === 'franco') C.walkTo('franco', [BOARD], () => { const f = C.npcOf('franco'); if (f) f.object.rotation.y = Math.PI; });
-      else if ((kind === 'grip' || kind === 'thrust') && m?.hunt) { m.hunt.state = 'withdraw'; m.hunt.cd = Math.max(m.hunt.cd || 0, (m.cool || now()) - now()); m.hunt.seenT = 0; }
+      else if ((kind === 'grip' || kind === 'thrust') && m?.hunt) {
+        if (m.kind === 'envy') { G.peril.unwield(n); } m.hunt.state = 'withdraw'; m.hunt.cd = Math.max(m.hunt.cd || 0, (m.cool || now()) - now()); m.hunt.seenT = 0; }
     });
     V.react.push(inc);
     // Il Primo will hear of it before anyone tells him
@@ -817,6 +819,80 @@ export function createViolence(C) {
   }
 
   // ---------------------------------------------------------------------------------
+  // ENVY. Whatever Tobia does or does not do, the house notices that he is acting strangely: he
+  // listens at doors, he finds things, the record seems to speak to him. To the faithful this is the
+  // worst thing a stranger can do — reach Il Bianco first. Hubris, theirs and (they believe) his.
+  // They follow him everywhere except the farmhouse, where they sit at the table and stare; out there
+  // they try to stab him. The closer he gets to the truth, the more of them, the faster, the angrier.
+  // ---------------------------------------------------------------------------------
+  const ENVY = {
+    dario: ['DARIO: (standing, too fast, the chair going over) A week. You have been here a week, and it speaks to you. Eleven years I have knelt at that turntable with nothing in my ears.', 'Dario believes Il Bianco has started to fill you before him. That cannot be allowed to finish.'],
+    marta: ['MARTA: (the burin shaking in her fist) I carved every one of them into the beams. Every one. And it is going to take you first? You are not even on the wood.', 'Marta has decided the fourteenth figure will not reach Il Bianco before the woman who carved the other thirteen.'],
+    walter: ['WALTER: (very quietly, which is worse) I measured everything in this house. You are the only thing that does not fit. And you are getting there first.', 'Walter has decided you are the error in the calculation, and that the error is about to reach Il Bianco before him.'],
+    gabri: ['GABRI: (shouting, then not) Everyone looks at you now! They used to look at me. It used to look at me!', 'Gabri has seen Il Bianco turn toward you. He will not be left by the fridge again.'],
+    anna: ['ANNA: (the ladle in her hand like something else) Forty years I set his place. Forty years. And you walk in from the fog and it fills you first?', 'Anna has decided a stranger will not be filled before her husband’s widow.'],
+    franco: ['FRANCO: (the joke gone out of his face) Thirty years I have cut for this house. You think it chooses a stranger? Over me?', 'Franco has decided Il Bianco will not choose a stranger over thirty years of Sundays.'],
+    sergio: ['SERGIO: (stubbing the cigarette out on the table) Fifty years I stayed outside so I would be the one to go in when it was time. Not you. Not you.', 'Sergio has decided he did not wait fifty years outside the door to watch you walk in.'],
+    pino: ['PINO: (his hands flat on the table, white) Everyone has a way out but me. And now you are going all the way in. All the way.', 'Pino has decided that if he cannot leave, you will not be the one who arrives.'],
+    ines: ['INES: (not gentle, for once) I sat with all of them at the end. All thirteen. It should be me it takes. It should be me.', 'Ines has decided that you will not be filled before the one who sat with all the others.']
+  };
+  const ENVY_ORDER = ['dario', 'marta', 'walter', 'gabri', 'anna', 'franco', 'sergio', 'pino', 'ines'];
+  const DIFFV = (a) => a[Math.min(3, G.difficulty())];
+  // how many people envy Tobia, by difficulty and by how close he is to the truth
+  function envyWanted(p, since) {
+    const d = G.difficulty();
+    if (d <= 0) return p >= .35 ? 1 : 0;
+    if (d === 1) return (p >= .06 || since > 120 ? 1 : 0) + (p >= .45 ? 1 : 0) + (p >= .85 ? 1 : 0);
+    if (d === 2) return (since > 50 || p > 0 ? 1 : 0) + (p >= .3 ? 1 : 0) + (p >= .65 ? 1 : 0);
+    return (since > 25 || p > 0 ? 1 : 0) + (p >= .15 ? 1 : 0) + (p >= .45 ? 1 : 0) + (p >= .8 ? 1 : 0);
+  }
+  function envyTick(dt) {
+    if (!G.welcomed() || S.ending) return;
+    V.envyT = (V.envyT || 0) + dt; const p = G.progress ? G.progress() : 0;
+    const env = Object.values(R.motives).filter(m => m.kind === 'envy' && m.alive && !C.R.dead.has(m.k) && C.alive(m.k));
+    // the closer to the truth, the faster and angrier the ones who already envy him
+    for (const m of env) { m.envySpeed = 1 + p * .55; if (S.rel[m.k]) S.rel[m.k].grievance = Math.max(S.rel[m.k].grievance, 2 + p * 4); }
+    if (p > (V.envyP || 0) + .05) { const was = V.envyP || 0; V.envyP = p; if (was > 0) taunt(env); }
+    if (V.envyBusy || env.length >= envyWanted(p, V.envyT)) return;
+    if (G.zone() === 'home' && (!canStart() || S.seated)) return;
+    const k = ENVY_ORDER.find(x => ENVY[x] && C.alive(x) && !C.live(x) && !C.R.dead.has(x) && !R.motives[x]?.alive); if (!k) return;
+    V.envyBusy = true;
+    const [line, why] = ENVY[k];
+    const turn = () => { C.motive(k, 'envy', why, true); const m = R.motives[k]; if (m) { m.envySpeed = 1 + p * .55; m.born = now(); } V.envyBusy = false; note(k, why); };
+    const n = C.npcOf(k);
+    if (G.zone() === 'home' && n && C.sameZone(n)) envyScene(k, n, line, turn);
+    else { G.line(`(Somewhere behind you, ${nm(k)}’s voice, too loud, not meant for you: “${line.replace(/^[A-Z]+: (\([^)]*\) )?/, '')}”)`); turn(); }
+  }
+  // the moment it turns: a short scene, close on the face, and the anger is not hidden
+  function envyScene(k, n, line, then) {
+    C.closeUI(); R.scene = 'envy'; V.scene = { k, kind: 'envy' }; n.forceEmo = { anger: 1, contempt: .5 }; n.seated = false; n.lookAt = null;
+    const p0 = C.playerPos(), o = n.object.position, dx = p0.x - o.x, dz = p0.z - o.z, d = Math.hypot(dx, dz) || 1, step = Math.max(0, Math.min(1.2, d - 1.6));
+    const from = { x: o.x, z: o.z }, sc = { t: 0, said: false };
+    G.peril.shock(.6); G.audio()?.mechanicalNoise(.25, 200, .8, .2, 0);
+    G.scene({ dur: 99999, skippable: false, update: (s, dt) => {
+      sc.t += dt; const q = ease(sc.t / 1.1); n.object.position.x = from.x + dx / d * step * q; n.object.position.z = from.z + dz / d * step * q; n.walking = sc.t < 1.1 && step > .1;
+      G.turn(n, p0.x, p0.z, dt, 6); n.lookAt = G.camera.getWorldPosition(v3());
+      const head = n.object.getWorldPosition(v3()); head.y += 1.55 * (n.rig?.k || 1); G.aim(head, Math.min(1, dt * 4));
+      if (!sc.said && sc.t > .5) { sc.said = true; G.line(line); }
+      if (sc.t > 1.3 && G.linesBusy()) return;
+      if (sc.t > 5.5) { G.endScene(); G.resetLook(); R.scene = null; V.scene = null; n.lookAt = null; n.stareUntil = G.elapsed() + 40; then(); }
+    } });
+  }
+  // finding things makes it worse: from the dark, the ones who wanted to find them
+  function taunt(env) {
+    if (!env.length || G.zone() === 'home') return; const m = pick(env), h = m.hunt;
+    G.line(pick([`(From the dark, ${nm(m.k)}’s voice: “That one was mine to find.”)`, `(${nm(m.k)}, somewhere close, breathing through ${his(m.k)} teeth.)`, `(A step behind you stops when you stop. ${nm(m.k)} has been crying, and is angry about it.)`]));
+    if (h) { h.boldUntil = now() + DIFFV([4, 8, 11, 14]); if (h.state === 'hide') h.state = 'stalk'; }
+    G.peril.shock(.4);
+  }
+  // face to face: no lie works, no apology; only anger
+  function envyFace(m) {
+    const n = C.npcOf(m.k); if (n) { n.forceEmo = { anger: 1, contempt: .6 }; n.stareUntil = G.elapsed() + 8; }
+    G.line(pick([`${UP(m.k)}: Don’t look at me like that. Like you already know what it sounds like.`, `${UP(m.k)}: It was supposed to be me. Do you understand? Me.`, `${UP(m.k)}: (through teeth) Go on. Tell me what it said to you.`, `${UP(m.k)}: You don’t even want it. That’s the worst part. You don’t even want it.`]));
+    G.peril.shock(.5);
+  }
+
+  // ---------------------------------------------------------------------------------
   // Wiring
   // ---------------------------------------------------------------------------------
   function update(dt) {
@@ -836,7 +912,7 @@ export function createViolence(C) {
       else if (m.kind === 'cup') cupPlan(m, dt);
       else if (m.kind === 'pit') pitPlan(m, dt);
     }
-    poisonTick(dt); pitTick(dt); vanTick(dt); woundTick(dt);
+    poisonTick(dt); pitTick(dt); vanTick(dt); woundTick(dt); envyTick(dt);
     if (V.react.length && G.zone() === 'home' && C.present().length >= 3 && canStart() && now() - V.react[0].at > 4) { const inc = V.react.shift(); reactScene(inc); }
     primoTick(); versionsNear();
     // the knife on the floor goes back to its owner, eventually, when nobody is looking
@@ -860,6 +936,6 @@ export function createViolence(C) {
   return {
     update, onEnter, strike: (m, kind) => strike(m, kind || STRIKE_OF[C.TOOL[m.k]?.[0]] || 'grip'), strikeOf: (k) => STRIKE_OF[C.TOOL[k]?.[0]] || 'grip',
     purge, poisoned: () => !!(V.poison && !V.poison.purged), planFor, launchVan, openPit, buildPit, V,
-    busy: () => !!V.scene, blast: (m) => strike(m, 'blast', C.npcOf(m.k)), _cand: () => C.present().map(x => [x.key, C.live(x.key) ? 1 : 0, SOCIAL[x.key]?.violence])
+    envyFace, busy: () => !!V.scene, blast: (m) => strike(m, 'blast', C.npcOf(m.k)), _cand: () => C.present().map(x => [x.key, C.live(x.key) ? 1 : 0, SOCIAL[x.key]?.violence])
   };
 }
