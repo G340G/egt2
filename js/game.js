@@ -5497,11 +5497,19 @@ const STATION_UPDATE = {
     const pull = THREE.MathUtils.smoothstep(t, 7.6, 8.4), ring = t > 13.8;
     camera.position.set(-4.6, 1.55 - pull * .12 + (ring ? Math.sin(t * 9) * .01 : 0), -2.4); camera.lookAt(-6.8, 3.0 + pull * 1.0, -5.8);
     c.hang.visible = t > 7.6; c.hang.position.y = -2.9 - (1 - pull) * .8;
-    const damp = t > 20 ? Math.exp(-(t - 20)) : 1, swing = ring ? Math.sin((t - 13.8) * 2.2) * .42 * damp : 0; c.bell.rotation.z = swing;
-    const top = new THREE.Vector3(-6.8, 4.1, -5.8), hand = new THREE.Vector3(-4.85, 1.2 - pull * .1, -2.9), mid = top.clone().add(hand).multiplyScalar(.5), d = top.clone().sub(hand);
+    // v29.2: the bell keeps swinging while the rope is held (it only dies away at the very end), and the
+    // rope is tied to the wheel on the headstock: it rides up when the bell swings one way and is hauled
+    // down the other, so the hand on it goes up and down too. One strike each time the bell swings over.
+    const ph = (t - 13.8) * 2.2, damp = t > 21 ? Math.exp(-(t - 21) * 1.4) : 1, swing = ring ? Math.sin(ph) * .42 * damp : 0; c.bell.rotation.z = swing;
+    c.bell.updateMatrixWorld(true);
+    const top = c.bell.localToWorld(new THREE.Vector3(.62, -.05, 0)); c.group.worldToLocal(top);
+    const sway = t > 8.4 && !ring ? Math.sin(t * 3.1) * .05 * Math.exp(-(t - 8.4) * .4) : 0;
+    const haul = ring ? Math.max(0, -Math.sin(ph)) * .42 * damp : 0, ride = ring ? Math.max(0, Math.sin(ph)) * .55 * damp : 0;
+    const hand = new THREE.Vector3(-4.85 + sway, 1.2 - pull * .1 + ride - haul, -2.9), mid = top.clone().add(hand).multiplyScalar(.5), d = top.clone().sub(hand);
     c.rope.position.copy(mid); c.rope.scale.y = d.length(); c.rope.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+    if (ring) camera.lookAt(-6.8, 3.0 + pull * 1.0 + ride * .25, -5.8);
     if (t >= 8 && !c.jolt) { c.jolt = true; audio?.mechanicalNoise(.5, 260, 1.4, .3, 0); glitchPulse = 1; }
-    if (ring && !c.rung) { c.rung = true; audio?.bell(6, 0); }
+    if (ring) { const strike = Math.floor((ph + Math.PI / 2) / Math.PI); if (strike !== c.strike && damp > .25) { c.strike = strike; audio?.bell(1, 0); audio?.mechanicalNoise(.15, 300, 1.2, .08, 0); } }
   }
 };
 const STATION_FINISH = {
@@ -7864,6 +7872,7 @@ society = createSociety({ THREE, camera, playerAnchor, look, zone: () => current
   scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), enter: (name, sp) => enterZone(name, sp), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, parkedVan: () => storyRef.van?.visible ? storyRef.van : null, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true),
+  progress: () => Math.min(1, collected.size / 8 * .7 + ['altar-lit', 'darkroom-cleared', 'church-collapsed', 'escaped-forest'].filter(f => storyFlags.has(f)).length * .075),
   peril: { PERIL, startReflex, lurch, shake, shock, poison: poisonLevel, wield, unwield, pose: setAttackPose, impact, flash: (k, d) => flashFragment(k, d), fragment: (k, d) => flashFragment(k, d), extraFigure: (g, x, z, name, coat, v) => extraFigure(g, x, z, name, coat, v), seat: (n, x, z, r) => seatNPC(n, x, z, r), cup: (g, x, y, z) => buildTeacup(g, x, y, z), bleed: () => { blood.bleedT = Math.max(blood.bleedT || 0, 30); }, input: () => playerInputEnabled(), cam: camera, anchor: playerAnchor, fovSet: setFov } });
 if (TEST_MODE) window.__epi = { renderer, scene3: scene, peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
