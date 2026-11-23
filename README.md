@@ -44,6 +44,18 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 30 — posters, papers, the dresser
+
+**Posters.** Every poster in the game is now one of the real covers in `assets/inspiration`, printed as a gig poster for the house's own bands: the cover, the name, a small venue line, paper grain and folds, sun-faded or damp where they hang. AB DEDUS SPIEGL CABDAMION (the winged altarpiece creature) is on one poster only, on the east wall of the farmhouse, and the words are spoken aloud exactly once in a whole game, by one member, under their breath. THE ENDLESS EPHEMERAL (the worm in thorns), SANTGROUSE (the two surgical profiles), SATRAGNOSIUM (the opened egg creature), LITHOGON MOLENS INFANTIUM (the devouring giant), and an unnamed one with its own unreadable logo (the moss figure) are on the other walls and floors.
+
+**Music.** After seven clues the outside world (road and forest) switches to `krautmeth.m4a`, a darker piece; it starts at once if the seventh clue is found outdoors.
+
+**Skippable introduction.** The presentations at the farmhouse table can be skipped with Space: Tobia ends up seated and the journal entry about Il Bianco is kept, as if the scene had played.
+
+**The dresser.** The wooden block by Gabri's corner is now a two-part Po-valley kitchen dresser (credenza con alzata, first half of the twentieth century): a stained-poplar base cabinet about 92 cm high and 55 cm deep with two drawers over two raised-panel doors on iron hinges, a worktop with a moulded edge; above it, set back, a 32 cm deep plate rack behind two glazed doors with plates and cups on rails, under a stepped cornice; white ceramic knobs. Walter's van keys are no longer in a saucer on top: they hang on a cup hook inside the cupboard, behind the right-hand lower door, and you have to open the door to find them.
+
+**Clues you read.** The paper clues open full screen as the paper itself when you pick them up (and again from the journal): the provincial newspaper page of 19 January 1977, Ines's seating list on squared notebook paper with the scored fourteenth line legible in raking light, the burned photograph front and back, a page of the register of stations with red rubrics, and the slaughterhouse loading ledger. What is written on them is not said anywhere else in the house. E, Esc, Enter or a click puts the paper down.
+
 ## Version 29.2 — envy
 
 **In every game, someone envies Tobia.** It no longer matters whether he steals, lies or takes a side. The house notices that he is acting strangely: he listens at doors, he finds things, the record seems to speak to him. To the faithful this is the worst thing a stranger can do: reach Il Bianco before them. One of them turns, at the table, in a short scene that does not hide the anger. Dario stands too fast and the chair goes over ("A week. You have been here a week, and it speaks to you"); Marta has the burin shaking in her fist; Walter speaks very quietly, which is worse. The zealots go first (Dario, Marta, Walter, Gabri, Anna, Franco, Sergio, Pino, Ines).

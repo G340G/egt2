@@ -436,7 +436,7 @@ export const SOCIAL = {
   ottavio: { loyalty: .4, violence: .05, care: .45, distorts: .1, confidant: 'walter', protects: ['livia'], deaf: true,
     cold: ['(He watches your mouth, then turns back to the keys.)', '(He does not lift his palm from the wall.)'],
     warm: ['(He takes your hand and lays it flat on the lid while he plays. You feel the note before you hear it.)', 'You walk more quietly than the others. I notice.'],
-    kitchen: { open: '(He points at the bread knife, then at the loaf, then at you.)', help: '(He writes on the back of a bill:) Walter has the keys on the dresser. I cannot drive. You can.', pretend: '(He is drinking water at the sink. He raises the glass to you.)' },
+    kitchen: { open: '(He points at the bread knife, then at the loaf, then at you.)', help: '(He writes on the back of a bill:) Walter keeps the keys in the dresser. Behind the door. I cannot drive. You can.', pretend: '(He is drinking water at the sink. He raises the glass to you.)' },
     kill: 'Ottavio could not hear you. He said afterwards he had felt you come in through the floor.' },
   anna: { loyalty: .6, violence: .2, care: .45, distorts: .3, confidant: 'ines', protects: [],
     cold: ['(She ladles soup for everyone at the table. Your bowl stays where it is.)', 'It is not for you.'],

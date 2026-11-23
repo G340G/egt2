@@ -1430,9 +1430,8 @@ function buildHome() {
   for (let i = 0; i < 7; i++) addBox(z.group, -8.6 + i * 2.85, 3.47, 0, .26, .3, 17.6, M.darkWood);
   for(let i=0;i<14;i++){const drip=new THREE.Mesh(new THREE.BoxGeometry(.018,.18+Math.random()*.5,.018),M.rust);drip.position.set(-8.9+Math.random()*17.8,2.7-Math.random()*.8,-8.77);z.group.add(drip);}
   addBox(z.group, -3.2, 1.45, -1.4, .22, 2.9, 6.8, M.darkWall); addBox(z.group, 4.8, 1.45, -2.1, .22, 2.9, 6.0, M.wall);
-  // The dresser in the corner and its weak bulb.
-  addBox(z.group, -8.5, 1.15, -3.8, 1.2, 2.3, 1.25, M.darkWood);
-  addBox(z.group, -8.5, 2.34, -3.8, 1.32, .12, 1.35, M.black);
+  // The dresser in the corner: a two-part Po-valley kitchen dresser (credenza con alzata), see buildDresser.
+  storyRef.dresser = buildDresser(z.group, -9.08, -3.8);
   // ---- The dining table: thirteen places and one for the guest, white plastic garden chairs (script, scene 6).
   buildDiningRoom(z);
   // ---- The kitchen corner: the refrigerator that hums a flat B, the silent quiz show, the wrong calendar.
@@ -1491,7 +1490,7 @@ function buildHome() {
   addLook(z.group,T.west[2][0]+.5,T.topY+.1,T.west[2][1]+.15,'Anna’s place','Her soup, and beside the spoon a mason’s trowel with mortar still drying on the blade. Nobody at the table mentions it.',1.8);
   // The wall Tobia listens through: a crack, a water stain, a glass left on the dresser.
   const crack=new THREE.Mesh(new THREE.PlaneGeometry(.5,1.4),new THREE.MeshBasicMaterial({map:crackTexture(),transparent:true,depthWrite:false}));crack.position.set(-9.81,1.55,-5.1);crack.rotation.y=Math.PI/2;z.group.add(crack);
-  const glass=new THREE.Mesh(new THREE.CylinderGeometry(.035,.03,.1,14,1,true),new THREE.MeshStandardMaterial({color:0xcfd8d4,roughness:.1,transparent:true,opacity:.45,side:THREE.DoubleSide}));glass.position.set(-8.2,2.45,-3.6);z.group.add(glass);
+  const glass=new THREE.Mesh(new THREE.CylinderGeometry(.035,.03,.1,14,1,true),new THREE.MeshStandardMaterial({color:0xcfd8d4,roughness:.1,transparent:true,opacity:.45,side:THREE.DoubleSide}));glass.position.set(-8.66,.99,-3.45);z.group.add(glass);
   const wallEar=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));wallEar.position.set(-9.55,1.5,-5.1);z.group.add(wallEar);storyRef.wallEar=wallEar;
   z.interactables.push({id:'dario-wall-listen',type:'event',object:wallEar,point:wallEar.position,radius:2.6,prompt:'[ E ] PRESS YOUR EAR TO THE WALL — VOICES',requiresFlags:['talked-ines','talked-ottavio'],blockedHint:'Muffled voices behind the plaster. Speak with Ines and Ottavio first.',run:startDarioEavesdrop});
   // Evidence, each resting on a real surface.
@@ -1507,9 +1506,65 @@ function buildHome() {
   z.solids.push({ minX: -10, maxX: -9.7, minZ: -9, maxZ: 9 }, { minX: 9.7, maxX: 10, minZ: -9, maxZ: 9 }, { minX: -9, maxX: -4, minZ: 8.7, maxZ: 9 }, { minX: 4, maxX: 9, minZ: 8.7, maxZ: 9 }, { minX: -9, maxX: 9, minZ: -9, maxZ: -8.7 });
   z.solids.push({ minX: -3.5, maxX: -3.0, minZ: -5, maxZ: 2 });
   z.solids.push({ minX: 4.65, maxX: 4.95, minZ: -6, maxZ: -1 });
-  z.solids.push({ minX: -9.15, maxX: -7.85, minZ: -4.45, maxZ: -3.15 });
+  z.solids.push({ minX: -9.15, maxX: -8.48, minZ: -4.45, maxZ: -3.15 });
   return z;
 }
+// v30: the kitchen dresser. Modelled on the two-part rural kitchen dresser of the lower Po valley,
+// first half of the twentieth century (credenza con alzata / piattaia, "arte povera"): a base cabinet
+// about 92 cm high and 55 cm deep with two drawers over two raised-panel doors, a worktop with a moulded
+// edge; on it, set back, a shallower upper cabinet about 32 cm deep with a plate rack behind two glazed
+// doors and a projecting cornice. Stained poplar worn to the grain at the edges, white ceramic knobs,
+// iron hinges. Typical overall height 2.1–2.3 m, width 1.1–1.3 m. Its back is against the west wall
+// (x0), and it faces the kitchen (+x). Walter's keys hang on a cup hook inside the left lower door.
+function buildDresser(group, x0, zc) {
+  const g = new THREE.Group(); g.position.set(x0, 0, zc); group.add(g);
+  const stain = mat(0x6a4a30, .74, { map: TEX.wood }), worn = mat(0x8c6a48, .8, { map: TEX.wood }), inside = mat(0x3a2a1c, .95), iron = mat(0x1c1a18, .6, { metalness: .6 }), knobM = mat(0xece6da, .25), glassM = new THREE.MeshStandardMaterial({ color: 0x9aa8a2, roughness: .08, metalness: .1, transparent: true, opacity: .22, side: THREE.DoubleSide });
+  const W = 1.24, D = .55, H = .92, uD = .32, uH = 1.18, b = (w, h, d, m, x, y, z, parent = g) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; parent.add(o); return o; };
+  // base carcase: sides, back, plinth, floor of the cupboard, a middle shelf
+  b(D, H - .08, .025, stain, D / 2, .04 + (H - .08) / 2, -W / 2 + .0125); b(D, H - .08, .025, stain, D / 2, .04 + (H - .08) / 2, W / 2 - .0125);
+  b(.015, H - .08, W - .05, inside, .01, .04 + (H - .08) / 2, 0); b(D - .03, .02, W - .05, inside, D / 2, .1, 0); b(D - .06, .018, W - .05, inside, D / 2 - .02, .4, 0);
+  b(.04, .08, W, worn, D - .02, .04, 0);                                         // plinth
+  b(.025, H - .08, .03, stain, D - .0125, .04 + (H - .08) / 2, 0);               // centre stile between the doors
+  b(.025, .025, W - .05, stain, D - .0125, .7, 0);                               // rail under the drawers
+  const top = b(D + .05, .035, W + .06, worn, (D + .05) / 2, H + .0175, 0);      // worktop with a front lip
+  b(.02, .025, W + .06, stain, D + .04, H - .005, 0);
+  // two drawers with ceramic knobs
+  for (const s of [-1, 1]) { const dr = b(.022, .17, W / 2 - .05, stain, D - .006, .8, s * W / 4); b(.004, .13, W / 2 - .11, worn, D + .006, .8, s * W / 4); const k = new THREE.Mesh(new THREE.SphereGeometry(.018, 12, 8), knobM); k.position.set(D + .022, .8, s * W / 4); g.add(k); }
+  // two doors on hinges at the outer edges, each a frame with a raised panel and a knob
+  const doors = [];
+  for (const s of [-1, 1]) {
+    const pivot = new THREE.Group(); pivot.position.set(D, .38, s * (W / 2 - .02)); g.add(pivot);
+    const dw = W / 2 - .04, dh = .6, cx = -s * dw / 2;
+    b(.022, dh, dw, stain, .011, 0, cx, pivot);
+    b(.012, dh - .12, dw - .12, worn, .026, 0, cx, pivot);                       // the raised panel
+    b(.006, dh - .2, dw - .2, stain, .034, 0, cx, pivot);
+    const k = new THREE.Mesh(new THREE.SphereGeometry(.017, 12, 8), knobM); k.position.set(.05, .05, cx - s * (dw / 2 - .05)); pivot.add(k);
+    for (const y of [-.2, .2]) b(.008, .07, .02, iron, .024, y, s * .012, pivot);   // hinges
+    pivot.userData = { open: 0, target: 0, s }; doors.push(pivot);
+  }
+  // inside the left door: a cup hook on the cupboard's side wall, jars, a tin
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(.012, .003, 5, 10, Math.PI * 1.4), iron); hook.position.set(.32, .7, -W / 2 + .04); hook.rotation.y = Math.PI / 2; g.add(hook);
+  for (let i = 0; i < 3; i++) { const jar = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .14, 12), new THREE.MeshStandardMaterial({ color: [0x9c8a5a, 0x6c3a2a, 0xb8b0a0][i], roughness: .3, transparent: true, opacity: .8 })); jar.position.set(.18 + i * .09, .18, -W / 4 + (i - 1) * .1); g.add(jar); }
+  const tin = b(.1, .12, .14, mat(0x5a2a1c, .5, { metalness: .4 }), .2, .48, -W / 4 + .1);
+  // upper cabinet: sides, back, shelves with a plate rail, plates and cups, two glazed doors, cornice
+  const uy = H + .035;
+  b(uD, uH, .022, stain, uD / 2, uy + uH / 2, -W / 2 + .03); b(uD, uH, .022, stain, uD / 2, uy + uH / 2, W / 2 - .03);
+  b(.012, uH, W - .06, inside, .01, uy + uH / 2, 0);
+  for (const y of [.02, .42, .8]) { b(uD - .02, .018, W - .08, stain, uD / 2, uy + y, 0); b(.012, .03, W - .08, worn, .07, uy + y + .03, 0); }
+  for (let sh = 0; sh < 2; sh++) for (let i = 0; i < 6; i++) { const plate = new THREE.Mesh(new THREE.CylinderGeometry(.11, .1, .012, 20), mat(i % 3 === 1 ? 0xd9cfb8 : 0xe9e3d6, .3)); plate.rotation.z = Math.PI / 2 - .18; plate.position.set(.05, uy + [.02, .42][sh] + .12, -W / 2 + .16 + i * .185); g.add(plate); }
+  for (let i = 0; i < 4; i++) { const cup = new THREE.Mesh(new THREE.CylinderGeometry(.04, .03, .07, 12), mat(0xe6e0d2, .3)); cup.position.set(.16, uy + .8 + .045, -W / 2 + .25 + i * .24); g.add(cup); }
+  for (const s of [-1, 1]) {
+    const dw = W / 2 - .05, dh = uH - .08, cz = s * W / 4;
+    for (const [w, h, dz, dy] of [[.03, dh, -dw / 2 + .015, 0], [.03, dh, dw / 2 - .015, 0], [.03, .03, 0, dh / 2 - .015], [.03, .03, 0, -dh / 2 + .015], [.022, .02, 0, 0]]) b(.022, h, w === .03 && h === dh ? .03 : dw, stain, uD + .011, uy + uH / 2 + dy, cz + dz);
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(dw - .06, dh - .06), glassM); pane.rotation.y = Math.PI / 2; pane.position.set(uD + .012, uy + uH / 2, cz); g.add(pane);
+    const k = new THREE.Mesh(new THREE.SphereGeometry(.014, 10, 8), knobM); k.position.set(uD + .03, uy + uH / 2, cz - s * (dw / 2 - .05)); g.add(k);
+  }
+  b(uD + .08, .05, W + .1, worn, (uD + .08) / 2, uy + uH + .025, 0);            // cornice, two steps
+  b(uD + .12, .035, W + .16, stain, (uD + .12) / 2, uy + uH + .07, 0);
+  b(.02, .025, W + .16, worn, uD + .12, uy + uH + .04, 0);
+  return { group: g, doors, hookWorld: () => hook.getWorldPosition(new THREE.Vector3()), frontX: x0 + D, top };
+}
+function updateDresser(dt) { const d = storyRef.dresser; if (!d) return; for (const p of d.doors) { const u = p.userData; u.open += (u.target - u.open) * Math.min(1, dt * 5); p.rotation.y = -u.s * u.open * 1.85; } }
 function buildChurchBell(group,x,y,z){
   const root=new THREE.Group();root.position.set(x,y,z);group.add(root);
   const bronze=mat(0x77634a,.28,{metalness:.82}),worn=mat(0x9b8b70,.36,{metalness:.76}),wood=mat(0x34291f,.92,{map:TEX.wood});
@@ -1804,7 +1859,7 @@ function enterZone(name, spawn) {
   placeStalker(name); showChapterCard(name); resetTensionFor(name); society?.onEnterZone(name); tragedyOnEnter(name);
 }
 function currentPosition() { return playerAnchor.position; }
-function playerInputEnabled() { return gameStarted && !gameEnded && !listeningPending && !doorTransitioning && !cultFateActive && !dialogueOpen && !journalOpen && !settingsOpen && (!storyScene || storyScene.type === 'hold') && !society?.busy; }
+function playerInputEnabled() { return gameStarted && !gameEnded && !docOpen && !listeningPending && !doorTransitioning && !cultFateActive && !dialogueOpen && !journalOpen && !settingsOpen && (!storyScene || storyScene.type === 'hold') && !society?.busy; }
 
 // -----------------------------------------------------------------------------
 // Sound: entirely synthesised, layered and intentionally non-musical.
@@ -1820,7 +1875,8 @@ class AmbientSound {
       mysterious: this.createLoopTrack('mysterious', { ogg: './assets/geatd-loop.ogg', mp3: './assets/geatd-loop.mp3' }, 1.06, { loopStart: 10, loopEnd: 215.4866 }),
       fort: this.createMusicTrack('fort', './assets/fort.mp3', .78),
       dot: this.createMusicTrack('dot', './assets/dot.mp3', .76),
-      zero: this.createMusicTrack('zero', './assets/zero.mp3', .76)
+      zero: this.createMusicTrack('zero', './assets/zero.mp3', .76),
+      krautmeth: this.createMusicTrack('krautmeth', './assets/krautmeth.m4a', .8)
     };
     this.activeMusic = null;
     this.duck = 1; this.samples = {}; this.samplesRequested = false;
@@ -2054,7 +2110,7 @@ class AmbientSound {
     // Music follows the location and the story phase. The cellar gets its own
     // score only on the return after Il Primo's tea scene, before the final listen.
     let desiredTrack = null;
-    if (!gameEnded && (name === 'road' || name === 'forest')) desiredTrack = 'mysterious';
+    if (!gameEnded && (name === 'road' || name === 'forest')) desiredTrack = collected.size >= 7 ? 'krautmeth' : 'mysterious';   // v30: darker outside once seven clues are found
     else if (!gameEnded && name === 'home') desiredTrack = 'creeps';
     else if (!gameEnded && name === 'abattoir') desiredTrack = 'fort';
     else if (!gameEnded && name === 'darkroom') desiredTrack = 'zero';
@@ -2337,6 +2393,111 @@ function updateProgress() {
   $('journal-total').textContent = `${journal.length} ITEMS CATALOGUED`;
 }
 function updateJournalCount(){ $('journal-total').textContent = `${journal.length} ITEMS CATALOGUED`; $('inventory-count').textContent=String(journal.length); }
+// v30: paper clues are read, not just recorded. Picking one up lays it in front of Tobia, full screen,
+// the way paper is held up to a lamp: the newspaper, the seating list, the back of the photograph, the
+// register, the ledger. What is written on them is not said anywhere else in the house.
+let docOpen = null;
+const DOCS = {
+  clipping: { cls: 'news', html: `<div class="dk-mast">LA VOCE DELLA BASSA</div><div class="dk-date">MERCOLEDÌ 19 GENNAIO 1977 · CRONACA · PAG. 7</div>
+    <h2>TREDICI NELLA CHIESA DI SAN ROCCO</h2><h3>Il registratore girava ancora. «La stanza era piena», dice il brigadiere</h3>
+    <div class="dk-cols"><p>VIADANA — The brigadiere who was first through the door says the tape recorder on the altar step was running with no reel on the spindle, and that he waited a full minute before going in, because the room <i>sounded full</i>.</p>
+    <p>The doctor called from the town could not explain why twelve of the thirteen had wax pressed into both ears, nor why the thirteenth, who had none, was the only one found smiling.</p>
+    <p>The parish priest was not among them. Asked where he had been that night, he said he had been <i>counting</i>, and would not say what.</p>
+    <p>Relatives are asked to collect the chairs from the sacristy. The chairs have been numbered. There are fourteen.</p></div>
+    <div class="dk-small"><b>AVVISI.</b> SMARRITO cane bianco che non abbaia. Non risponde a nessun nome. Mancia. — CERCASI quattordicesimo. Vitto e alloggio. Presentarsi con la nebbia.</div>
+    <div class="dk-small dk-meteo"><b>METEO.</b> Nebbia: persistente. Domani: persistente. Dopodomani: —</div>
+    <div class="dk-hand" style="position:static;text-align:right;margin-top:.6em;transform:rotate(-4deg)">this time they spelled my name right</div>` },
+  list: { cls: 'squared', html: `<div class="dk-hand dk-big" style="position:static;text-align:center">Tavola — domenica</div>
+    <ol class="dk-handlist">
+    <li>Primo — at the head. Back to the fridge, so the light does not touch him.</li><li>Ines — nearest the stove. To stand up first.</li><li>Ottavio — both hands on the wood. Always.</li>
+    <li>Anna — and the full bowl beside her. Do not move it. Do not look in it.</li><li>Dario — facing the record.</li><li>Sergio — by the door (he will want to smoke).</li>
+    <li>Marta — under the beam.</li><li>Pino — keys out of his reach.</li><li>Gabri — in the light.</li><li>Walter — the corner, he likes to see all of us.</li>
+    <li>Livia — opposite Marta. They must not touch feet.</li><li>Franco — knife side.</li><li>Aurelio — <i>(still)</i></li>
+    <li class="dk-scored">T O B I A — the end chair. No spoon. He will not need one.</li></ol>
+    <div class="dk-type" style="margin-top:1.2em;opacity:.6">(The fourteenth line has been rubbed out so hard the paper is scored. Tilted to the lamp, the letters come back.)</div>` },
+  photo: { cls: 'photo', html: `<div class="dk-photo"><canvas id="dk-photo-front" width="420" height="300"></canvas><div class="dk-photo-back">
+    <div class="dk-hand dk-big" style="position:static">Natale '76 — tutti</div>
+    <div class="dk-hand" style="position:static;margin-top:.6em">1 2 3 4 5 6 7 8 9 10 11 12 13</div>
+    <div class="dk-hand" style="position:static;color:#3a5a8a;margin-top:.2em">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14</div>
+    <div class="dk-hand" style="position:static;margin-top:.8em">count again. who is holding the camera</div>
+    <div class="dk-hand" style="position:static;margin-top:.4em;transform:rotate(-3deg)">the one with no face is not burned. it was like that</div></div></div>` },
+  mass: { cls: 'book', html: `<div class="dk-rubric">LIBER STATIONUM · S. ROCCO · MCMLXXVI</div>
+    <p><b>I.</b> Introitus. All the lights are put out but one, and that one is not looked at.</p>
+    <p><b>II.</b> Caro. The meat is blessed and not eaten.</p><p><b>III.</b> Silentium. Nobody swallows.</p>
+    <p class="dk-red">The faithful keep their mouths a little open from the third station, that it may enter by the right way and not by the nose.</p>
+    <p><b>IV.–X.</b> <i>(the same, more slowly)</i></p>
+    <p><b>XI.</b> Campana. The bell is not rung. It is held, and the one who holds it does not let go.</p>
+    <p><b>XIV.</b> —</p>
+    <p class="dk-red">The full are not buried. Whoever asks for a funeral has not understood.</p>
+    <div class="dk-hand" style="position:static;margin:.8em 0 0 38%;transform:rotate(3deg)">XII and XIII were sung, not written. Do not write them down. Do not hum them.</div>` },
+  'butcher-ledger': { cls: 'ledger', html: `<div class="dk-type dk-head">MACELLO COMUNALE — REGISTRO DI CARICO E SCARICO — 1977</div>
+    <table class="dk-table"><tr><th>data</th><th>capo</th><th>peso vivo</th><th>resa</th><th>ora</th></tr>
+    ${['Aurelio F.', 'Bruna C.', 'Ezio M.', 'Wanda B.', 'Ivo R.', 'Gemma T.', 'Nello P.', 'Iole S.', 'Arturo G.', 'Elsa V.', 'Remigio D.', 'Fosca L.', 'Ugo Z.'].map((n, i) => `<tr class="dk-struck"><td>19.1</td><td class="dk-handcell">${n}</td><td>${71 - i * 3} kg</td><td>nulla</td><td>03:17</td></tr>`).join('')}
+    <tr><td></td><td class="dk-handcell" style="color:#24324a">—</td><td class="dk-handcell" style="color:#24324a">da pesare</td><td></td><td class="dk-handcell" style="color:#24324a">03:17</td></tr></table>
+    <div class="dk-hand" style="position:static;margin-top:1em">the scale reads one person heavier when the door is closed. nobody is standing on it.</div>` }
+};
+function openDocument(id) {
+  const D = DOCS[id]; if (!D) return false;
+  let el = $('doc-reader'); if (!el) {
+    el = document.createElement('div'); el.id = 'doc-reader'; document.body.appendChild(el);
+    const st = document.createElement('style'); st.textContent = `
+#doc-reader{position:fixed;inset:0;z-index:60;background:rgba(6,5,4,.88);display:none;align-items:center;justify-content:center;padding:3vh 3vw;cursor:pointer}
+#doc-reader.on{display:flex;animation:dkIn .5s ease-out}
+@keyframes dkIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+#doc-reader .dk-paper{position:relative;max-width:720px;width:100%;max-height:90vh;overflow:auto;padding:5% 7%;color:#1d1812;font:17px/1.5 "IM Fell English",serif;box-shadow:0 20px 60px #000;transform:rotate(-.6deg);
+ background:radial-gradient(ellipse at 20% 15%,rgba(120,80,30,.18),transparent 40%),radial-gradient(ellipse at 85% 80%,rgba(90,60,20,.22),transparent 45%),radial-gradient(circle at 70% 30%,rgba(110,70,30,.12) 0 6%,transparent 7%),linear-gradient(#e7dcc3,#d8c9a6)}
+#doc-reader .dk-paper::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.025) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+#doc-reader .news{font:15px/1.45 Georgia,"IM Fell English",serif;background:linear-gradient(#ddd5c2,#cfc4a9)}
+#doc-reader .dk-mast{font:44px/1 "Pirata One",serif;text-align:center;border-bottom:3px double #2a241c;padding-bottom:.15em}
+#doc-reader .dk-date{font:11px "IBM Plex Mono",monospace;text-align:center;letter-spacing:.15em;margin:.4em 0 1em;opacity:.7}
+#doc-reader h2{font:700 26px/1.1 Georgia,serif;margin:.2em 0;text-transform:uppercase;letter-spacing:.02em}
+#doc-reader h3{font:italic 16px Georgia,serif;margin:0 0 .8em;opacity:.85}
+#doc-reader .dk-cols{columns:2;column-gap:1.6em;text-align:justify}
+#doc-reader .dk-cols p{margin:0 0 .7em}
+#doc-reader .dk-small{font:12px/1.4 "IBM Plex Mono",monospace;border-top:1px solid #2a241c;margin-top:1em;padding-top:.5em;opacity:.85}
+#doc-reader .dk-hand{position:absolute;font:24px/1.15 "Reenie Beanie",cursive;color:#2a3550;opacity:.9}
+#doc-reader .dk-big{font-size:34px}
+#doc-reader .squared{background-color:#eee8d6;background-image:linear-gradient(rgba(70,110,160,.22) 1px,transparent 1px),linear-gradient(90deg,rgba(70,110,160,.22) 1px,transparent 1px);background-size:22px 22px}
+#doc-reader .dk-handlist{font:24px/1.25 "Reenie Beanie",cursive;color:#3b3a40;padding-left:1.4em}
+#doc-reader .dk-scored{color:rgba(60,60,64,.18);text-decoration:line-through;text-decoration-thickness:6px;text-decoration-color:rgba(40,40,44,.35);letter-spacing:.05em}
+#doc-reader .dk-type{font:14px/1.5 "IBM Plex Mono",monospace}
+#doc-reader .dk-head{text-align:center;border-bottom:1px solid #222;padding-bottom:.4em;margin-bottom:.6em}
+#doc-reader .ledger{background:linear-gradient(#e6dcc0,#d7c79f)}
+#doc-reader .dk-table{width:100%;border-collapse:collapse;font:13px "IBM Plex Mono",monospace}
+#doc-reader .dk-table th{border-bottom:2px solid #2a241c;text-align:left;font-weight:500}
+#doc-reader .dk-table td{border-bottom:1px solid rgba(40,30,20,.25);padding:.2em .3em}
+#doc-reader .dk-handcell{font:21px "Reenie Beanie",cursive}
+#doc-reader .dk-struck td{text-decoration:line-through;text-decoration-color:rgba(120,20,10,.6)}
+#doc-reader .book{font:18px/1.55 "IM Fell English",serif;background:linear-gradient(90deg,#d8cba8,#e8dfc6 12%,#e8dfc6 88%,#d1c29c)}
+#doc-reader .book p{margin:.35em 0}
+#doc-reader .dk-rubric{font:30px "Pirata One",serif;color:#8a1c12;text-align:center;margin-bottom:.4em}
+#doc-reader .dk-red{color:#8a1c12;font-style:italic}
+#doc-reader .photo{background:#16120d;color:#ddd}
+#doc-reader .dk-photo{display:flex;gap:4%;flex-wrap:wrap;align-items:center;justify-content:center}
+#doc-reader .dk-photo canvas{width:46%;min-width:260px;box-shadow:0 6px 20px #000}
+#doc-reader .dk-photo-back{width:46%;min-width:260px;padding:5% 4%;background:linear-gradient(#e9e2cf,#d9ceb2);color:#2a3550;position:relative;box-shadow:0 6px 20px #000}
+#doc-reader .dk-hint{position:fixed;left:50%;bottom:3vh;transform:translateX(-50%);font:500 11px "IBM Plex Mono",monospace;letter-spacing:.3em;color:rgba(230,220,200,.55)}`;
+    document.head.appendChild(st);
+    el.addEventListener('click', () => closeDocument());
+  }
+  el.innerHTML = `<div class="dk-paper ${D.cls}">${D.html}</div><div class="dk-hint">[ E ] PUT IT DOWN</div>`;
+  el.classList.add('on'); docOpen = id; keys.clear(); controls.unlock?.();
+  audio?.mechanicalNoise(.35, 3200, .7, .05, 0);
+  if (id === 'photo') drawBurnedPhoto($('dk-photo-front'));
+  return true;
+}
+function closeDocument() { const el = $('doc-reader'); if (!el || !docOpen) return; el.classList.remove('on'); docOpen = null; audio?.mechanicalNoise(.25, 2600, .7, .04, 0); requestMouseLock?.(); }
+// the front of the burned photograph: a choir in rows in a dim church, the edges eaten brown to black,
+// one face in the back row simply not there
+function drawBurnedPhoto(c) {
+  if (!c) return; const g = c.getContext('2d'), w = c.width, h = c.height;
+  const bg = g.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#6d5a40'); bg.addColorStop(1, '#3d3122'); g.fillStyle = bg; g.fillRect(0, 0, w, h);
+  g.fillStyle = 'rgba(30,22,14,.6)'; g.fillRect(w * .42, 0, w * .16, h * .55); g.beginPath(); g.arc(w * .5, h * .2, w * .08, Math.PI, 0); g.fill();
+  let n = 0; for (const [row, y, cnt] of [[0, .42, 5], [1, .58, 4], [2, .74, 4]]) for (let i = 0; i < cnt; i++) { const x = w * (.18 + i * (.64 / (cnt - 1))) + (row % 2) * 12; n++; g.fillStyle = '#1e1710'; g.beginPath(); g.ellipse(x, h * y + 26, 22, 30, 0, 0, Math.PI * 2); g.fill(); if (n === 3) { g.fillStyle = '#6d5a40'; g.beginPath(); g.ellipse(x, h * y - 6, 13, 16, 0, 0, Math.PI * 2); g.fill(); } else { g.fillStyle = '#c9b38c'; g.beginPath(); g.ellipse(x, h * y - 6, 12, 15, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#2a2016'; g.fillRect(x - 5, h * y - 9, 3, 2); g.fillRect(x + 2, h * y - 9, 3, 2); } }
+  g.fillStyle = 'rgba(200,140,60,.5)'; g.fillRect(w * .86, h * .62, 14, 22);   // the heater, almost out of frame
+  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * .12})`; g.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5); }
+  const burn = g.createRadialGradient(w * .45, h * .5, h * .25, w * .5, h * .5, w * .62); burn.addColorStop(0, 'rgba(0,0,0,0)'); burn.addColorStop(.7, 'rgba(70,30,5,.55)'); burn.addColorStop(.88, 'rgba(15,8,3,.95)'); burn.addColorStop(1, '#000'); g.fillStyle = burn; g.fillRect(0, 0, w, h);
+}
 function collectClue(item) {
   if (collected.has(item.id)) return;
   if (item.requiresFlag && !storyFlags.has(item.requiresFlag)) { showToast(item.blockedHint || 'Speak with the relevant person first.'); return; }
@@ -2347,7 +2508,9 @@ function collectClue(item) {
   zone.interactables.splice(zone.interactables.indexOf(item), 1);
   dread = Math.min(1, dread + .13); glitchPulse = Math.max(glitchPulse, .85); audio.stinger(.85);
   showToast(`CLUE RECORDED // ${item.title.toUpperCase()}`); updateProgress();
+  openDocument(item.id);
   if (collected.size === clueCount) showToast('THE HOUSE HAS FINISHED COUNTING. THE HATCH IS OPEN.');
+  if (collected.size >= 7 && (currentZone === 'road' || currentZone === 'forest') && audio?.activeMusic?.name !== 'krautmeth') audio?.playMusic('krautmeth', { loop: true, fadeIn: 3 });
   // v26: a clue is a discovery, never a death. Deaths are paced by the story (see TRAGEDY).
 }
 function speakVoice(text, npcName = '') {
@@ -2410,7 +2573,8 @@ function renderJournal() {
     b.innerHTML = `<small>${String(i + 1).padStart(2, '0')} / ${entry.zone.toUpperCase()}</small><strong>${entry.title}</strong>`;
     b.addEventListener('click', () => {
       list.querySelectorAll('.journal-entry').forEach(x => x.classList.remove('active')); b.classList.add('active');
-      $('journal-detail').innerHTML = `<div class="detail-stamp">EPISTASSI / CLUE ${String(i + 1).padStart(2, '0')}</div><h3>${entry.title}</h3><p>${entry.description}</p><div class="detail-foot">FOUND IN: ${entry.zone.toUpperCase()} · KEPT IN THE JOURNAL</div>`;
+      $('journal-detail').innerHTML = `<div class="detail-stamp">EPISTASSI / CLUE ${String(i + 1).padStart(2, '0')}</div><h3>${entry.title}</h3><p>${entry.description}</p>${DOCS[entry.id] ? '<button class="dialogue-option" id="journal-read"><b>[R]</b>Read it again</button>' : ''}<div class="detail-foot">FOUND IN: ${entry.zone.toUpperCase()} · KEPT IN THE JOURNAL</div>`;
+      $('journal-read')?.addEventListener('click', (ev) => { ev.stopPropagation(); closeJournal(); openDocument(entry.id); });
     });
     list.appendChild(b);
   });
@@ -2815,6 +2979,7 @@ window.addEventListener('keydown', (e) => {
   if (playerInputEnabled() && movementCodes.has(e.code)) e.preventDefault();
   keys.add(e.code);
   if (PERIL.reflex && !e.repeat && gameStarted && !gameEnded && reflexKey(e.code)) { e.preventDefault(); return; }
+  if (docOpen) { if (!e.repeat && ['KeyE', 'Escape', 'Enter', 'Space', 'NumpadEnter'].includes(e.code)) { e.preventDefault(); closeDocument(); } return; }
   if (gameStarted && !gameEnded && society && !e.repeat && !dialogueOpen && !journalOpen && !settingsOpen && !bench && society.onKey(e.code)) { e.preventDefault(); return; }
   if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !e.repeat && !dialogueOpen && !society?.S?.ui && performance.now() < LINES.until) { LINES.until = 0; clearTimeout(LINES.timer); pumpLines(); }
   if (e.code === 'KeyF' && !e.repeat && playerInputEnabled()) toggleFlashlight();
@@ -7087,7 +7252,7 @@ function v8Tick(dt, t) {
   if (gameStarted && !gameEnded && currentZone === 'abattoir' && storyFlags.has('darkroom-cleared') && !storyFlags.has('car-invited') && !storyFlags.has('car-called') && !storyScene && !dialogueOpen) {
     storyFlags.add('car-called'); storyLine('IL PRIMO: Not here. Come outside. The car is warm.'); setTimeout(() => { if (!storyFlags.has('car-invited')) pendingCar = true; }, 3600);
   }
-  updateRigs(dt, t); updateShafts(t); updateWelcome(dt);
+  updateRigs(dt, t); updateShafts(t); updateWelcome(dt); updateDresser(dt);
   if (gameStarted && !gameEnded && currentZone === 'road' && (!storyScene || storyScene.type === 'hold') && !dialogueOpen && !bench && crolloReady()) { cancelHold(); startCrollo(); }
 }
 // An old hurricane oil lantern on an iron hook beside the door: a soft halo, a wide
@@ -7404,22 +7569,63 @@ function posterTexture(kind) {
   };
   paint(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; whenLogo(() => { paint(); t.needsUpdate = true; }); return t;
 }
+// v30: the posters are real covers (assets/inspiration), printed as gig posters for the house's own
+// bands. Each is composed on a paper sheet: the cover, the name, a small venue line, grain and folds.
+const COVERS = {
+  dedus: { file: 'poster6.jpeg', title: 'AB DEDUS SPIEGL CABDAMION', font: '"Pirata One", serif', sub: 'DAL VIVO · EX MACELLO COMUNALE · ORE 03:17', bg: '#0d0b09', fg: '#e9dfc8' },
+  ephemeral: { file: 'poster7.jpeg', title: 'THE ENDLESS EPHEMERAL', font: '500 1px "IBM Plex Mono", monospace', sub: 'NUOVO NASTRO · IN VENDITA AL BANCO DEL CIRCOLO', bg: '#cfd9c8', fg: '#1d2a1c' },
+  santgrouse: { file: 'poster9.jpg', title: 'SANTGROUSE', font: '"IM Fell English", serif', sub: 'CONCERTO · CIRCOLO LA FORNACE · INGRESSO LIBERO', bg: '#e8e2d2', fg: '#141210' },
+  satragnosium: { file: 'poster10.png', title: 'SATRAGNOSIUM', font: '"Pirata One", serif', sub: 'TOUR DELLA BASSA · AUTUNNO 2003', bg: '#1a0705', fg: '#e6c79a' },
+  lithogon: { file: 'poster11.png', title: 'LITHOGON MOLENS INFANTIUM', font: '"IM Fell English", serif', sub: 'DEMO · CASELLA POSTALE 14', bg: '#0b0a09', fg: '#d9cfbd' },
+  nameless: { file: 'poster5.jpg', title: null, bg: '#090807' }
+};
+const _coverImg = {};
+function coverTexture(key) {
+  const [id, mod] = key.split(':'), C = COVERS[id], w = 600, h = 800, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const paint = (img) => {
+    g.fillStyle = C.bg; g.fillRect(0, 0, w, h);
+    const bottom = C.title ? 610 : 770, bx = 30, by = 30, bw = w - 60, bh = bottom - by;
+    if (img) { const s = Math.max(bw / img.width, bh / img.height), sw = bw / s, sh = bh / s; g.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, bx, by, bw, bh); }
+    if (C.title) {
+      g.fillStyle = C.fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const fam = C.font.replace(/^[0-9]+ 1px /, ''); const weight = /^500/.test(C.font) ? '500 ' : '';
+      let size = 96; g.font = `${weight}${size}px ${fam}`; while (g.measureText(C.title).width > w - 70 && size > 20) { size -= 2; g.font = `${weight}${size}px ${fam}`; }
+      if (g.measureText(C.title).width > w - 70) { const words = C.title.split(' '), half = Math.ceil(words.length / 2); size = 64; g.font = `${weight}${size}px ${fam}`; const l1 = words.slice(0, half).join(' '), l2 = words.slice(half).join(' '); while (Math.max(g.measureText(l1).width, g.measureText(l2).width) > w - 70 && size > 20) { size -= 2; g.font = `${weight}${size}px ${fam}`; } g.fillText(l1, w / 2, 660); g.fillText(l2, w / 2, 660 + size * 1.02); }
+      else g.fillText(C.title, w / 2, 675);
+      g.font = '500 15px "IBM Plex Mono", monospace'; g.globalAlpha = .8; g.fillText(C.sub, w / 2, 770); g.globalAlpha = 1;
+    }
+    // paper: grain, two folds, a darker rim, tape marks; a faded copy has been in the sun
+    for (let i = 0; i < 3200; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,.08)' : 'rgba(255,240,210,.05)'; g.fillRect(Math.random() * w, Math.random() * h, 2, 1); }
+    g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2 + 2); g.moveTo(w / 2, 0); g.lineTo(w / 2 - 1, h); g.stroke();
+    const rim = g.createRadialGradient(w / 2, h / 2, h * .35, w / 2, h / 2, h * .72); rim.addColorStop(0, 'rgba(0,0,0,0)'); rim.addColorStop(1, 'rgba(20,12,4,.45)'); g.fillStyle = rim; g.fillRect(0, 0, w, h);
+    if (mod === 'faded') { g.fillStyle = 'rgba(214,170,120,.42)'; g.globalCompositeOperation = 'screen'; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over'; }
+    if (mod === 'damp') { for (let i = 0; i < 14; i++) { const x = Math.random() * w, y = Math.random() * h, r = 30 + Math.random() * 90, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(60,44,20,.35)'); gr.addColorStop(1, 'rgba(60,44,20,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); } }
+    t.needsUpdate = true;
+  };
+  paint(null);
+  const src = './assets/inspiration/' + C.file;
+  const done = (img) => { paint(img); (document.fonts?.ready || Promise.resolve()).then(() => paint(img)); };
+  if (_coverImg[src]?.complete && _coverImg[src].naturalWidth) done(_coverImg[src]);
+  else { const img = _coverImg[src] || (_coverImg[src] = new Image()); img.addEventListener('load', () => done(img)); if (!img.src) img.src = src; }
+  return t;
+}
 function addPoster(group, kind, x, y, z, rotY, title, text, scale = 1) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale), new THREE.MeshStandardMaterial({ map: posterTexture(kind), roughness: .95 })); m.position.set(x, y, z); m.rotation.y = rotY; m.rotation.z = (Math.random() - .5) * .05; m.receiveShadow = true; group.add(m);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale), new THREE.MeshStandardMaterial({ map: COVERS[kind.split(':')[0]] ? coverTexture(kind) : posterTexture(kind), roughness: .95 })); m.position.set(x, y, z); m.rotation.y = rotY; m.rotation.z = (Math.random() - .5) * .05; m.receiveShadow = true; group.add(m);
   for (const [dx, dy] of [[-.27, .37], [.27, .37]]) { const tape = new THREE.Mesh(new THREE.PlaneGeometry(.09 * scale, .035 * scale), new THREE.MeshStandardMaterial({ color: 0xcfc4a0, roughness: 1, transparent: true, opacity: .8 })); tape.position.set(dx * scale, dy * scale, .002); tape.rotation.z = dx > 0 ? -.5 : .5; m.add(tape); }
   const off = new THREE.Vector3(Math.sin(rotY), 0, Math.cos(rotY)).multiplyScalar(.7);
   addLook(group, x + off.x, y, z + off.z, title, text, 2.0); return m;
 }
 function buildPostersV12() {
   const H = zones.home.group, R = zones.ruin.group, C = zones.cellar.group, A = zones.abattoir.group;
-  addPoster(H, 'kaleido', 9.62, 1.95, 3.4, -Math.PI / 2, 'A poster, east wall', 'A six-fold tree and a sun that looks at itself, red on red. Lower case in the corner: il bianco. Nobody will say who printed it, or when there was a record to print it for.');
-  addPoster(H, 'ankh', -9.62, 1.95, 4.6, Math.PI / 2, 'A poster by the kitchen', 'White line on black: a mask set on an ankh, rays behind it. TREDICI VOCI. Live at the Chiesa, stereo, 1977. The concert it advertises is the night they died.');
-  addPoster(H, 'spike', 6.4, 2.0, 8.62, Math.PI, 'A gig poster', 'A spiked logo nobody can read over a brick wall and a row of hanging bells. Dopo la Messa. Gabri says it is a band. Sergio says it was a warning.', .9);
-  addPoster(R, 'couple', 7.72, 1.8, -2.2, -Math.PI / 2, 'A poster in the empty house', 'Two robed figures holding each other. One has a paper house for a head. The other’s face has been gone over in black pen until the paper tore. The branch logo is in the corner.');
-  addPoster(R, 'kaleido', -3.5, 1.85, -7.72, 0, 'A faded poster', 'The tree-sun again, sun-bleached to orange. Someone has pinned it over a damp patch.', .85);
-  addPoster(C, 'couple', -8.78, 1.7, 2.6, Math.PI / 2, 'A poster in the cellar', 'The same two robed figures, larger. Down here the scribbled face has been scratched through to the brick.', 1.1);
-  addPoster(A, 'spike', -11.72, 2.0, 1.5, Math.PI / 2, 'A poster by the hooks', 'The spiked logo and the bells. Somebody has drawn a fourteenth bell in biro.');
-  if (porch.hall) { porch.hall.userData.interactables = []; addPoster(porch.hall, 'ankh', .45, 1.75, -11.13, 0, 'A poster in the hall', 'The mask on the ankh. TREDICI VOCI.', .8); }
+  addPoster(H, 'dedus', 9.62, 1.95, 3.4, -Math.PI / 2, 'A poster, east wall', 'AB DEDUS SPIEGL CABDAMION. A winged thing with a man’s face, spread on an altarpiece over a burning town, its legs folded like a cricket’s. Nobody in the house will read the name out loud. Under the date someone has pencilled a second date, and it is tomorrow.');
+  addPoster(H, 'ephemeral', -9.62, 1.95, 4.6, Math.PI / 2, 'A poster by the kitchen', 'THE ENDLESS EPHEMERAL. A pale worm with a sad human face, wound in thorns on a hospital green. Steam from the stove has made the paper translucent: you can see the wall through the worm, and the wall is the same colour.', .9);
+  addPoster(H, 'santgrouse', 6.4, 2.0, 8.62, Math.PI, 'A gig poster', 'SANTGROUSE. Two men photographed in profile for a surgical textbook, before and after. The second one has no lower jaw. Someone has drawn a ring round the first man’s eye in biro and written beside it, very small: “me”.', .9);
+  addPoster(R, 'lithogon', 7.72, 1.8, -2.2, -Math.PI / 2, 'A poster in the empty house', 'LITHOGON MOLENS INFANTIUM. A grey giant eating a small body from the head down, his eyes wide as if he were the one being eaten. The corners have been chewed, by mice or by somebody waiting.');
+  addPoster(R, 'ephemeral:faded', -3.5, 1.85, -7.72, 0, 'A faded poster', 'THE ENDLESS EPHEMERAL again, sun-bleached until the worm is nearly white. Someone pinned it over a damp patch. The damp has come through in the shape of a hand, palm out.', .85);
+  addPoster(C, 'lithogon', -8.78, 1.7, 2.6, Math.PI / 2, 'A poster in the cellar', 'LITHOGON MOLENS INFANTIUM, larger. Down here the giant’s eyes have been scratched out, carefully, with something fine. The small body in his hands has been left alone.', 1.1);
+  addPoster(A, 'satragnosium', -11.72, 2.0, 1.5, Math.PI / 2, 'A poster by the hooks', 'SATRAGNOSIUM. Somebody has counted the eggs inside the opened creature in biro, one tick each, and written the total in the margin: fourteen. There are thirteen eggs.');
+  if (porch.hall) { porch.hall.userData.interactables = []; addPoster(porch.hall, 'santgrouse', .45, 1.75, -11.13, 0, 'A poster in the hall', 'SANTGROUSE, small, by the coats. The man without a jaw is looking at the door.', .8); }
 }
 
 function smokerArm(S) { const A = S.npc.rig.arms[1], l = S.lift || 0, e = l * l * (3 - 2 * l); A.sh.rotation.x = THREE.MathUtils.lerp(.06, SMOKE_POSE.shX, e); A.sh.rotation.y = THREE.MathUtils.lerp(0, SMOKE_POSE.shY, e); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, SMOKE_POSE.shZ, e); A.el.rotation.x = THREE.MathUtils.lerp(-.12, SMOKE_POSE.elX, e); A.wr.rotation.x = THREE.MathUtils.lerp(0, SMOKE_POSE.wrX, e); A.wr.rotation.z = THREE.MathUtils.lerp(0, SMOKE_POSE.wrZ, e); }
@@ -7631,8 +7837,8 @@ function buildPlacesV17() {
   addTensionItem(zones.church.group, -8.75, 1.7, 4.2, Math.PI / 2, .34, .44, 'A memorial card', 'A dead man’s card, the kind handed out at funerals. The face has been rubbed with a thumb until it is white.');
   addTensionItem(D, -9.8, 1.5, 6.5, Math.PI / 2, .3, .38, 'A photograph in the dark', 'You only see it when the beam crosses it.');
   // two more tape-cover posters for the walls, in red and in ink
-  addPoster(H, 'redmaw', 9.62, 1.95, -2.2, -Math.PI / 2, 'A red poster', 'A tree with a mouth, printed red on black, the ink bleeding into the fibres. SEPOLCRO, it says, and under it in smaller letters: discesa nel caos.');
-  addPoster(RU, 'inkbeast', -7.72, 1.85, 2.6, Math.PI / 2, 'A photocopied poster', 'Black ink on white: a hooded thing with its mouth open. The lettering is all thorns. Underneath: VOMITO DI LUCE.');
+  addPoster(H, 'satragnosium', 9.62, 1.95, -2.2, -Math.PI / 2, 'A red poster', 'SATRAGNOSIUM. A pale bulb of a creature, opened down the middle and full of small round eggs, a thin arm coming out of it to hold a flute to its own mouth. The red ink has bled into the wall behind.');
+  addPoster(RU, 'nameless', -7.72, 1.85, 2.6, Math.PI / 2, 'A photocopied poster', 'A figure made of something like dried moss, or hair, with one red eye. The name in the corner is a knot of roots that will not be read. On the back, in pencil: “this is not a band”.');
 }
 
 // ---- v18: beer, profanity, posters on the floor ------------------------------------
@@ -7677,17 +7883,17 @@ function buildTableDetailsV18() {
   addLook(H, tx, ty + .25, tz + .3, 'Beer', 'Birra del Po, bionda, sixty-six centilitres, most of them empty. Caps everywhere, two bottles on their sides in their own spill. Nobody has cleared anything since the afternoon.', 1.7);
 }
 function addFloorPoster(group, kind, x, z, rot, title, text, scale = 1) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale, 6, 6), new THREE.MeshStandardMaterial({ map: posterTexture(kind), roughness: 1, side: THREE.DoubleSide }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale, 6, 6), new THREE.MeshStandardMaterial({ map: COVERS[kind.split(':')[0]] ? coverTexture(kind) : posterTexture(kind), roughness: 1, side: THREE.DoubleSide }));
   const pa = m.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const px = pa.getX(i), py = pa.getY(i); pa.setZ(i, Math.max(0, Math.abs(py) - .3 * scale) * .25 + (px > .2 * scale && py > .3 * scale ? .03 : 0)); } m.geometry.computeVertexNormals();
   m.rotation.x = -Math.PI / 2; m.rotation.z = rot; m.position.set(x, .008, z); m.receiveShadow = true; group.add(m);
   addLook(group, x, .3, z, title, text, 1.6); return m;
 }
 function buildFloorPostersV18() {
-  addFloorPoster(zones.home.group, 'kaleido', 3.2, 6.6, .4, 'A poster on the floor', 'Fallen from the wall, or pulled down. A boot print across the tree-sun.');
-  addFloorPoster(zones.ruin.group, 'redmaw', -1.3, 4.6, -.9, 'A poster underfoot', 'The red tree with a mouth, face up on the boards, swollen with damp. Someone has walked on it for weeks.');
-  addFloorPoster(zones.cellar.group, 'spike', 4.2, 4.0, 2.1, 'A poster on the cellar floor', 'Used as a mat under a bucket. The ring the bucket left is darker than water.');
-  addFloorPoster(zones.abattoir.group, 'inkbeast', 2.8, 6.0, -.3, 'A poster by the drain', 'The hooded beast, face up by the drain, the ink running where the floor is hosed.');
-  addFloorPoster(zones.darkroom.group, 'couple', -2.6, 7.4, 1.2, 'A poster in the dark', 'Two robed figures holding each other, face up among the chairs. You almost step on them.');
+  addFloorPoster(zones.home.group, 'santgrouse', 3.2, 6.6, .4, 'A poster on the floor', 'Fallen from the wall, or pulled down. A boot print across the two faces, exactly where the jaw is missing.');
+  addFloorPoster(zones.ruin.group, 'satragnosium:damp', -1.3, 4.6, -.9, 'A poster underfoot', 'SATRAGNOSIUM, face up on the boards, swollen with damp. The eggs have run into each other.');
+  addFloorPoster(zones.cellar.group, 'ephemeral:damp', 4.2, 4.0, 2.1, 'A poster on the cellar floor', 'Used as a mat under a bucket. The ring the bucket left is darker than water, and it is exactly round the worm’s face.');
+  addFloorPoster(zones.abattoir.group, 'nameless:damp', 2.8, 6.0, -.3, 'A poster by the drain', 'The moss figure, face up by the drain, the ink running where the floor is hosed. The red eye has not run.');
+  addFloorPoster(zones.darkroom.group, 'lithogon', -2.6, 7.4, 1.2, 'A poster in the dark', 'The grey giant, face up among the chairs. You almost step on the small body.');
 }
 
 buildV8World(); buildPostersV12(); buildPlacesV17(); buildTableDetailsV18(); buildFloorPostersV18();
@@ -7872,9 +8078,10 @@ society = createSociety({ THREE, camera, playerAnchor, look, zone: () => current
   scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), enter: (name, sp) => enterZone(name, sp), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, parkedVan: () => storyRef.van?.visible ? storyRef.van : null, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true),
+  dresser: () => storyRef.dresser,
   progress: () => Math.min(1, collected.size / 8 * .7 + ['altar-lit', 'darkroom-cleared', 'church-collapsed', 'escaped-forest'].filter(f => storyFlags.has(f)).length * .075),
   peril: { PERIL, startReflex, lurch, shake, shock, poison: poisonLevel, wield, unwield, pose: setAttackPose, impact, flash: (k, d) => flashFragment(k, d), fragment: (k, d) => flashFragment(k, d), extraFigure: (g, x, z, name, coat, v) => extraFigure(g, x, z, name, coat, v), seat: (n, x, z, r) => seatNPC(n, x, z, r), cup: (g, x, y, z) => buildTeacup(g, x, y, z), bleed: () => { blood.bleedT = Math.max(blood.bleedT || 0, 30); }, input: () => playerInputEnabled(), cam: camera, anchor: playerAnchor, fovSet: setFov } });
-if (TEST_MODE) window.__epi = { renderer, scene3: scene, peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { openDocument, closeDocument, docOpen: () => docOpen, renderer, scene3: scene, peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);
