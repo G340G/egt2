@@ -37,8 +37,8 @@ const ACTS = {
   'photo-tear': { truth: 'tore Gabri’s photograph in half', fx: { gabri: { g: 4.5 }, ines: { g: 2.2 }, franco: { g: .6 } }, base: { g: .9, f: .4 } },
   'photo-return': { truth: 'gave Gabri his photograph back', fx: { gabri: { g: -1.6, t: 1.2 }, ines: { g: -.8, t: .6 } }, base: {} },
   'photo-putback': { truth: 'put the photograph back on the fridge', fx: { gabri: { g: -.5 } }, base: {} },
-  'keys-take': { truth: 'took Walter’s van keys off the dresser', fx: { walter: { g: 3.4 }, dario: { g: 1.4 }, pino: { t: .9 }, sergio: { t: .3 } }, base: { g: .5, f: .3 } },
-  'keys-putback': { truth: 'put Walter’s keys back on the dresser', fx: { walter: { g: -1 } }, base: {} },
+  'keys-take': { truth: 'took Walter’s van keys out of the dresser', fx: { walter: { g: 3.4 }, dario: { g: 1.4 }, pino: { t: .9 }, sergio: { t: .3 } }, base: { g: .5, f: .3 } },
+  'keys-putback': { truth: 'put Walter’s keys back in the dresser', fx: { walter: { g: -1 } }, base: {} },
   'keys-return': { truth: 'gave Walter his keys back', fx: { walter: { g: -1.6, t: .4 } }, base: {} },
   'knife-take': { truth: 'took the bread knife off the kitchen table', fx: { franco: { f: .8 }, ines: { f: .9 }, gabri: { f: .7, g: .5 }, dario: { f: .5, g: .6 }, walter: { g: .8 } }, base: { f: .7 } },
   'knife-move': { truth: 'put the bread knife up on the fridge, out of reach', fx: { ines: { t: .3 }, franco: { g: .3 } }, base: {} },
@@ -160,11 +160,23 @@ export function createSociety(G) {
     const photo = new THREE.Mesh(new THREE.PlaneGeometry(.09, .11), new THREE.MeshStandardMaterial({ map: G.photoTex(), roughness: .8, side: THREE.DoubleSide }));
     const ph = new THREE.Group(); ph.add(photo); photo.position.y = .055; photo.rotation.x = -.18; S.photoMesh = photo;
     addBelonging('photo', ph, [-6.0, 1.585, -8.0], 'gabri', 'A PHOTOGRAPH ON THE FRIDGE');
-    // Walter’s van keys, in a saucer on the dresser.
-    const kg = new THREE.Group(); const sau = new THREE.Mesh(new THREE.CylinderGeometry(.07, .05, .015, 16), M(0xd8d2c4, .35)); kg.add(sau);
-    for (let i = 0; i < 3; i++) { const k = new THREE.Mesh(new THREE.BoxGeometry(.014, .004, .055), M(0x9a8a60, .3, { metalness: .8 })); k.position.set((i - 1) * .015, .012, 0); k.rotation.y = (i - 1) * .4; kg.add(k); }
-    const tag = new THREE.Mesh(new THREE.BoxGeometry(.03, .004, .04), M(0x6e2e26, .8)); tag.position.set(.03, .013, .03); kg.add(tag);
-    addBelonging('keys', kg, [-8.3, 2.42, -3.75], 'walter', 'KEYS IN A SAUCER');
+    // Walter’s van keys: v30, on a cup hook inside the dresser, behind the right-hand lower door.
+    // You have to open the door to see them.
+    const kg = new THREE.Group(); const ring = new THREE.Mesh(new THREE.TorusGeometry(.018, .003, 6, 14), M(0x9a8a60, .3, { metalness: .8 })); kg.add(ring);
+    for (let i = 0; i < 3; i++) { const k = new THREE.Mesh(new THREE.BoxGeometry(.004, .055, .014), M(0x9a8a60, .3, { metalness: .8 })); k.position.set(0, -.045, (i - 1) * .012); k.rotation.x = (i - 1) * .25; kg.add(k); }
+    const tag = new THREE.Mesh(new THREE.BoxGeometry(.004, .04, .03), M(0x6e2e26, .8)); tag.position.set(0, -.05, .025); kg.add(tag);
+    const Dr = G.dresser?.(), hk = Dr ? Dr.hookWorld() : new THREE.Vector3(-8.76, .7, -4.38);
+    const KB = addBelonging('keys', kg, [hk.x, hk.y - .02, hk.z], 'walter', 'KEYS ON A HOOK');
+    if (Dr) {
+      setEntry(KB, false);
+      const door = Dr.doors[0], at = new THREE.Vector3(Dr.frontX + .25, .55, -3.8 - .3);
+      const doorEntry = { id: 'dresser-door', type: 'social', object: door, point: at, radius: 1.9, get prompt() { return door.userData.target ? '[ E ] CLOSE THE DRESSER DOOR' : '[ E ] OPEN THE DRESSER DOOR'; }, run: () => {
+        const open = !door.userData.target; door.userData.target = open ? 1 : 0; G.audio()?.doorCreak?.();
+        if (open) { G.line(KB.state === 'here' ? pick(['(Jars of something pickled. A biscuit tin. On a cup hook on the inside wall, a ring of keys with a red leather tag.)', '(The smell of old flour and mouse. Behind the jars, on a hook, a set of van keys.)']) : '(Jars. A biscuit tin. An empty cup hook.)'); if (KB.state === 'here') setEntry(KB, true); }
+        else setEntry(KB, false);
+      } };
+      G.home().interactables.push(doorEntry);
+    }
     // The kitchen table, the loaf, and an ordinary bread knife. Nothing marks it.
     const kt = new THREE.Group(); kt.position.set(-8.05, 0, -6.35); g.add(kt);
     const wood = M(0x5a4430, .8); const top = new THREE.Mesh(new THREE.BoxGeometry(1.1, .05, .7), wood); top.position.y = .86; kt.add(top);
@@ -374,7 +386,7 @@ export function createSociety(G) {
       lie: () => exposeLater(a, null, 'photo', 'You told Gabri you had not seen the photograph.', have || torn),
       silence: () => affect(a, { g: 1.0 }, 'You said nothing when Gabri asked about his photograph.'),
       leave: () => affect(a, { g: 1.3 }, 'You walked away from Gabri when he asked about the photograph.') } }; },
-    keys: (a) => { const have = S.carried.has('keys'); return { q: 'Somebody has my keys. The van keys. They were in the saucer.', opts: [[have ? '“I have them.”' : '“I haven’t seen them.”', 'truth', have ? 'I have them.' : 'I haven’t seen them.'], [have ? '“I haven’t seen them.”' : '“Pino was by the dresser.”', 'lie', have ? 'I haven’t seen them.' : 'Pino was by the dresser.']], on: {
+    keys: (a) => { const have = S.carried.has('keys'); return { q: 'Somebody has my keys. The van keys. They were on the hook in the dresser.', opts: [[have ? '“I have them.”' : '“I haven’t seen them.”', 'truth', have ? 'I have them.' : 'I haven’t seen them.'], [have ? '“I haven’t seen them.”' : '“Pino was by the dresser.”', 'lie', have ? 'I haven’t seen them.' : 'Pino was by the dresser.']], on: {
       truth: () => { if (have) { S.carried.delete('keys'); G.flags.delete('tobia-has-keys'); gesture('keys-return', { seenBy: [a] }); } },
       lie: () => { if (have) exposeLater(a, null, 'keys', 'You told Walter you had not seen his keys.', true); else { conflict('walter', 'pino', 'you told Walter that Pino had been at the dresser'); S.truths.push('You told Walter that Pino had been at the dresser. He had not.'); } },
       silence: () => affect(a, { g: 1 }, 'You said nothing when Walter asked about his keys.'),
@@ -1258,6 +1270,16 @@ export function createSociety(G) {
     dario: ['(Dario has not blinked for a long time. The brown bottle is in his cassock pocket. His nose is bleeding and he is smiling.)', 'DARIO: Il Bianco filled me while you were asleep. It told me what you are.', 'He was high and praying, and Il Bianco told him you were what keeps it from coming.'],
     walter: ['(Walter has had the bottle. He is measuring the doorway again and again, and the numbers keep coming out different.)', 'WALTER: Two metres forty. Two metres forty-one. Something in this house is the wrong size. (He looks at you.)', 'He was high, and the house stopped adding up, and you were the extra figure.']
   };
+  // v30: AB DEDUS SPIEGL CABDAMION is printed on one poster, and said aloud once in a whole game, by one
+  // of them, under their breath, when they think nobody is listening. Then never again.
+  function dedusOnce(dt) {
+    if (R.dedusSaid || G.zone() !== 'home' || !G.canAct() || S.ui || R.scene || G.linesBusy() || S.gather?.active) return;
+    R.dedusT = (R.dedusT || 0) + dt; if (R.dedusT < 70) return;
+    const k = ['gabri', 'dario', 'marta', 'sergio', 'anna', 'walter', 'franco', 'ines', 'pino'].find(x => near(x, 3.2) && alive(x)); if (!k) return;
+    R.dedusSaid = true;
+    G.line(`${UP(k)}: (under ${['ines', 'anna', 'marta'].includes(k) ? 'her' : 'his'} breath, not to anyone) Ab dedus spiegl cabdamion.`);
+    G.line(`(${nm(k)} stops, as if the words had come out of the wrong mouth, and does not look at you for the rest of the evening.)`);
+  }
   function updatePressure(dt) {
     const d = G.difficulty(); if (d < 1 || !G.welcomed() || S.ending || (R.pressN || 0) >= 4) return;
     if (Object.values(R.motives).some(m => m.alive && !R.dead.has(m.k))) { R.calmT = 0; return; }
@@ -1529,6 +1551,7 @@ export function createSociety(G) {
     }
     if (has('dario-down') && !has('cellar-came') && !has('cellar-over') && G.zone() === 'cellar' && near('dario', 4) && G.canAct() && !S.ui) cellarScene();
     if (R.van && !R.vanGone && !R.van.visible && G.flags.has('visited-home')) yardVanOn();
+    dedusOnce(dt);
     updateMotives(dt); updatePressure(dt); updateStalkers(dt); updateErrands(dt); vio().update(dt);
     if (has('dario-no') && S.rel.dario?.marked && !R.darioClick) { R.darioClick = true; later(60, () => click('dario', 'You bleed, and you would not watch him. He has decided Il Bianco must finish in you instead.')); }
     if (has('ines-sat') && !has('hand-asked') && G.zone() === 'home' && near('gabri', 4) && !S.ui && G.canAct()) gabriComplicity();
@@ -1555,16 +1578,20 @@ export function createSociety(G) {
       if (!st) { G.endScene(); G.fov(save.fov); onEnd?.(save); return; }
       if (st.shot) sc.shot = st.shot;
       if (st.say) { G.line(st.say); sc.mode = 'say'; }
-      else if (st.choose) { sc.mode = 'say'; G.queueAction(() => offer('TOBIA', st.line || '', st.choose.map(([label, fn]) => [label, () => fn?.(sc)]), { timeout: 18, onTimeout: () => st.silence?.(sc) })); }
+      else if (st.choose) { sc.mode = 'say'; G.queueAction(() => { if (sc.skipped) return; offer('TOBIA', st.line || '', st.choose.map(([label, fn]) => [label, () => fn?.(sc)]), { timeout: 18, onTimeout: () => st.silence?.(sc) }); }); }
       else if (st.wait) { sc.mode = 'wait'; sc.until = performance.now() + st.wait * 1000; }
       else { st.do?.(sc); sc.mode = 'now'; }
     };
-    G.scene({ update(s, dt) {
+    // v30: Space skips the rest (the presentations included); every 'do' step still happens, nothing is said
+    const skip = () => { if (sc.skipped) return; sc.skipped = true; G.clearLines?.(); closeUI(); for (let j = sc.i + 1; j < sc.steps.length; j++) sc.steps[j].do?.(sc); sc.i = sc.steps.length - 1; sc.mode = 'skip'; next(); };
+    G.scene({ skippable: true, skip, update(s, dt) {
+      if (sc.skipped) return;
       const sh = sc.shot; if (sh) { const pos = typeof sh.pos === 'function' ? sh.pos() : sh.pos; G.playerAnchor.position.set(pos.x, 0, pos.z); G.camera.position.set(0, pos.y, 0); const look = typeof sh.look === 'function' ? sh.look() : sh.look; if (look) G.aim(look, Math.min(1, dt * (sh.speed || 2.2))); if (sh.fov) G.fov(THREE.MathUtils.lerp(G.camera.fov, sh.fov, Math.min(1, dt * 1.5))); }
       if (sc.mode === 'now') next();
       else if (sc.mode === 'wait') { if (performance.now() >= sc.until) next(); }
       else if (sc.mode === 'say' && !G.linesBusy() && !S.ui) next();
     } });
+    G.el('skip-hint')?.classList.add('visible');
     return sc;
   }
   // A shot of someone speaking: the camera in front of them, at their eye level, a little off-axis.
