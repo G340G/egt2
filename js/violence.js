@@ -850,21 +850,21 @@ export function createViolence(C) {
   // faithful read everything: as Il Bianco choosing him. Each kind of behaviour has its reading. First the
   // reader is seen noticing (a line, a stare); if Tobia keeps on, they snap, and say why.
   const SUSP = {
-    look: { notice: 4, snap: 8, see: (N, he, his) => `(${N} has been watching you read the house. Every time you stop at something, ${he} stops eating.)`,
+    look: { notice: 3, snap: 6, see: (N, he, his) => `(${N} has been watching you read the house. Every time you stop at something, ${he} stops eating.)`,
       say: (U) => `${U}: You look at everything. Every paper, every wall, every crack. Like it was written for you. Like it is talking to you.`, why: (N, he, him) => `${N} watched you read the house as if it were speaking to you, and decided Il Bianco had chosen you to hear it first.` },
-    idle: { notice: 35, snap: 60, see: (N, he, his) => `(${N} is watching you sit there doing nothing. ${he[0].toUpperCase() + he.slice(1)} has gone very still too, as if trying to hear what you hear.)`,
+    idle: { notice: 30, snap: 55, see: (N, he, his) => `(${N} is watching you sit there doing nothing. ${he[0].toUpperCase() + he.slice(1)} has gone very still too, as if trying to hear what you hear.)`,
       say: (U) => `${U}: A whole minute. You sat there a whole minute and did not move. Only someone listening sits like that. What does it sound like? Tell me what it sounds like.`, why: (N, he, him) => `You sat still too long. ${N} decided you were listening to Il Bianco, and that it was talking to you instead of to ${him}.` },
-    out: { notice: 2, snap: 4, see: (N, he, his) => `(When you come back in, ${N} looks at your shoes, at the mud on them, for a long time.)`,
+    out: { notice: 2, snap: 3, see: (N, he, his) => `(When you come back in, ${N} looks at your shoes, at the mud on them, for a long time.)`,
       say: (U) => `${U}: Out, in, out. Where do you go in the dark? The church? On your own? It does not let anybody in on their own. Not unless it wants them.`, why: (N, he, him) => `You kept going out alone. ${N} decided you were going to meet Il Bianco without the rest of you.` },
-    found: { notice: 1, snap: 3, see: (N, he, his) => `(${N} sees what you are carrying. ${his[0].toUpperCase() + his.slice(1)} face does something, and then stops doing it.)`,
+    found: { notice: 1, snap: 2, see: (N, he, his) => `(${N} sees what you are carrying. ${his[0].toUpperCase() + his.slice(1)} face does something, and then stops doing it.)`,
       say: (U) => `${U}: That was mine to find. Years I have been looking in this house, and you walk in out of the fog and it gives itself to you.`, why: (N, he, him) => `${N} saw you find what ${he} had looked for for years.` },
-    avoid: { notice: 110, snap: 170, see: (N, he, his) => `(${N} has noticed you have not spoken to anyone. ${his[0].toUpperCase() + his.slice(1)} eyes follow you round the room.)`,
+    avoid: { notice: 90, snap: 140, see: (N, he, his) => `(${N} has noticed you have not spoken to anyone. ${his[0].toUpperCase() + his.slice(1)} eyes follow you round the room.)`,
       say: (U) => `${U}: You walk round and round us and never say a word. Like you are counting the chairs. Like you are working out which one is yours.`, why: (N, he, him) => `You circled the house without speaking to anyone. ${N} decided you were counting them, and choosing.` },
     traitor: { notice: 2, snap: 3, see: (N, he, his, X) => `(${N} watches you go back to ${X} again. ${he[0].toUpperCase() + he.slice(1)} says something to ${his} plate.)`,
       say: (U, X) => `${U}: You keep going back to ${X}. Whispering. ${X}! You think we do not know what the two of you talk about? Who it is you are going to tell?`, why: (N, he, him, X) => `You kept whispering with ${X}, whom ${N} despises. ${N} decided you were a traitor, and that traitors do not get to reach Il Bianco.` }
   };
   const SUS = () => V.sus || (V.sus = { grace: 0, look: 0, idle: 0, out: 0, found: 0, avoid: 0, traitor: 0, traitorX: null, talk: {}, seen: {}, insp: null, pos: null, lastZone: null, lastP: 0 });
-  const graceNeeded = () => DIFFV([300, 240, 150, 95]);
+  const graceNeeded = () => DIFFV([240, 150, 100, 70]);
   function noteTalk(k) { const U = SUS(); U.avoid = 0; U.talk[k] = (U.talk[k] || 0) + 1;
     // talking again and again with someone others despise reads as treachery to them
     if (U.talk[k] >= 2) { const hater = Object.keys(S.rel).find(x => x !== k && (S.between[x + '>' + k] || 0) + (S.between[k + '>' + x] || 0) > 0 && C.alive(x)) || (k === 'sergio' ? 'dario' : k === 'pino' ? 'walter' : null); if (hater && C.alive(hater)) { U.traitor = U.talk[k] - 1; U.traitorX = k; U.traitorBy = hater; } } }
@@ -895,7 +895,12 @@ export function createViolence(C) {
     const env = Object.values(R.motives).filter(m => m.kind === 'envy' && m.alive && !C.R.dead.has(m.k) && C.alive(m.k));
     for (const m of env) { m.envySpeed = 1 + p * .55; if (S.rel[m.k]) S.rel[m.k].grievance = Math.max(S.rel[m.k].grievance, 2 + p * 4); }
     if (p > (V.envyP || 0) + .05) { const was = V.envyP || 0; V.envyP = p; if (was > 0) taunt(env); }
-    if (V.envyBusy || G.zone() !== 'home' || !canStart()) return;
+    if (V.envyBusy) return;
+    // v32: at the latest by the sixth clue somebody has turned, at every difficulty, wherever Tobia is
+    if (!V.everEnvy && (G.clues?.() ?? 0) >= 6 && !env.length) { forceEnvy(); return; }
+    if (G.zone() !== 'home' || !canStart()) return;
+    // never two at once: one person turns, and the house has time to see it before the next
+    if (now() - (V.lastSnap ?? -1e9) < DIFFV([200, 150, 100, 70])) return;
     // the strongest reading of what he has been doing
     const scores = Object.entries(SUSP).map(([key, R0]) => [key, U[key] / (R0.snap * f), U[key] / (R0.notice * f)]).sort((a, b) => b[1] - a[1]);
     const [key, snapR, noticeR] = scores[0]; if (noticeR < 1) return;
@@ -912,8 +917,18 @@ export function createViolence(C) {
     V.envyBusy = true;
     const why = R0.why(nm(k), he(k), him(k), X), line = R0.say(UP(k), X), flavour = ENVY[k][0];
     U[key] = 0; U.idle = 0; U.avoid = 0; delete U.seen[key];
-    const turn = () => { C.motive(k, 'envy', why, true); const m = R.motives[k]; if (m) { m.envySpeed = 1 + p * .55; m.born = now(); m.reason = key; } V.envyBusy = false; note(k, why); };
+    const turn = () => { C.motive(k, 'envy', why, true); const m = R.motives[k]; if (m) { m.envySpeed = 1 + p * .55; m.born = now(); m.reason = key; } V.envyBusy = false; V.everEnvy = true; V.lastSnap = now(); note(k, why); };
     envyScene(k, n, line, turn, flavour);
+  }
+  // the guarantee: Tobia has found six things; whoever has watched him most cannot bear it any longer
+  function forceEnvy() {
+    const U = SUS(), cands = ENVY_ORDER.filter(x => ENVY[x] && C.alive(x) && !C.live(x) && !C.R.dead.has(x) && !R.motives[x]?.alive);
+    const k = (U.seen.found && cands.includes(U.seen.found)) ? U.seen.found : (cands.find(x => C.near(x, 9)) || cands[0]); if (!k) return;
+    const R0 = SUSP.found, why = R0.why(nm(k), he(k), him(k)), n = C.npcOf(k), p = G.progress ? G.progress() : 0;
+    V.envyBusy = true; U.found = 0;
+    const turn = () => { C.motive(k, 'envy', why, true); const m = R.motives[k]; if (m) { m.envySpeed = 1 + p * .55; m.born = now(); m.reason = 'found'; } V.envyBusy = false; V.everEnvy = true; V.lastSnap = now(); note(k, why); };
+    if (G.zone() === 'home' && n && C.sameZone(n) && canStart()) envyScene(k, n, R0.say(UP(k)), turn, ENVY[k][0]);
+    else { G.line(`(Somewhere behind you, ${nm(k)}’s voice, too loud, not meant for you: “${R0.say(UP(k)).replace(/^[A-Z]+: /, '')}”)`); turn(); }
   }
   function graceOver(extra = 0) { return SUS().grace >= graceNeeded() + extra; }
   // the moment it turns: a short scene, close on the face, and the anger is not hidden
@@ -1003,6 +1018,6 @@ export function createViolence(C) {
   return {
     update, onEnter, strike: (m, kind) => strike(m, kind || STRIKE_OF[C.TOOL[m.k]?.[0]] || 'grip'), strikeOf: (k) => STRIKE_OF[C.TOOL[k]?.[0]] || 'grip',
     purge, poisoned: () => !!(V.poison && !V.poison.purged), planFor, launchVan, openPit, buildPit, V,
-    envyFace, noteTalk, graceOver, busy: () => !!V.scene, blast: (m) => strike(m, 'blast', C.npcOf(m.k)), _cand: () => C.present().map(x => [x.key, C.live(x.key) ? 1 : 0, SOCIAL[x.key]?.violence])
+    envyFace, noteTalk, graceOver, sinceSnap: () => now() - (V.lastSnap ?? -1e9), markSnap: () => { V.lastSnap = now(); }, busy: () => !!V.scene, blast: (m) => strike(m, 'blast', C.npcOf(m.k)), _cand: () => C.present().map(x => [x.key, C.live(x.key) ? 1 : 0, SOCIAL[x.key]?.violence])
   };
 }

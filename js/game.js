@@ -1543,7 +1543,7 @@ function buildDresser(group, x0, zc) {
     pivot.userData = { open: 0, target: 0, s }; doors.push(pivot);
   }
   // inside the left door: a cup hook on the cupboard's side wall, jars, a tin
-  const hook = new THREE.Mesh(new THREE.TorusGeometry(.012, .003, 5, 10, Math.PI * 1.4), iron); hook.position.set(.32, .7, -W / 2 + .04); hook.rotation.y = Math.PI / 2; g.add(hook);
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(.012, .003, 5, 10, Math.PI * 1.4), iron); hook.position.set(.44, .62, -W / 2 + .04); hook.rotation.y = Math.PI / 2; g.add(hook);
   for (let i = 0; i < 3; i++) { const jar = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .14, 12), new THREE.MeshStandardMaterial({ color: [0x9c8a5a, 0x6c3a2a, 0xb8b0a0][i], roughness: .3, transparent: true, opacity: .8 })); jar.position.set(.18 + i * .09, .18, -W / 4 + (i - 1) * .1); g.add(jar); }
   const tin = b(.1, .12, .14, mat(0x5a2a1c, .5, { metalness: .4 }), .2, .48, -W / 4 + .1);
   // upper cabinet: sides, back, shelves with a plate rail, plates and cups, two glazed doors, cornice
@@ -1562,9 +1562,13 @@ function buildDresser(group, x0, zc) {
   b(uD + .08, .05, W + .1, worn, (uD + .08) / 2, uy + uH + .025, 0);            // cornice, two steps
   b(uD + .12, .035, W + .16, stain, (uD + .12) / 2, uy + uH + .07, 0);
   b(.02, .025, W + .16, worn, uD + .12, uy + uH + .04, 0);
-  return { group: g, doors, hookWorld: () => hook.getWorldPosition(new THREE.Vector3()), frontX: x0 + D, top };
+  // v32: inside the cupboard a little light: the daylight that comes in when the door opens, enough to
+  // see the jars, the tin and the keys on their hook. It brightens with the door and dies when it closes.
+  const glow = new THREE.PointLight(0xffd8a0, 0, 1.5, 1.4); glow.position.set(.42, .58, -W / 4); g.add(glow);
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(W / 2 - .06, .7), new THREE.MeshStandardMaterial({ color: 0x5a4430, roughness: 1, emissive: 0x2a1a0c, emissiveIntensity: 0 })); back.rotation.y = Math.PI / 2; back.position.set(.02, .42, -W / 4); g.add(back);
+  return { group: g, doors, glow, back, hookWorld: () => hook.getWorldPosition(new THREE.Vector3()), frontX: x0 + D, top };
 }
-function updateDresser(dt) { const d = storyRef.dresser; if (!d) return; for (const p of d.doors) { const u = p.userData; u.open += (u.target - u.open) * Math.min(1, dt * 5); p.rotation.y = -u.s * u.open * 1.85; } }
+function updateDresser(dt) { const d = storyRef.dresser; if (!d) return; for (const p of d.doors) { const u = p.userData; u.open += (u.target - u.open) * Math.min(1, dt * 5); p.rotation.y = -u.s * u.open * 1.85; } const o = d.doors[0].userData.open; if (d.glow) { d.glow.intensity = 9 * o; d.back.material.emissiveIntensity = .9 * o; } }
 function buildChurchBell(group,x,y,z){
   const root=new THREE.Group();root.position.set(x,y,z);group.add(root);
   const bronze=mat(0x77634a,.28,{metalness:.82}),worn=mat(0x9b8b70,.36,{metalness:.76}),wood=mat(0x34291f,.92,{map:TEX.wood});
@@ -8148,6 +8152,7 @@ society = createSociety({ THREE, camera, playerAnchor, look, zone: () => current
   end: (E) => showSocialEnding(E, true),
   dresser: () => storyRef.dresser,
   inspects: () => inspectCount,
+  clues: () => collected.size,
   progress: () => Math.min(1, collected.size / 8 * .7 + ['altar-lit', 'darkroom-cleared', 'church-collapsed', 'escaped-forest'].filter(f => storyFlags.has(f)).length * .075),
   peril: { PERIL, startReflex, lurch, shake, shock, poison: poisonLevel, wield, unwield, pose: setAttackPose, impact, flash: (k, d) => flashFragment(k, d), fragment: (k, d) => flashFragment(k, d), extraFigure: (g, x, z, name, coat, v) => extraFigure(g, x, z, name, coat, v), seat: (n, x, z, r) => seatNPC(n, x, z, r), cup: (g, x, y, z) => buildTeacup(g, x, y, z), bleed: () => { blood.bleedT = Math.max(blood.bleedT || 0, 30); }, input: () => playerInputEnabled(), cam: camera, anchor: playerAnchor, fovSet: setFov } });
 if (TEST_MODE) window.__epi = { inspectTarget, coverTexture, openDocument, closeDocument, docOpen: () => docOpen, renderer, scene3: scene, peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
