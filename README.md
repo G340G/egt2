@@ -44,6 +44,23 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 31 — the cigarette, the table, relics, and reasons
+
+**Il Primo's cigarette.** The cigarette is no longer fixed to the wrist (which held it across the mouth). It is placed from the body every frame, the way people hold one: between the index and middle fingers just below the knuckles; at the lips the filter rests in the mouth and the cigarette points straight out, perpendicular to the face and tilted about 12° down; between draws it rides between the fingers pointing forward and down, ember away from the body. The arm bends at the elbow first so the hand comes up close along the body, and the shoulder follows. Measured at the mouth: 12° from the face's forward axis, filter 0.7 cm from the lips.
+
+**Standing up angry.** Someone who snaps at the table no longer walks across it: from a chair they push back and stand out on their own side; standing elsewhere, they come toward Tobia only as far as the floor is clear.
+
+**Posters as relics.** Ten of the fifteen posters are now off the walls — on the floor by the door, slid under the harpsichord, folded under the bread on the kitchen table, on the table in the empty house, by drains, among chairs — and the five still on walls hang from a nail. All are old: foxed, creased, the ink sunk into sepia paper, and torn from a nibbled edge to most of the sheet gone (the torn paper is cut out, with a pale fibrous rim along each rip). Their descriptions are fragments, not explanations. AB DEDUS SPIEGL CABDAMION stays legible on its one poster.
+
+**Why they snap.** Nobody turns on Tobia on a timer any more, and never right after the introduction: there is a grace of real play first (4 minutes at Ascolto, 2½ at Messa, about 1½ at Il Bianco). Then the house reads what he does, the way the faithful read everything — as Il Bianco choosing him — and the reading is shown before it turns into anything:
+- **examining things** (walls, papers, posters, belongings): "Gabri has been watching you read the house. Every time you stop at something, he stops eating." → "You look at everything… like it was written for you. Like it is talking to you."
+- **sitting still** for a minute: "Dario is watching you sit there doing nothing…" → "A whole minute… Only someone listening sits like that. Tell me what it sounds like."
+- **going out alone**, again and again: they look at the mud on your shoes → "Where do you go in the dark? The church? On your own?"
+- **finding things**: their face does something when they see what you carry → "That was mine to find."
+- **whispering with someone they despise**: → "You keep going back to Sergio… Who it is you are going to tell?" (a traitor)
+- **circling the house without speaking to anyone**: → "You walk round and round us… like you are working out which chair is yours."
+First comes the noticing (a line, a cold stare); if Tobia keeps on, that same person snaps, says the reason, and then who they are ("Eleven years I have knelt at that turntable…"). The other pressures (no side, high) also wait until the grace is over.
+
 ## Version 30 — posters, papers, the dresser
 
 **Posters.** Every poster in the game is now one of the real covers in `assets/inspiration`, printed as a gig poster for the house's own bands: the cover, the name, a small venue line, paper grain and folds, sun-faded or damp where they hang. AB DEDUS SPIEGL CABDAMION (the winged altarpiece creature) is on one poster only, on the east wall of the farmhouse, and the words are spoken aloud exactly once in a whole game, by one member, under their breath. THE ENDLESS EPHEMERAL (the worm in thorns), SANTGROUSE (the two surgical profiles), SATRAGNOSIUM (the opened egg creature), LITHOGON MOLENS INFANTIUM (the devouring giant), and an unnamed one with its own unreadable logo (the moss figure) are on the other walls and floors.

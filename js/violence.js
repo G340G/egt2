@@ -846,37 +846,104 @@ export function createViolence(C) {
     if (d === 2) return (since > 50 || p > 0 ? 1 : 0) + (p >= .3 ? 1 : 0) + (p >= .65 ? 1 : 0);
     return (since > 25 || p > 0 ? 1 : 0) + (p >= .15 ? 1 : 0) + (p >= .45 ? 1 : 0) + (p >= .8 ? 1 : 0);
   }
+  // v31: nobody snaps on a timer. The house watches what Tobia does, and somebody reads it the way the
+  // faithful read everything: as Il Bianco choosing him. Each kind of behaviour has its reading. First the
+  // reader is seen noticing (a line, a stare); if Tobia keeps on, they snap, and say why.
+  const SUSP = {
+    look: { notice: 4, snap: 8, see: (N, he, his) => `(${N} has been watching you read the house. Every time you stop at something, ${he} stops eating.)`,
+      say: (U) => `${U}: You look at everything. Every paper, every wall, every crack. Like it was written for you. Like it is talking to you.`, why: (N, he, him) => `${N} watched you read the house as if it were speaking to you, and decided Il Bianco had chosen you to hear it first.` },
+    idle: { notice: 35, snap: 60, see: (N, he, his) => `(${N} is watching you sit there doing nothing. ${he[0].toUpperCase() + he.slice(1)} has gone very still too, as if trying to hear what you hear.)`,
+      say: (U) => `${U}: A whole minute. You sat there a whole minute and did not move. Only someone listening sits like that. What does it sound like? Tell me what it sounds like.`, why: (N, he, him) => `You sat still too long. ${N} decided you were listening to Il Bianco, and that it was talking to you instead of to ${him}.` },
+    out: { notice: 2, snap: 4, see: (N, he, his) => `(When you come back in, ${N} looks at your shoes, at the mud on them, for a long time.)`,
+      say: (U) => `${U}: Out, in, out. Where do you go in the dark? The church? On your own? It does not let anybody in on their own. Not unless it wants them.`, why: (N, he, him) => `You kept going out alone. ${N} decided you were going to meet Il Bianco without the rest of you.` },
+    found: { notice: 1, snap: 3, see: (N, he, his) => `(${N} sees what you are carrying. ${his[0].toUpperCase() + his.slice(1)} face does something, and then stops doing it.)`,
+      say: (U) => `${U}: That was mine to find. Years I have been looking in this house, and you walk in out of the fog and it gives itself to you.`, why: (N, he, him) => `${N} saw you find what ${he} had looked for for years.` },
+    avoid: { notice: 110, snap: 170, see: (N, he, his) => `(${N} has noticed you have not spoken to anyone. ${his[0].toUpperCase() + his.slice(1)} eyes follow you round the room.)`,
+      say: (U) => `${U}: You walk round and round us and never say a word. Like you are counting the chairs. Like you are working out which one is yours.`, why: (N, he, him) => `You circled the house without speaking to anyone. ${N} decided you were counting them, and choosing.` },
+    traitor: { notice: 2, snap: 3, see: (N, he, his, X) => `(${N} watches you go back to ${X} again. ${he[0].toUpperCase() + he.slice(1)} says something to ${his} plate.)`,
+      say: (U, X) => `${U}: You keep going back to ${X}. Whispering. ${X}! You think we do not know what the two of you talk about? Who it is you are going to tell?`, why: (N, he, him, X) => `You kept whispering with ${X}, whom ${N} despises. ${N} decided you were a traitor, and that traitors do not get to reach Il Bianco.` }
+  };
+  const SUS = () => V.sus || (V.sus = { grace: 0, look: 0, idle: 0, out: 0, found: 0, avoid: 0, traitor: 0, traitorX: null, talk: {}, seen: {}, insp: null, pos: null, lastZone: null, lastP: 0 });
+  const graceNeeded = () => DIFFV([300, 240, 150, 95]);
+  function noteTalk(k) { const U = SUS(); U.avoid = 0; U.talk[k] = (U.talk[k] || 0) + 1;
+    // talking again and again with someone others despise reads as treachery to them
+    if (U.talk[k] >= 2) { const hater = Object.keys(S.rel).find(x => x !== k && (S.between[x + '>' + k] || 0) + (S.between[k + '>' + x] || 0) > 0 && C.alive(x)) || (k === 'sergio' ? 'dario' : k === 'pino' ? 'walter' : null); if (hater && C.alive(hater)) { U.traitor = U.talk[k] - 1; U.traitorX = k; U.traitorBy = hater; } } }
+  function behaviourTick(dt) {
+    const U = SUS(), home = G.zone() === 'home', act = G.canAct() && !V.scene && !R.scene && !S.ui;
+    if (act) U.grace += dt;
+    const ins = G.inspects?.() ?? 0; if (U.insp == null) U.insp = ins; if (ins > U.insp) { U.look += (ins - U.insp) * (home ? 1 : .5); U.insp = ins; U.idle = 0; }
+    const p = C.playerPos(); if (!U.pos) U.pos = { x: p.x, z: p.z };
+    const moved = Math.hypot(p.x - U.pos.x, p.z - U.pos.z) > .35; if (moved) { U.pos.x = p.x; U.pos.z = p.z; U.idle = 0; }
+    else if (act && home) U.idle += dt;
+    if (act && home) U.avoid += dt;
+    if (U.lastZone === 'home' && G.zone() !== 'home') U.out++;
+    U.lastZone = G.zone();
+    const prog = G.progress ? G.progress() : 0; if (prog > U.lastP + .05) { U.found += Math.round((prog - U.lastP) / .0875) || 1; U.lastP = prog; }
+  }
+  function envyWanted(p) {
+    const d = G.difficulty(), g = SUS().grace >= graceNeeded();
+    if (!g) return 0;
+    if (d <= 0) return p >= .35 ? 1 : 0;
+    if (d === 1) return 1 + (p >= .45 ? 1 : 0) + (p >= .85 ? 1 : 0);
+    if (d === 2) return 1 + (p >= .3 ? 1 : 0) + (p >= .65 ? 1 : 0);
+    return 1 + (p >= .15 ? 1 : 0) + (p >= .45 ? 1 : 0) + (p >= .8 ? 1 : 0);
+  }
   function envyTick(dt) {
     if (!G.welcomed() || S.ending) return;
-    V.envyT = (V.envyT || 0) + dt; const p = G.progress ? G.progress() : 0;
+    behaviourTick(dt);
+    const U = SUS(), p = G.progress ? G.progress() : 0, f = DIFFV([1.5, 1, .75, .55]);
     const env = Object.values(R.motives).filter(m => m.kind === 'envy' && m.alive && !C.R.dead.has(m.k) && C.alive(m.k));
-    // the closer to the truth, the faster and angrier the ones who already envy him
     for (const m of env) { m.envySpeed = 1 + p * .55; if (S.rel[m.k]) S.rel[m.k].grievance = Math.max(S.rel[m.k].grievance, 2 + p * 4); }
     if (p > (V.envyP || 0) + .05) { const was = V.envyP || 0; V.envyP = p; if (was > 0) taunt(env); }
-    if (V.envyBusy || env.length >= envyWanted(p, V.envyT)) return;
-    if (G.zone() === 'home' && (!canStart() || S.seated)) return;
-    const k = ENVY_ORDER.find(x => ENVY[x] && C.alive(x) && !C.live(x) && !C.R.dead.has(x) && !R.motives[x]?.alive); if (!k) return;
+    if (V.envyBusy || G.zone() !== 'home' || !canStart()) return;
+    // the strongest reading of what he has been doing
+    const scores = Object.entries(SUSP).map(([key, R0]) => [key, U[key] / (R0.snap * f), U[key] / (R0.notice * f)]).sort((a, b) => b[1] - a[1]);
+    const [key, snapR, noticeR] = scores[0]; if (noticeR < 1) return;
+    const R0 = SUSP[key], X = key === 'traitor' ? nm(U.traitorX) : null;
+    const candOk = (x) => x && ENVY[x] && C.alive(x) && !C.live(x) && !C.R.dead.has(x) && !R.motives[x]?.alive && x !== U.traitorX;
+    let k = key === 'traitor' && candOk(U.traitorBy) ? U.traitorBy : (U.seen[key] && candOk(U.seen[key]) ? U.seen[key] : ENVY_ORDER.find(x => candOk(x) && C.near(x, 9)));
+    if (!k) return; const n = C.npcOf(k); if (!n || !C.sameZone(n)) return;
+    if (!U.seen[key]) {
+      // first: they are seen noticing it. The player is told what is being read into what he does.
+      U.seen[key] = k; n.stareUntil = G.elapsed() + 18; n.forceEmo = { contempt: .5, anger: .3 };
+      G.line(R0.see(nm(k), he(k), his(k), X)); G.peril.shock(.25); return;
+    }
+    if (snapR < 1 || env.length >= envyWanted(p)) return;
     V.envyBusy = true;
-    const [line, why] = ENVY[k];
-    const turn = () => { C.motive(k, 'envy', why, true); const m = R.motives[k]; if (m) { m.envySpeed = 1 + p * .55; m.born = now(); } V.envyBusy = false; note(k, why); };
-    const n = C.npcOf(k);
-    if (G.zone() === 'home' && n && C.sameZone(n)) envyScene(k, n, line, turn);
-    else { G.line(`(Somewhere behind you, ${nm(k)}’s voice, too loud, not meant for you: “${line.replace(/^[A-Z]+: (\([^)]*\) )?/, '')}”)`); turn(); }
+    const why = R0.why(nm(k), he(k), him(k), X), line = R0.say(UP(k), X), flavour = ENVY[k][0];
+    U[key] = 0; U.idle = 0; U.avoid = 0; delete U.seen[key];
+    const turn = () => { C.motive(k, 'envy', why, true); const m = R.motives[k]; if (m) { m.envySpeed = 1 + p * .55; m.born = now(); m.reason = key; } V.envyBusy = false; note(k, why); };
+    envyScene(k, n, line, turn, flavour);
   }
+  function graceOver(extra = 0) { return SUS().grace >= graceNeeded() + extra; }
   // the moment it turns: a short scene, close on the face, and the anger is not hidden
-  function envyScene(k, n, line, then) {
+  function envyScene(k, n, line, then, flavour) {
     C.closeUI(); R.scene = 'envy'; V.scene = { k, kind: 'envy' }; n.forceEmo = { anger: 1, contempt: .5 }; n.seated = false; n.lookAt = null;
-    const p0 = C.playerPos(), o = n.object.position, dx = p0.x - o.x, dz = p0.z - o.z, d = Math.hypot(dx, dz) || 1, step = Math.max(0, Math.min(1.2, d - 1.6));
-    const from = { x: o.x, z: o.z }, sc = { t: 0, said: false };
+    const p0 = C.playerPos(), o = n.object.position, from = { x: o.x, z: o.z }, sc = { t: 0, said: false };
+    // v31: where they can go. From a chair at the table they push back and stand out on their own side of
+    // it, never across it; standing, they come toward Tobia only as far as the floor is clear.
+    const to = standUpTarget(n, p0);
+    const dx = to.x - o.x, dz = to.z - o.z, d = Math.hypot(dx, dz) || 1, step = Math.hypot(dx, dz);
     G.peril.shock(.6); G.audio()?.mechanicalNoise(.25, 200, .8, .2, 0);
     G.scene({ dur: 99999, skippable: false, update: (s, dt) => {
       sc.t += dt; const q = ease(sc.t / 1.1); n.object.position.x = from.x + dx / d * step * q; n.object.position.z = from.z + dz / d * step * q; n.walking = sc.t < 1.1 && step > .1;
       G.turn(n, p0.x, p0.z, dt, 6); n.lookAt = G.camera.getWorldPosition(v3());
       const head = n.object.getWorldPosition(v3()); head.y += 1.55 * (n.rig?.k || 1); G.aim(head, Math.min(1, dt * 4));
-      if (!sc.said && sc.t > .5) { sc.said = true; G.line(line); }
+      if (!sc.said && sc.t > .5) { sc.said = true; G.line(line); if (flavour) G.line(flavour); }
       if (sc.t > 1.3 && G.linesBusy()) return;
       if (sc.t > 5.5) { G.endScene(); G.resetLook(); R.scene = null; V.scene = null; n.lookAt = null; n.stareUntil = G.elapsed() + 40; then(); }
     } });
+  }
+  function standUpTarget(n, p0) {
+    const Z = C.zoneOf(G.zone()), o = n.object.position, box = Z?.solids.find(b => o.x > b.minX && o.x < b.maxX && o.z > b.minZ && o.z < b.maxZ);
+    if (box) {
+      // the nearest edge of the table on their own side, then a step clear of the chair
+      const cands = [[box.minX - .35, o.z, o.x - box.minX], [box.maxX + .35, o.z, box.maxX - o.x], [o.x, box.minZ - .35, o.z - box.minZ], [o.x, box.maxZ + .35, box.maxZ - o.z]].sort((a, b) => a[2] - b[2]);
+      return { x: cands[0][0], z: cands[0][1] };
+    }
+    const dx = p0.x - o.x, dz = p0.z - o.z, d = Math.hypot(dx, dz) || 1, want = Math.max(0, Math.min(1.2, d - 1.6)); let ok = 0;
+    for (let s = .1; s <= want; s += .1) { if (C.solidAt(Z, o.x + dx / d * s, o.z + dz / d * s, .3)) break; ok = s; }
+    return { x: o.x + dx / d * ok, z: o.z + dz / d * ok };
   }
   // finding things makes it worse: from the dark, the ones who wanted to find them
   function taunt(env) {
@@ -936,6 +1003,6 @@ export function createViolence(C) {
   return {
     update, onEnter, strike: (m, kind) => strike(m, kind || STRIKE_OF[C.TOOL[m.k]?.[0]] || 'grip'), strikeOf: (k) => STRIKE_OF[C.TOOL[k]?.[0]] || 'grip',
     purge, poisoned: () => !!(V.poison && !V.poison.purged), planFor, launchVan, openPit, buildPit, V,
-    envyFace, busy: () => !!V.scene, blast: (m) => strike(m, 'blast', C.npcOf(m.k)), _cand: () => C.present().map(x => [x.key, C.live(x.key) ? 1 : 0, SOCIAL[x.key]?.violence])
+    envyFace, noteTalk, graceOver, busy: () => !!V.scene, blast: (m) => strike(m, 'blast', C.npcOf(m.k)), _cand: () => C.present().map(x => [x.key, C.live(x.key) ? 1 : 0, SOCIAL[x.key]?.violence])
   };
 }

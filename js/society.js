@@ -650,7 +650,7 @@ export function createSociety(G) {
     if (standing(k) <= -2.2 && npc.talkedOnce) return pick([`(${nm(k)} does not answer. ${pick(['They keep eating.', 'They look past you.', 'They get up and go to the sink.'])})`, `(You ask. ${nm(k)} turns to say something to somebody else.)`]);
     return null;
   }
-  function onDialogueChoice(npc) { const k = npc.socialKey; if (!k) return; S.gestures += .5; witnesses(playerPos(), { speech: true }).forEach(w => { if (w !== k && SOCIAL[w]?.loyalty > .8 && standing(k) < 0) affect(w, { g: .15 }); }); }
+  function onDialogueChoice(npc) { const k = npc.socialKey; if (!k) return; vio().noteTalk?.(k); S.gestures += .5; witnesses(playerPos(), { speech: true }).forEach(w => { if (w !== k && SOCIAL[w]?.loyalty > .8 && standing(k) < 0) affect(w, { g: .15 }); }); }
 
   // ---- confidences: what people told Tobia, and who heard them tell it ---------------
   function watchFlags() {
@@ -1281,7 +1281,7 @@ export function createSociety(G) {
     G.line(`(${nm(k)} stops, as if the words had come out of the wrong mouth, and does not look at you for the rest of the evening.)`);
   }
   function updatePressure(dt) {
-    const d = G.difficulty(); if (d < 1 || !G.welcomed() || S.ending || (R.pressN || 0) >= 4) return;
+    const d = G.difficulty(); if (d < 1 || !G.welcomed() || S.ending || (R.pressN || 0) >= 4 || !vio().graceOver?.(60)) return;
     if (Object.values(R.motives).some(m => m.alive && !R.dead.has(m.k))) { R.calmT = 0; return; }
     if (G.canAct()) R.calmT = (R.calmT || 0) + dt;
     const need = (R.pressN ? [0, 160, 120, 80] : [0, 200, 150, 100])[Math.min(3, d)];
