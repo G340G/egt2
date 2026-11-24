@@ -166,6 +166,7 @@ export function createSociety(G) {
     for (let i = 0; i < 3; i++) { const k = new THREE.Mesh(new THREE.BoxGeometry(.004, .055, .014), M(0x9a8a60, .3, { metalness: .8 })); k.position.set(0, -.045, (i - 1) * .012); k.rotation.x = (i - 1) * .25; kg.add(k); }
     const tag = new THREE.Mesh(new THREE.BoxGeometry(.004, .04, .03), M(0x6e2e26, .8)); tag.position.set(0, -.05, .025); kg.add(tag);
     const Dr = G.dresser?.(), hk = Dr ? Dr.hookWorld() : new THREE.Vector3(-8.76, .7, -4.38);
+    kg.scale.setScalar(1.5); kg.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0x3a2c10); o.material.emissiveIntensity = .6; } }); kg.rotation.y = Math.PI / 2;
     const KB = addBelonging('keys', kg, [hk.x, hk.y - .02, hk.z], 'walter', 'KEYS ON A HOOK');
     if (Dr) {
       setEntry(KB, false);
@@ -1281,7 +1282,7 @@ export function createSociety(G) {
     G.line(`(${nm(k)} stops, as if the words had come out of the wrong mouth, and does not look at you for the rest of the evening.)`);
   }
   function updatePressure(dt) {
-    const d = G.difficulty(); if (d < 1 || !G.welcomed() || S.ending || (R.pressN || 0) >= 4 || !vio().graceOver?.(60)) return;
+    const d = G.difficulty(); if (d < 1 || !G.welcomed() || S.ending || (R.pressN || 0) >= 4 || !vio().graceOver?.(60) || vio().sinceSnap() < 120) return;
     if (Object.values(R.motives).some(m => m.alive && !R.dead.has(m.k))) { R.calmT = 0; return; }
     if (G.canAct()) R.calmT = (R.calmT || 0) + dt;
     const need = (R.pressN ? [0, 160, 120, 80] : [0, 200, 150, 100])[Math.min(3, d)];
@@ -1294,7 +1295,7 @@ export function createSociety(G) {
     const cands = Object.keys(pool).filter(ok).sort((a, b) => (S.rel[b].grievance + SOCIAL[b].violence * 2 - S.rel[b].trust) - (S.rel[a].grievance + SOCIAL[a].violence * 2 - S.rel[a].trust));
     if (!cands.length) { R.calmT = need * .6; return; }
     const k = Math.random() < .7 ? cands[0] : pick(cands), L = pool[k];
-    R.pressN = (R.pressN || 0) + 1; R.lastPress = kind; R.calmT = 0;
+    R.pressN = (R.pressN || 0) + 1; R.lastPress = kind; R.calmT = 0; vio().markSnap();
     if (G.zone() === 'home' && present().some(p => p.key === k)) L.slice(0, -1).forEach(l => G.line(l));
     else R.pendingNews = (R.pendingNews || []).concat(kind === 'high' ? [L[0]] : []);
     later(kind === 'high' ? 4 : 6, () => { click(k, L[L.length - 1]); if (R.motives[k]) R.motives[k].high = kind === 'high'; });
@@ -1347,11 +1348,13 @@ export function createSociety(G) {
     const act = G.canAct() || B.wipe > 0;
     for (const m of stalkers()) {
       const h = m.hunt; h.t += dt; h.cd = Math.max(0, h.cd - dt);
-      if (h.state === 'follow' && now() >= h.followAt) { if (G.zone() === h.followZone && act) { const sp = zoneOf(G.zone()).spawn; placeH(m, G.zone(), sp.x + (Math.random() - .5), sp.z + (Math.random() - .5), 0); h.state = 'stalk'; G.audio()?.doorCreak?.(); G.line(pick(['(Behind you, the door. Somebody else has come in.)', '(A latch. Footsteps that stop when yours stop.)', '(The door again. Nobody says anything.)'])); } else h.state = 'away'; }
+      if (h.state === 'follow' && now() >= h.followAt) { if (G.zone() === h.followZone && act) { const sp = zoneOf(G.zone()).spawn, Z = zoneOf(G.zone()), others = stalkers().filter(o => o !== m && o.hunt.where === G.zone()).map(o => npcOf(o.k)?.object.position).filter(Boolean); let px = sp.x, pz = sp.z; for (let t = 0; t < 20; t++) { const a = Math.random() * 6.28, r = 1.2 + Math.random() * 2.5, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (!solidAt(Z, x, z, .4) && others.every(o => Math.hypot(o.x - x, o.z - z) > 1.6)) { px = x; pz = z; break; } } placeH(m, G.zone(), px, pz, 0); h.state = 'stalk'; G.audio()?.doorCreak?.(); G.line(pick(['(Behind you, the door. Somebody else has come in.)', '(A latch. Footsteps that stop when yours stop.)', '(The door again. Nobody says anything.)'])); } else h.state = 'away'; }
       if (h.vanAt && now() >= h.vanAt && G.zone() === 'road' && act) { h.vanAt = 0; vio().launchVan(m); }
       if (m.kind === 'envy' && G.zone() === 'home') continue;
       if (h.where !== G.zone() || !act || R.scene) { const n = npcOf(m.k); if (n?.walking && !R.moves.some(mv => mv.k === m.k)) n.walking = false; continue; }
       const n = npcOf(m.k), o = n.object.position, p = playerPos(), d = Math.hypot(o.x - p.x, o.z - p.z), seen = sees(n);
+      // v32: they do not pile up: anyone else hunting in the same room pushes them apart
+      for (const q of stalkers()) { if (q === m || q.hunt.where !== h.where) continue; const qo = npcOf(q.k)?.object.position; if (!qo) continue; const sx = o.x - qo.x, sz = o.z - qo.z, sd = Math.hypot(sx, sz); if (sd < 1.3) { const push = (1.3 - sd) * Math.min(1, dt * 4) / (sd || .01), Z = zoneOf(h.where); const nx = o.x + (sd ? sx : (Math.random() - .5)) * push, nz = o.z + (sd ? sz : (Math.random() - .5)) * push; if (!solidAt(Z, nx, nz, .25)) { o.x = nx; o.z = nz; } } }
       const others = G.zone() === 'home' ? present().filter(x => x.key !== m.k && !live(x.key) && dist2(x) < 6.5).length : 0;
       if (h.state === 'withdraw') { const away = { x: o.x + (o.x - p.x), z: o.z + (o.z - p.z) }; stepH(m, away.x, away.z, .9, dt); if (d > 9 || (!seen && d > 6)) reHideH(m); continue; }
       if (seen && m.kind === 'envy' && G.difficulty() >= 2 && (h.state === 'stalk' || h.state === 'faced') && d > 1.2) { stepH(m, p.x, p.z, DIFF([0, 0, .35, .55]), dt); G.turn(n, p.x, p.z, dt, 3); if (d < 1.15 && h.cd <= 0 && !S.ui) { strikeH(m); return; } continue; }
@@ -1361,7 +1364,7 @@ export function createSociety(G) {
       if (h.state === 'stalk' || h.state === 'faced') {
         if (others) { n.walking = false; continue; }
         const sp = (1.05 + Math.min(.6, S.rel[m.k].grievance * .05)) * (B.wipe > 0 ? 2.2 : 1) * (now() < (h.boldUntil || 0) ? 1.5 : 1) * (m.kind === 'envy' ? (m.envySpeed || 1) * DIFF([.8, 1, 1.15, 1.3]) : 1);
-        stepH(m, p.x, p.z, sp, dt);
+        { const peers = stalkers().filter(q => q.hunt.where === h.where), idx = peers.indexOf(m), side = peers.length > 1 && d > 2.6 ? (idx % 2 ? 1 : -1) * (1 + Math.floor(idx / 2)) * 1.4 : 0, ux = (p.x - o.x) / (d || 1), uz = (p.z - o.z) / (d || 1); stepH(m, p.x - uz * side, p.z + ux * side, sp, dt); }
         if (d < 2.7) { h.cueT = (h.cueT || 0) - dt; if (h.cueT <= 0) { h.cueT = 2.2; G.audio()?.footstep?.('wood', false, Math.random() < .5 ? -1 : 1); if (Math.random() < .4) G.audio()?.mechanicalNoise(.8, 380, .7, .03, 0); } }
         if (d < 1.0 && h.cd <= 0 && !S.ui) { strikeH(m); return; }
       }

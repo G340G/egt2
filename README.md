@@ -44,6 +44,13 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 32 — sooner, one at a time, apart
+
+- **The dresser has a light inside.** Opening the door brings up a small warm light in the cupboard (and dims with the door), so the jars, the tin and Walter's keys on their hook can be seen; the keys hang nearer the door and catch the light.
+- **Pursuers no longer stick together.** When two or more of the envious follow Tobia outside, they come in at different points around the entrance, keep their distance from each other (closest measured: 2.9 m), and come at him from different sides until they are close.
+- **They snap a little sooner, and one at a time.** The grace of real play after the introduction is shorter (2½ minutes at Ascolto, 1⅔ at Messa, a little over 1 at Il Bianco), and the readings need less (six things examined, two clues found, 55 seconds sitting still). But two never turn together: after one snaps, the house has at least 3⅓ minutes at Ascolto (less at higher difficulty) before the next, and the no-side/high pressures wait two minutes after any snap.
+- **By the sixth clue, at the latest,** someone has turned, at every difficulty, wherever Tobia is (outside, it comes as a voice behind him: "That was mine to find").
+
 ## Version 31 — the cigarette, the table, relics, and reasons
 
 **Il Primo's cigarette.** The cigarette is no longer fixed to the wrist (which held it across the mouth). It is placed from the body every frame, the way people hold one: between the index and middle fingers just below the knuckles; at the lips the filter rests in the mouth and the cigarette points straight out, perpendicular to the face and tilted about 12° down; between draws it rides between the fingers pointing forward and down, ember away from the body. The arm bends at the elbow first so the hand comes up close along the body, and the shoulder follows. Measured at the mouth: 12° from the face's forward axis, filter 0.7 cm from the lips.
