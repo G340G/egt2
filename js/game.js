@@ -2580,7 +2580,9 @@ function renderJournal() {
   });
   list.querySelector('.journal-entry')?.click();
 }
+let inspectCount = 0;   // v31: how much Tobia examines things (the house notices)
 function inspectTarget(item) {
+  if (item.type !== 'npc' && item.type !== 'door') inspectCount++;
   if(item.requiresFlag&&!storyFlags.has(item.requiresFlag)){showToast(item.blockedHint||'The way is not open yet.');audio?.stinger(.22);return;}
   if(item.requiresFlags&&!item.requiresFlags.every(flag=>storyFlags.has(flag))){showToast(item.blockedHint||'The way is not open yet.');audio?.stinger(.22);return;}
   if (item.type === 'clue') { collectClue(item); return; }
@@ -7241,6 +7243,7 @@ function driveRig(n, t, dt) {
   if (n.smoker?.on) smokerArm(n.smoker);
   if (n.armPose) n.armPose(P, dt);
   settleArms(P, dt);
+  if (n.smoker?.on) smokerCig(n.smoker);
 }
 function updateRigs(dt, t) { (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent || !isVisibleChain(n.object)) return; driveRig(n, t, dt); }); }
 
@@ -7581,7 +7584,8 @@ const COVERS = {
 };
 const _coverImg = {};
 function coverTexture(key) {
-  const [id, mod] = key.split(':'), C = COVERS[id], w = 600, h = 800, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const parts = key.split(':'), id = parts[0], mod = parts.find(x => x === 'faded' || x === 'damp'), tear = +((parts.find(x => /^t\d+$/.test(x)) || 't0').slice(1)) / 100, keepTitle = parts.includes('keeptitle'), seed = +((parts.find(x => /^s\d+$/.test(x)) || 's1').slice(1));
+  const C = COVERS[id], w = 600, h = 800, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   const paint = (img) => {
     g.fillStyle = C.bg; g.fillRect(0, 0, w, h);
@@ -7601,6 +7605,7 @@ function coverTexture(key) {
     const rim = g.createRadialGradient(w / 2, h / 2, h * .35, w / 2, h / 2, h * .72); rim.addColorStop(0, 'rgba(0,0,0,0)'); rim.addColorStop(1, 'rgba(20,12,4,.45)'); g.fillStyle = rim; g.fillRect(0, 0, w, h);
     if (mod === 'faded') { g.fillStyle = 'rgba(214,170,120,.42)'; g.globalCompositeOperation = 'screen'; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over'; }
     if (mod === 'damp') { for (let i = 0; i < 14; i++) { const x = Math.random() * w, y = Math.random() * h, r = 30 + Math.random() * 90, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(60,44,20,.35)'); gr.addColorStop(1, 'rgba(60,44,20,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); } }
+    relic(g, w, h, seed, tear, keepTitle);
     t.needsUpdate = true;
   };
   paint(null);
@@ -7610,26 +7615,83 @@ function coverTexture(key) {
   else { const img = _coverImg[src] || (_coverImg[src] = new Image()); img.addEventListener('load', () => done(img)); if (!img.src) img.src = src; }
   return t;
 }
+// v31: every poster is old: foxed, creased, the ink sunk into the paper, sepia; and torn, from a nibbled
+// edge to most of it gone. Torn-away paper is transparent (cut out of the canvas), with a pale fibrous rim
+// along each tear, the way paper actually rips.
+function relic(g, w, h, seed, tear, keepTitle) {
+  let r = seed * 9301 + 49297; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(176,140,92,.55)'; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over';
+  for (let i = 0; i < 70; i++) { const x = rnd() * w, y = rnd() * h, rr = 2 + rnd() * 9; g.fillStyle = `rgba(${110 + rnd() * 40},${70 + rnd() * 20},30,${.15 + rnd() * .3})`; g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill(); }
+  g.strokeStyle = 'rgba(30,20,10,.28)'; g.lineWidth = 1; for (let i = 0; i < 5; i++) { g.beginPath(); let x = rnd() * w, y = rnd() * h; g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (rnd() - .5) * 120; y += (rnd() - .3) * 90; g.lineTo(x, y); } g.stroke(); }
+  if (tear <= 0) return;
+  // ragged outline: everything outside it goes
+  const edge = (n, amp) => { const pts = []; for (let i = 0; i <= n; i++) pts.push(i / n); return pts.map(u => amp * (.3 + rnd())); };
+  const amp = 6 + tear * 18; g.globalCompositeOperation = 'destination-in'; g.fillStyle = '#000'; g.beginPath();
+  const N = 30, top = edge(N, amp), right = edge(N, amp), bottom = edge(N, amp), left = edge(N, amp);
+  for (let i = 0; i <= N; i++) g.lineTo(i / N * w, top[i]); for (let i = 0; i <= N; i++) g.lineTo(w - right[i], i / N * h);
+  for (let i = 0; i <= N; i++) g.lineTo(w - i / N * w, h - bottom[i]); for (let i = 0; i <= N; i++) g.lineTo(left[i], h - i / N * h); g.closePath(); g.fill();
+  // pieces ripped out from the edges; a heavily torn sheet loses a whole corner, sometimes half
+  g.globalCompositeOperation = 'source-over';
+  const chunks = Math.round(1 + tear * 5);
+  const cut = (poly) => { g.save(); g.globalCompositeOperation = 'source-atop'; g.strokeStyle = 'rgba(236,226,204,.95)'; g.lineWidth = 7; g.beginPath(); poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.stroke(); g.restore(); g.save(); g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000'; g.beginPath(); poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); g.restore(); };
+  for (let i = 0; i < chunks; i++) {
+    const side = Math.floor(rnd() * (keepTitle ? 3 : 4)), along = rnd(), depth = (40 + rnd() * 140) * (.4 + tear), width = (60 + rnd() * 160) * (.5 + tear);
+    const [sx, sy, nx, ny, tx, ty] = [[along * w, 0, 0, 1, 1, 0], [w, along * h * (keepTitle ? .7 : 1), -1, 0, 0, 1], [0, along * h * (keepTitle ? .7 : 1), 1, 0, 0, 1], [along * w, h, 0, -1, 1, 0]][side];
+    const poly = [[sx - tx * width / 2 - nx * 20, sy - ty * width / 2 - ny * 20]]; const steps = 9;
+    for (let k = 1; k < steps; k++) { const u = k / steps, bulge = Math.sin(u * Math.PI) * depth; poly.push([sx + tx * (u - .5) * width + nx * bulge + (rnd() - .5) * 26, sy + ty * (u - .5) * width + ny * bulge + (rnd() - .5) * 26]); }
+    poly.push([sx + tx * width / 2 - nx * 20, sy + ty * width / 2 - ny * 20]); cut(poly);
+  }
+  if (tear > .55 && !keepTitle) { const cx = rnd() < .5 ? 0 : w, k = (tear - .45) * 1.3; const poly = [[cx, -20], [cx + (cx ? -1 : 1) * w * k, -20]]; for (let i = 1; i < 8; i++) poly.push([cx + (cx ? -1 : 1) * w * k * (1 - i / 8) + (rnd() - .5) * 40, h * i / 8 * (.6 + k)]); poly.push([cx, h * (.6 + k)]); cut(poly); }
+  g.globalCompositeOperation = 'source-over';
+}
 function addPoster(group, kind, x, y, z, rotY, title, text, scale = 1) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale), new THREE.MeshStandardMaterial({ map: COVERS[kind.split(':')[0]] ? coverTexture(kind) : posterTexture(kind), roughness: .95 })); m.position.set(x, y, z); m.rotation.y = rotY; m.rotation.z = (Math.random() - .5) * .05; m.receiveShadow = true; group.add(m);
-  for (const [dx, dy] of [[-.27, .37], [.27, .37]]) { const tape = new THREE.Mesh(new THREE.PlaneGeometry(.09 * scale, .035 * scale), new THREE.MeshStandardMaterial({ color: 0xcfc4a0, roughness: 1, transparent: true, opacity: .8 })); tape.position.set(dx * scale, dy * scale, .002); tape.rotation.z = dx > 0 ? -.5 : .5; m.add(tape); }
+  const isCover = !!COVERS[kind.split(':')[0]];
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale), new THREE.MeshStandardMaterial({ map: isCover ? coverTexture(kind) : posterTexture(kind), roughness: .95, alphaTest: isCover ? .5 : 0 })); m.position.set(x, y, z); m.rotation.y = rotY; m.rotation.z = (Math.random() - .5) * .05; m.receiveShadow = true; group.add(m);
+  if (isCover) { const nail = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, .02, 6), mat(0x3a2a1c, .6, { metalness: .5 })); nail.rotation.x = Math.PI / 2; nail.position.set(0, .36 * scale, .01); m.add(nail); }
+  else for (const [dx, dy] of [[-.27, .37], [.27, .37]]) { const tape = new THREE.Mesh(new THREE.PlaneGeometry(.09 * scale, .035 * scale), new THREE.MeshStandardMaterial({ color: 0xcfc4a0, roughness: 1, transparent: true, opacity: .8 })); tape.position.set(dx * scale, dy * scale, .002); tape.rotation.z = dx > 0 ? -.5 : .5; m.add(tape); }
   const off = new THREE.Vector3(Math.sin(rotY), 0, Math.cos(rotY)).multiplyScalar(.7);
   addLook(group, x + off.x, y, z + off.z, title, text, 2.0); return m;
 }
 function buildPostersV12() {
   const H = zones.home.group, R = zones.ruin.group, C = zones.cellar.group, A = zones.abattoir.group;
-  addPoster(H, 'dedus', 9.62, 1.95, 3.4, -Math.PI / 2, 'A poster, east wall', 'AB DEDUS SPIEGL CABDAMION. A winged thing with a man’s face, spread on an altarpiece over a burning town, its legs folded like a cricket’s. Nobody in the house will read the name out loud. Under the date someone has pencilled a second date, and it is tomorrow.');
-  addPoster(H, 'ephemeral', -9.62, 1.95, 4.6, Math.PI / 2, 'A poster by the kitchen', 'THE ENDLESS EPHEMERAL. A pale worm with a sad human face, wound in thorns on a hospital green. Steam from the stove has made the paper translucent: you can see the wall through the worm, and the wall is the same colour.', .9);
-  addPoster(H, 'santgrouse', 6.4, 2.0, 8.62, Math.PI, 'A gig poster', 'SANTGROUSE. Two men photographed in profile for a surgical textbook, before and after. The second one has no lower jaw. Someone has drawn a ring round the first man’s eye in biro and written beside it, very small: “me”.', .9);
-  addPoster(R, 'lithogon', 7.72, 1.8, -2.2, -Math.PI / 2, 'A poster in the empty house', 'LITHOGON MOLENS INFANTIUM. A grey giant eating a small body from the head down, his eyes wide as if he were the one being eaten. The corners have been chewed, by mice or by somebody waiting.');
-  addPoster(R, 'ephemeral:faded', -3.5, 1.85, -7.72, 0, 'A faded poster', 'THE ENDLESS EPHEMERAL again, sun-bleached until the worm is nearly white. Someone pinned it over a damp patch. The damp has come through in the shape of a hand, palm out.', .85);
-  addPoster(C, 'lithogon', -8.78, 1.7, 2.6, Math.PI / 2, 'A poster in the cellar', 'LITHOGON MOLENS INFANTIUM, larger. Down here the giant’s eyes have been scratched out, carefully, with something fine. The small body in his hands has been left alone.', 1.1);
-  addPoster(A, 'satragnosium', -11.72, 2.0, 1.5, Math.PI / 2, 'A poster by the hooks', 'SATRAGNOSIUM. Somebody has counted the eggs inside the opened creature in biro, one tick each, and written the total in the margin: fourteen. There are thirteen eggs.');
-  if (porch.hall) { porch.hall.userData.interactables = []; addPoster(porch.hall, 'santgrouse', .45, 1.75, -11.13, 0, 'A poster in the hall', 'SANTGROUSE, small, by the coats. The man without a jaw is looking at the door.', .8); }
+  addPoster(H, 'dedus:t25:s7:keeptitle', 9.62, 1.95, 3.4, -Math.PI / 2, 'Old paper on the east wall', 'Foxed brown to the edges, pinned high where nobody reaches. A winged thing folded into an altar. Worn letters: AB DEDUS SPIEGL CABDAMION. A second date in pencil underneath.');
+  addFlatPoster(H, 'ephemeral:t30:s3', -8.12, .885, -6.3, .35, 'A sheet under the bread', 'Folded into four to keep the kitchen table clean. Crumbs in the creases. Hospital green, a pale curve that might be a worm, thorns. The print is older than the table.', .75);
+  addFloorPoster(H, 'santgrouse:t45:s11', 5.4, 7.6, 2.6, 'Trodden paper by the door', 'Two faces in profile, from some old medical book. Boots have taken most of the second one.', .8);
+  addFloorPoster(R, 'lithogon:t50:s5', 6.9, -2.7, 1.2, 'Paper against the skirting', 'Fallen and half curled. A grey arm, a mouth. The rest is face down.');
+  addPoster(R, 'ephemeral:faded:t70:s9', -3.5, 1.85, -7.72, 0, 'A strip of paper over the damp', 'Sun-bleached almost to nothing. A thorn, part of a pale face. Behind it the damp has the shape of a hand.', .85);
+  addPoster(C, 'lithogon:t45:s2', -8.78, 1.7, 2.6, Math.PI / 2, 'A sheet nailed to the wall', 'The top torn away. Grey hands, something small held in them. What is left of the eyes has been scratched out with something fine.', 1.05);
+  addPoster(A, 'satragnosium:t60:s4', -11.72, 2.0, 1.5, Math.PI / 2, 'What is left of a red poster', 'Most of it gone in strips. Something pale, opened, full of round eggs. Someone has ticked each egg in biro.');
+  if (porch.hall) { porch.hall.userData.interactables = []; addPoster(porch.hall, 'santgrouse:t55:s6', .45, 1.75, -11.13, 0, 'Half a sheet by the coats', 'One profile left, a ring drawn round the eye in biro. The other half went long ago; the nail is still there.', .8); }
 }
 
-function smokerArm(S) { const A = S.npc.rig.arms[1], l = S.lift || 0, e = l * l * (3 - 2 * l); A.sh.rotation.x = THREE.MathUtils.lerp(.06, SMOKE_POSE.shX, e); A.sh.rotation.y = THREE.MathUtils.lerp(0, SMOKE_POSE.shY, e); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, SMOKE_POSE.shZ, e); A.el.rotation.x = THREE.MathUtils.lerp(-.12, SMOKE_POSE.elX, e); A.wr.rotation.x = THREE.MathUtils.lerp(0, SMOKE_POSE.wrX, e); A.wr.rotation.z = THREE.MathUtils.lerp(0, SMOKE_POSE.wrZ, e); }
+// v31: the elbow bends first, so the hand comes up close along the body; the shoulder follows
+function smokerArm(S) { const A = S.npc.rig.arms[1], l = S.lift || 0, sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }, e = sm(l), ee = sm(l * 1.7), es = sm((l - .25) / .75); A.sh.rotation.x = THREE.MathUtils.lerp(.06, SMOKE_POSE.shX, es); A.sh.rotation.y = THREE.MathUtils.lerp(0, SMOKE_POSE.shY, es); A.sh.rotation.z = THREE.MathUtils.lerp(-.1, SMOKE_POSE.shZ, e); A.el.rotation.x = THREE.MathUtils.lerp(-.12, SMOKE_POSE.elX, ee); A.wr.rotation.x = THREE.MathUtils.lerp(0, SMOKE_POSE.wrX, e); A.wr.rotation.z = THREE.MathUtils.lerp(0, SMOKE_POSE.wrZ, e); }
 var SMOKE_POSE = { shX: -1.25, shY: -.75, shZ: -.2, elX: -2.35, wrX: -.2, wrZ: -.3 };
+// v31: the cigarette is oriented from the body, not fixed to the wrist. How people hold and smoke one:
+// it sits between the index and middle fingers a little below the knuckles; brought to the mouth, the
+// palm faces the face, the filter rests between the lips and the cigarette points straight out from the
+// mouth (perpendicular to the face), tilted 10-15 degrees down; between draws it rides between the
+// fingers pointing forward and slightly down, the ember away from the body. Position and direction are
+// blended with the lift of the arm, so it travels with the hand and arrives at the lips straight.
+const _cg = { a: new THREE.Vector3(), b: new THREE.Vector3(), d: new THREE.Vector3(), r: new THREE.Vector3(), q: new THREE.Quaternion(), wq: new THREE.Quaternion(), hq: new THREE.Quaternion(), up: new THREE.Vector3(0, 1, 0) };
+function smokerCig(S) {
+  const P = S.npc.rig, A = P.arms[1], cig = S.cig; if (!cig || !P.head) return;
+  const l = S.lift || 0, e = l * l * (3 - 2 * l), k = P.k || 1;
+  P.root.updateWorldMatrix(true, true);
+  // where the fingers hold it: in the gap between index and middle finger
+  A.wr.localToWorld(_cg.a.set(-.006 * k, -.1 * k, .018 * k));
+  // direction at rest: the way the body faces, a little down and out to the side of the hand
+  P.root.getWorldQuaternion(_cg.wq); _cg.r.set(.35, -.45, 1).normalize().applyQuaternion(_cg.wq);
+  // at the lips: straight out of the mouth, along the face's forward axis, tilted down
+  P.head.getWorldQuaternion(_cg.hq); _cg.d.set(0, -.22, 1).normalize().applyQuaternion(_cg.hq);
+  (P.mouth || P.head).getWorldPosition(_cg.b); _cg.b.addScaledVector(_cg.d, .012 * k);
+  const dir = _cg.r.lerp(_cg.d, e).normalize(), pos = _cg.a.lerp(_cg.b, e * e);
+  // the cigarette's own axis is +y, filter at the bottom: put the filter end at pos
+  pos.addScaledVector(dir, .026 * k);
+  _cg.q.setFromUnitVectors(_cg.up, dir);
+  A.wr.getWorldQuaternion(_cg.wq); cig.quaternion.copy(_cg.wq.invert().multiply(_cg.q));
+  cig.position.copy(A.wr.worldToLocal(pos));
+}
 // =============================================================================
 // v17 — from the inspiration folder: voided people (dirty outside or rotten inside),
 // faces that come apart as the night goes on, an image that surfaces on objects,
@@ -7837,8 +7899,8 @@ function buildPlacesV17() {
   addTensionItem(zones.church.group, -8.75, 1.7, 4.2, Math.PI / 2, .34, .44, 'A memorial card', 'A dead man’s card, the kind handed out at funerals. The face has been rubbed with a thumb until it is white.');
   addTensionItem(D, -9.8, 1.5, 6.5, Math.PI / 2, .3, .38, 'A photograph in the dark', 'You only see it when the beam crosses it.');
   // two more tape-cover posters for the walls, in red and in ink
-  addPoster(H, 'satragnosium', 9.62, 1.95, -2.2, -Math.PI / 2, 'A red poster', 'SATRAGNOSIUM. A pale bulb of a creature, opened down the middle and full of small round eggs, a thin arm coming out of it to hold a flute to its own mouth. The red ink has bled into the wall behind.');
-  addPoster(RU, 'nameless', -7.72, 1.85, 2.6, Math.PI / 2, 'A photocopied poster', 'A figure made of something like dried moss, or hair, with one red eye. The name in the corner is a knot of roots that will not be read. On the back, in pencil: “this is not a band”.');
+  addFloorPoster(H, 'satragnosium:damp:t50:s8', 7.55, -1.35, -.4, 'Paper under the harpsichord', 'Slid underneath, face down. Through the back of it: red, and the shape of eggs.', .8);
+  addFlatPoster(RU, 'nameless:t35:s12', -2.55, storyRef.ruinTableTop || .82, -3.95, -.3, 'A photocopy on the table', 'Weighed down with a cup ring. A figure made of moss, or hair, one red eye. The mark in the corner will not be read.', .7);
 }
 
 // ---- v18: beer, profanity, posters on the floor ------------------------------------
@@ -7882,18 +7944,24 @@ function buildTableDetailsV18() {
   for (let i = 0; i < 7; i++) { const bt = new THREE.Mesh(new THREE.CylinderGeometry(.004, .004, .025, 6), v7mat(i % 3 ? 0xc08a4a : 0xe8e2d4, .8)); bt.position.set(tx - .1 + (Math.random() - .5) * .07, ty + .03, tz + 1.15 + (Math.random() - .5) * .07); bt.rotation.set(Math.random() * 1.4, Math.random() * 3, Math.random()); H.add(bt); }
   addLook(H, tx, ty + .25, tz + .3, 'Beer', 'Birra del Po, bionda, sixty-six centilitres, most of them empty. Caps everywhere, two bottles on their sides in their own spill. Nobody has cleared anything since the afternoon.', 1.7);
 }
+function addFlatPoster(group, kind, x, y, z, rot, title, text, scale = .8) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale, 4, 4), new THREE.MeshStandardMaterial({ map: coverTexture(kind), roughness: 1, side: THREE.DoubleSide, alphaTest: .5 }));
+  const pa = m.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const px = pa.getX(i), py = pa.getY(i); pa.setZ(i, Math.abs(px) * .02 + (py < -.25 * scale ? .012 : 0)); } m.geometry.computeVertexNormals();
+  m.rotation.x = -Math.PI / 2; m.rotation.z = rot; m.position.set(x, y + .004, z); m.receiveShadow = true; group.add(m);
+  addLook(group, x, y + .25, z, title, text, 1.6); return m;
+}
 function addFloorPoster(group, kind, x, z, rot, title, text, scale = 1) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale, 6, 6), new THREE.MeshStandardMaterial({ map: COVERS[kind.split(':')[0]] ? coverTexture(kind) : posterTexture(kind), roughness: 1, side: THREE.DoubleSide }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(.62 * scale, .83 * scale, 6, 6), new THREE.MeshStandardMaterial({ map: COVERS[kind.split(':')[0]] ? coverTexture(kind) : posterTexture(kind), roughness: 1, side: THREE.DoubleSide, alphaTest: .5 }));
   const pa = m.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const px = pa.getX(i), py = pa.getY(i); pa.setZ(i, Math.max(0, Math.abs(py) - .3 * scale) * .25 + (px > .2 * scale && py > .3 * scale ? .03 : 0)); } m.geometry.computeVertexNormals();
   m.rotation.x = -Math.PI / 2; m.rotation.z = rot; m.position.set(x, .008, z); m.receiveShadow = true; group.add(m);
   addLook(group, x, .3, z, title, text, 1.6); return m;
 }
 function buildFloorPostersV18() {
-  addFloorPoster(zones.home.group, 'santgrouse', 3.2, 6.6, .4, 'A poster on the floor', 'Fallen from the wall, or pulled down. A boot print across the two faces, exactly where the jaw is missing.');
-  addFloorPoster(zones.ruin.group, 'satragnosium:damp', -1.3, 4.6, -.9, 'A poster underfoot', 'SATRAGNOSIUM, face up on the boards, swollen with damp. The eggs have run into each other.');
-  addFloorPoster(zones.cellar.group, 'ephemeral:damp', 4.2, 4.0, 2.1, 'A poster on the cellar floor', 'Used as a mat under a bucket. The ring the bucket left is darker than water, and it is exactly round the worm’s face.');
-  addFloorPoster(zones.abattoir.group, 'nameless:damp', 2.8, 6.0, -.3, 'A poster by the drain', 'The moss figure, face up by the drain, the ink running where the floor is hosed. The red eye has not run.');
-  addFloorPoster(zones.darkroom.group, 'lithogon', -2.6, 7.4, 1.2, 'A poster in the dark', 'The grey giant, face up among the chairs. You almost step on the small body.');
+  addFloorPoster(zones.home.group, 'lithogon:t60:s13', 3.2, 6.6, .4, 'Paper on the floor', 'Torn from somewhere and dropped. A boot print across a grey face.');
+  addFloorPoster(zones.ruin.group, 'satragnosium:damp:t50:s14', -1.3, 4.6, -.9, 'Paper underfoot', 'Face up on the boards, swollen with damp. Whatever was printed has run into itself.');
+  addFloorPoster(zones.cellar.group, 'ephemeral:damp:t40:s15', 4.2, 4.0, 2.1, 'Paper under a bucket', 'Used as a mat. The ring the bucket left is darker than water, and exactly round a pale face.');
+  addFloorPoster(zones.abattoir.group, 'nameless:damp:t65:s16', 2.8, 6.0, -.3, 'Paper by the drain', 'Half dissolved where the floor is hosed. One red eye that has not run.');
+  addFloorPoster(zones.darkroom.group, 'santgrouse:t30:s17', -2.6, 7.4, 1.2, 'Paper among the chairs', 'Face up in the dark. Two profiles. You almost step on them.');
 }
 
 buildV8World(); buildPostersV12(); buildPlacesV17(); buildTableDetailsV18(); buildFloorPostersV18();
@@ -8079,9 +8147,10 @@ society = createSociety({ THREE, camera, playerAnchor, look, zone: () => current
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, parkedVan: () => storyRef.van?.visible ? storyRef.van : null, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true),
   dresser: () => storyRef.dresser,
+  inspects: () => inspectCount,
   progress: () => Math.min(1, collected.size / 8 * .7 + ['altar-lit', 'darkroom-cleared', 'church-collapsed', 'escaped-forest'].filter(f => storyFlags.has(f)).length * .075),
   peril: { PERIL, startReflex, lurch, shake, shock, poison: poisonLevel, wield, unwield, pose: setAttackPose, impact, flash: (k, d) => flashFragment(k, d), fragment: (k, d) => flashFragment(k, d), extraFigure: (g, x, z, name, coat, v) => extraFigure(g, x, z, name, coat, v), seat: (n, x, z, r) => seatNPC(n, x, z, r), cup: (g, x, y, z) => buildTeacup(g, x, y, z), bleed: () => { blood.bleedT = Math.max(blood.bleedT || 0, 30); }, input: () => playerInputEnabled(), cam: camera, anchor: playerAnchor, fovSet: setFov } });
-if (TEST_MODE) window.__epi = { openDocument, closeDocument, docOpen: () => docOpen, renderer, scene3: scene, peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
+if (TEST_MODE) window.__epi = { inspectTarget, coverTexture, openDocument, closeDocument, docOpen: () => docOpen, renderer, scene3: scene, peril: PERIL, vio: () => society.violence(), reflexKey, talk: (n) => openDialogue(n), people: socialPeople, society: () => society, fastLines: (k) => { LINE_SPEED = k; }, tick: (sec, step = .1) => { for (let t = 0; t < sec; t += step) { elapsed += step; society.update(step); tragedyTick(step); if (gameEnded) break; } }, welcome, zones, storyFlags, collected, tragedy, TRAGEDY, tragedyBusy: () => ({ scene: !!storyScene, dlg: dialogueOpen, door: doorTransitioning, fate: !!cultFateActive, idle: society?.idle?.(), lines: linesPending(), input: playerInputEnabled(), q: LINES.queue.length, held: convoHeld() }), storyStage, resolveTragedy, tragedyTick, findTarget, walkNPC, stepWorld: (dt) => { elapsed += dt; society.update(dt); (attachRig.list || []).forEach(n => { if (!n.object.visible || !n.object.parent) return; n.rig._frame = -1; driveRig(n, elapsed * 1000, dt); }); }, journal, cultRoster, storyRef, enterZone, startStation, queueStation, camera, playerAnchor, SETTINGS, startDrive, startDarioEavesdrop, startChoirEgg, revealEndingChoices, beginListening, finishListening, finaleThenV6, collectClue, get scene() { return storyScene; }, set scene(v) { storyScene = v; }, skip: () => skipStoryScene(), startGame: () => startGame(), makeSmoker, SMOKE_POSE: () => SMOKE_POSE, setSmokePose: (o) => Object.assign(SMOKE_POSE, o), tension, audio, storyLineTest: (t) => storyLine(t), beginListening, att, blood, startApocalypse, attendantHeard, placeStalker, tickPorch: (dt) => updatePorchPrimo(dt), jobState, openBench, startCrollo, startGraveScene, porch, look, house, makeNPC, THREE, openDialogue, setJournalTab, openJournal, people: () => cultRoster.map(n => ({ name: n.name, persona: !!n.persona, pivot: !!n.headPivot })) };
 
 updateProgress();
 requestAnimationFrame(loop);
