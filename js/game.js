@@ -2322,20 +2322,41 @@ const LINES = { queue: [], until: 0, timer: null };
 let LINE_SPEED = 1;
 function readMs(text) { return LINE_SPEED * Math.max(3400, 1800 + String(text).replace(/^[^:]+:\s*/, '').length * 52); }
 function convoHeld() { return dialogueOpen || !!society?.S?.ui || !!bench; }
-function presentLine(render, text, action = null) {
+// v33: three kinds of line. 3 = what Tobia just did (anything said within half a second of pressing E):
+// it goes first and cuts short any chatter on screen. 2 = the story and the game (scenes, requests,
+// warnings). 1 = background (gossip, rumours, someone muttering as you pass): it waits behind everything,
+// at most two at a time, is dropped if it has waited 20 s, and the same thing is never said twice within
+// a few minutes, by anyone. Nothing the player needs is ever held up by talk in the next room.
+let LAST_E = -1e9; const RECENT_LINES = new Map();
+const lineKey = (t) => String(t || '').toLowerCase().replace(/^[^:]{1,30}:\s*/, '').replace(/\([^)]*\)/g, '').replace(/[^a-zà-ù ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+function presentLine(render, text, action = null, prio = null) {
   const now = performance.now();
-  if (now < LINES.until || convoHeld() || LINES.queue.length) { LINES.queue.push({ render, text, at: now, action }); if (!LINES.timer || now >= LINES.until) { clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, Math.max(250, LINES.until - now)); } return; }
-  if (action) { action(); LINES.until = now + 450; clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, 450); return; }
-  render(); LINES.until = now + readMs(text);
+  if (prio == null) prio = !action && now - LAST_E < 600 ? 3 : 2;
+  const key = action ? null : lineKey(text);
+  if (key && prio < 3) {
+    const last = RECENT_LINES.get(key); if (last && now - last < (prio === 1 ? 300000 : 45000)) return;
+    if (LINES.queue.some(q => q.key === key)) return;
+  }
+  if (prio === 1 && LINES.queue.filter(q => q.prio === 1).length >= 2) return;
+  if (key) RECENT_LINES.set(key, now);
+  if (prio === 3) { LINES.queue = LINES.queue.filter(q => q.prio !== 1); if (LINES.curPrio === 1 && !convoHeld()) LINES.until = 0; }
+  const item = { render, text, at: now, action, prio, key };
+  if (now < LINES.until || convoHeld() || LINES.queue.length) {
+    let i = LINES.queue.findIndex(q => q.prio < prio); if (i < 0) i = LINES.queue.length; LINES.queue.splice(i, 0, item);
+    if (!LINES.timer || now >= LINES.until) { clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, Math.max(prio === 3 ? 60 : 250, LINES.until - now)); }
+    return;
+  }
+  if (action) { action(); LINES.until = now + 450; LINES.curPrio = 2; clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, 450); return; }
+  render(); LINES.until = now + readMs(text); LINES.curPrio = prio;
   clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, readMs(text));
 }
 function pumpLines() {
   LINES.timer = null;
   if (convoHeld()) { LINES.timer = setTimeout(pumpLines, 300); return; }
   LINES.until = 0;
-  while (LINES.queue.length && !LINES.queue[0].action && performance.now() - LINES.queue[0].at > 90000) LINES.queue.shift();
+  const tnow = performance.now(); LINES.queue = LINES.queue.filter(q => q.action || tnow - q.at < (q.prio === 1 ? 20000 : 90000));
   const next = LINES.queue.shift();
-  if (next) { if (next.action) { next.action(); LINES.until = performance.now() + 450; LINES.timer = setTimeout(pumpLines, 450); } else { next.render(); LINES.until = performance.now() + readMs(next.text); LINES.timer = setTimeout(pumpLines, readMs(next.text)); } }
+  if (next) { LINES.curPrio = next.prio || 2; if (next.action) { next.action(); LINES.until = performance.now() + 450; LINES.timer = setTimeout(pumpLines, 450); } else { next.render(); LINES.until = performance.now() + readMs(next.text); LINES.timer = setTimeout(pumpLines, readMs(next.text)); } }
   else if (!dialogueOpen && (!storyScene || storyScene.type === 'hold')) $('subtitle-wrap').classList.remove('visible');
 }
 function queueAction(fn) { presentLine(null, '', fn); }
@@ -2486,11 +2507,19 @@ function openDocument(id) {
   }
   el.innerHTML = `<div class="dk-paper ${D.cls}">${D.html}</div><div class="dk-hint">[ E ] PUT IT DOWN</div>`;
   el.classList.add('on'); docOpen = id; keys.clear(); controls.unlock?.();
-  audio?.mechanicalNoise(.35, 3200, .7, .05, 0);
+  paperSound(true);
   if (id === 'photo') drawBurnedPhoto($('dk-photo-front'));
   return true;
 }
-function closeDocument() { const el = $('doc-reader'); if (!el || !docOpen) return; el.classList.remove('on'); docOpen = null; audio?.mechanicalNoise(.25, 2600, .7, .04, 0); requestMouseLock?.(); }
+// v33: the sound of paper being handled: a soft swish as the sheet comes up, then small dry crackles
+// as the fingers settle on it (band-limited noise, 2-7 kHz, very short, irregular)
+function paperSound(open = true) {
+  if (!audio?.ctx) return;
+  audio.mechanicalNoise(open ? .42 : .3, 1700, .45, open ? .07 : .05, (Math.random() - .5) * .3);
+  const n = open ? 11 : 6;
+  for (let i = 0; i < n; i++) setTimeout(() => audio?.mechanicalNoise(.025 + Math.random() * .07, 2400 + Math.random() * 4600, 1.2 + Math.random() * 2.5, .05 + Math.random() * .06, (Math.random() - .5) * .5), (open ? 60 : 20) + Math.random() * (open ? 650 : 320));
+}
+function closeDocument() { const el = $('doc-reader'); if (!el || !docOpen) return; el.classList.remove('on'); docOpen = null; paperSound(false); requestMouseLock?.(); }
 // the front of the burned photograph: a choir in rows in a dim church, the edges eaten brown to black,
 // one face in the back row simply not there
 function drawBurnedPhoto(c) {
@@ -2586,6 +2615,7 @@ function renderJournal() {
 }
 let inspectCount = 0;   // v31: how much Tobia examines things (the house notices)
 function inspectTarget(item) {
+  LAST_E = performance.now();
   if (item.type !== 'npc' && item.type !== 'door') inspectCount++;
   if(item.requiresFlag&&!storyFlags.has(item.requiresFlag)){showToast(item.blockedHint||'The way is not open yet.');audio?.stinger(.22);return;}
   if(item.requiresFlags&&!item.requiresFlags.every(flag=>storyFlags.has(flag))){showToast(item.blockedHint||'The way is not open yet.');audio?.stinger(.22);return;}
@@ -3140,7 +3170,9 @@ function showLook(item) {
   $('speaker').textContent = item.title.toUpperCase(); $('subtitle').textContent = item.text;
   $('dialogue-options').innerHTML = ''; $('subtitle-wrap').classList.add('visible');
   clearTimeout(narrationTimer);
-  narrationTimer = setTimeout(() => { if (!dialogueOpen) $('subtitle-wrap').classList.remove('visible'); }, 7000);
+  // the room's chatter waits until this has been read, and the gossip in the queue is let go
+  LINES.queue = LINES.queue.filter(q => q.prio !== 1); LINES.until = Math.max(LINES.until, performance.now() + Math.max(4500, readMs(item.text))); LINES.curPrio = 3; clearTimeout(LINES.timer); LINES.timer = setTimeout(pumpLines, LINES.until - performance.now());
+  narrationTimer = setTimeout(() => { if (!dialogueOpen && !LINES.queue.length) $('subtitle-wrap').classList.remove('visible'); }, Math.max(7000, readMs(item.text)));
 }
 function addTool(group, x, z, id, title, text) {
   const root = new THREE.Group(); root.position.set(x, 0, z); group.add(root);
@@ -3696,7 +3728,8 @@ function endFirstTeaScene(){
   storyScene=null;dialogueOpen=false;$('subtitle-wrap').classList.remove('visible');camera.position.set(0,1.63,0);camera.rotation.set(0,s.savedRot?.[1]||0,0);resetLook();
   showToast('IL PRIMO IS GONE.');
 }
-function storyLine(text) { presentLine(() => storyLineNow(text), text); }
+function storyLine(text, prio = null) { presentLine(() => storyLineNow(text), text, null, prio); }
+function ambientLine(text) { storyLine(text, 1); }
 function storyLineNow(text) {
   if (TEST_MODE) (window.__lines = window.__lines || []).push([Math.round(performance.now()), text.slice(0, 60)]);
   const m = /^\(/.test(text) ? null : /^([^:]+):\s*/.exec(text);
@@ -5599,7 +5632,20 @@ const STATION_SETUP = {
     const shell = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), M.bronze); shell.material.side = THREE.DoubleSide; shell.position.y = -1.5; bell.add(shell);
     const hang = silhouette(bell, 0, -2.9, 0, 0, false, 0x050403); ctx.hang = hang;
     tubeBetween(bell, [0, -.1, 0], [0, -1.15, 0], .02, M.black, 5);
-    const rope = new THREE.Mesh(new THREE.CylinderGeometry(.022, .022, 1, 8), mat(0x7a5f40, 1, { map: TEX.wood })); g.add(rope); ctx.rope = rope;
+    // v33: the rope as it is really rigged. It wraps on a spoked wheel fixed to the headstock and leaves it
+    // tangentially at a fixed point; it drops plumb to a guide pulley, and from the pulley runs down to the
+    // hands, with a striped woollen sally for the grip. When the bell swings, the wheel winds rope in or pays
+    // it out, and the lower length draws the hands up or lets them haul down.
+    const hemp = mat(0x8a6e48, 1, { map: TEX.wood }), wood = mat(0x3a2a1c, .9);
+    const wheel = new THREE.Group(); wheel.position.set(0, 0, .16); bell.add(wheel); ctx.wheel = wheel;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(.62, .03, 6, 32), wood); wheel.add(rim);
+    for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(.04, 1.2, .04), wood); sp.rotation.z = i * Math.PI / 6; wheel.add(sp); }
+    const top = new THREE.Vector3(-6.8 + .62, 5.6, -5.8 + .16), guide = new THREE.Vector3(-6.18, 2.9, -5.64);
+    const pulley = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, .06, 14), wood); pulley.rotation.x = Math.PI / 2; pulley.position.copy(guide); g.add(pulley);
+    const ropeA = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, top.distanceTo(guide), 8), hemp); ropeA.position.copy(top.clone().add(guide).multiplyScalar(.5)); g.add(ropeA);
+    const ropeB = new THREE.Mesh(new THREE.BufferGeometry(), hemp); g.add(ropeB); ctx.rope = ropeB;
+    const sally = new THREE.Group(); for (let i = 0; i < 6; i++) { const band = new THREE.Mesh(new THREE.CylinderGeometry(.034, .034, .05, 10), mat([0x8a1c1c, 0xe8e0d0, 0x24345a][i % 3], .9)); band.position.y = i * .05; sally.add(band); } g.add(sally); ctx.sally = sally;
+    ctx.top = top; ctx.guide = guide; ctx.hand0 = new THREE.Vector3(-4.85, 1.2, -2.9);
     const lamp = new THREE.SpotLight(0xd8c8a8, 140, 16, .55, .5, 1.3); lamp.position.set(-3.4, 1.2, -2.6); lamp.target.position.set(-6.8, 4.6, -5.8); lamp.castShadow = true; g.add(lamp, lamp.target);
     return ctx;
   }
@@ -5668,19 +5714,26 @@ const STATION_UPDATE = {
     const pull = THREE.MathUtils.smoothstep(t, 7.6, 8.4), ring = t > 13.8;
     camera.position.set(-4.6, 1.55 - pull * .12 + (ring ? Math.sin(t * 9) * .01 : 0), -2.4); camera.lookAt(-6.8, 3.0 + pull * 1.0, -5.8);
     c.hang.visible = t > 7.6; c.hang.position.y = -2.9 - (1 - pull) * .8;
-    // v29.2: the bell keeps swinging while the rope is held (it only dies away at the very end), and the
-    // rope is tied to the wheel on the headstock: it rides up when the bell swings one way and is hauled
-    // down the other, so the hand on it goes up and down too. One strike each time the bell swings over.
-    const ph = (t - 13.8) * 2.2, damp = t > 21 ? Math.exp(-(t - 21) * 1.4) : 1, swing = ring ? Math.sin(ph) * .42 * damp : 0; c.bell.rotation.z = swing;
-    c.bell.updateMatrixWorld(true);
-    const top = c.bell.localToWorld(new THREE.Vector3(.62, -.05, 0)); c.group.worldToLocal(top);
-    const sway = t > 8.4 && !ring ? Math.sin(t * 3.1) * .05 * Math.exp(-(t - 8.4) * .4) : 0;
-    const haul = ring ? Math.max(0, -Math.sin(ph)) * .42 * damp : 0, ride = ring ? Math.max(0, Math.sin(ph)) * .55 * damp : 0;
-    const hand = new THREE.Vector3(-4.85 + sway, 1.2 - pull * .1 + ride - haul, -2.9), mid = top.clone().add(hand).multiplyScalar(.5), d = top.clone().sub(hand);
-    c.rope.position.copy(mid); c.rope.scale.y = d.length(); c.rope.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
-    if (ring) camera.lookAt(-6.8, 3.0 + pull * 1.0 + ride * .25, -5.8);
+    // v33: the bell is a heavy pendulum, period about 2.2 s; each pull adds to the swing, so it builds over
+    // the first strokes. The clapper (here, the hanging figure) is a second pendulum that lags the bell and
+    // strikes the lip as the bell reaches the end of its arc: one strike per swing, at the turn.
+    const T = 2.2, w = Math.PI * 2 / T, tr = t - 13.8, ph = ring ? tr * w : 0;
+    const build = ring ? 1 - Math.exp(-tr / 1.6) : 0, damp = t > 21 ? Math.exp(-(t - 21) * 1.1) : 1, amp = .46 * build * damp;
+    const swing = ring ? Math.sin(ph) * amp : 0, vel = ring ? Math.cos(ph) * amp * w : 0; c.bell.rotation.z = swing;
+    if (c.hang) c.hang.rotation.z = -vel * .12;                       // the clapper lags the bell
+    // the rope: the wheel turns with the bell and winds rope in (hands drawn up) or pays it out (hands haul down)
+    const R = .62, pull0 = pull * .1, take = R * swing;
+    const u = c.guide.clone().sub(c.hand0).normalize();
+    const sway = t > 8.4 && !ring ? Math.sin(t * 2.7) * .05 * Math.exp(-(t - 8.4) * .35) : Math.sin(t * 1.9) * .015;
+    const hand = c.hand0.clone().addScaledVector(u, take).add(new THREE.Vector3(sway, -pull0, 0));
+    // the lower length: a sagging curve when slack (hands coming down), drawn straight when the wheel takes it
+    const slack = Math.max(0, .18 - Math.max(0, vel) * .12 + (ring ? 0 : .1)), mid = c.guide.clone().lerp(hand, .5); mid.y -= slack; mid.x += sway * .5;
+    const curve = new THREE.CatmullRomCurve3([c.guide.clone(), c.guide.clone().lerp(mid, .5).add(new THREE.Vector3(0, -slack * .35, 0)), mid, hand]);
+    c.rope.geometry.dispose(); c.rope.geometry = new THREE.TubeGeometry(curve, 24, .02, 6, false);
+    c.sally.position.copy(hand).addScaledVector(u, .08); c.sally.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), u);
+    camera.lookAt(-6.4, 3.0 + pull * 1.0 + take * .4, -5.4);
     if (t >= 8 && !c.jolt) { c.jolt = true; audio?.mechanicalNoise(.5, 260, 1.4, .3, 0); glitchPulse = 1; }
-    if (ring) { const strike = Math.floor((ph + Math.PI / 2) / Math.PI); if (strike !== c.strike && damp > .25) { c.strike = strike; audio?.bell(1, 0); audio?.mechanicalNoise(.15, 300, 1.2, .08, 0); } }
+    if (ring) { const strike = Math.floor((ph + Math.PI / 2) / Math.PI); if (strike !== c.strike && amp > .12) { c.strike = strike; audio?.bell(1, 0); audio?.mechanicalNoise(.12, 280, 1.2, .07, 0); } if (Math.abs(vel) > .3 && Math.random() < dt * 2) audio?.mechanicalNoise(.25, 900, .6, .02, 0); }
   }
 };
 const STATION_FINISH = {
@@ -6473,7 +6526,7 @@ function updatePeople(dt, t) {
   // Overheard lines: linger on someone without speaking and they say something ordinary.
   if (activeTarget?.type === 'npc' && activeTarget.persona && house.barkCd <= 0 && !$('subtitle-wrap').classList.contains('visible')) {
     house.lingerOn = house.lingerOn === activeTarget ? house.lingerOn : activeTarget; house.linger = (house.linger || 0) + dt;
-    if (house.linger > 1.6) { const b = personaBark(activeTarget); if (b) storyLine(`${(activeTarget.displayName || activeTarget.name).toUpperCase()}: ${b}`); house.barkCd = 11 + Math.random() * 8; house.linger = 0; if (personaKey(activeTarget) === 'livia') humFourNotes(); }
+    if (house.linger > 1.6) { const b = personaBark(activeTarget); if (b) ambientLine(`${(activeTarget.displayName || activeTarget.name).toUpperCase()}: ${b}`); house.barkCd = 11 + Math.random() * 8; house.linger = 0; if (personaKey(activeTarget) === 'livia') humFourNotes(); }
   } else if (activeTarget?.type !== 'npc') house.linger = 0;
 }
 function humFourNotes() { if (!audio?.ctx) return; [196, 233, 220, 175].forEach((f, i) => setTimeout(() => audio.mechanicalTone(f * .944, f * .944, .7, 'sine', .018, -.2), i * 520)); }
@@ -8146,7 +8199,7 @@ function impact(kind) {
   else if (kind === 'kettle') { audio.mechanicalTone(1800, 2300, 2.4, 'sine', .018, 0); }
 }
 society = createSociety({ THREE, camera, playerAnchor, look, zone: () => currentZone, home: () => zones.home, elapsed: () => elapsed, people: socialPeople, seats: () => storyRef.tableSeats,
-  line: storyLine, lineNow: storyLine, say: storyLine, queueAction, linesBusy: () => linesPending(), clearLines,
+  line: storyLine, lineNow: storyLine, say: storyLine, ambient: ambientLine, queueAction, linesBusy: () => linesPending(), clearLines,
   scene: (def) => { keys.clear(); storyScene = Object.assign({ type: 'v8', t: 0, dur: 99999, i: 0, lines: [], skippable: false }, def); setCinema(true); $('skip-hint').classList.remove('visible'); }, endScene: () => { storyScene = null; setCinema(false); $('subtitle-wrap').classList.remove('visible'); }, aim: aimCamera, fov: setFov, fade: (on, sec = .6) => { const d = $('intro-dark'); d.style.transition = `opacity ${sec}s linear`; d.style.opacity = on ? '1' : '0'; }, firstNpc: () => welcome.first, resetLook, talk: (n) => openDialogue(n), enter: (name, sp) => enterZone(name, sp), voice: speakVoice, audio: () => audio, flags: storyFlags, journal: (e) => { journal.push(e); updateJournalCount(); }, canAct: () => playerInputEnabled(), blood,
   fear: () => fear, difficulty: () => SETTINGS.difficulty, walk: walkNPC, turn: turnNPC, earplugs: setEarplugs, mat: v7mat, photoTex: socialPhotoTexture, el: (id) => $(id), welcomed: () => welcome.done, parkedVan: () => storyRef.van?.visible ? storyRef.van : null, zones: () => zones, flashlight: () => flashlightOn, buildVan: (g) => buildVan(g), glitch: (v) => { glitchPulse = Math.max(glitchPulse, v); },
   end: (E) => showSocialEnding(E, true),
