@@ -44,6 +44,16 @@ The world uses recognisable objects rather than generic display blocks wherever 
 
 The four slaughterhouse forms are sculptural and stylised rather than anatomically graphic. The game's visual language is intentionally degraded: film grain, brief flash images, worn materials, fog, unstable light, and a camera that sometimes behaves like an observer rather than a neutral first-person view.
 
+## Version 33 — talk that does not loop, keys, the bell, paper
+
+**No more looping talk.** Every witness of something Tobia did used to pass it on, and every retelling he was near produced another overheard line, so the same remark about the same theft came round again and again and held up everything else. Now the lines on screen have three priorities. What follows an E press goes first and cuts off any chatter on screen; story and gameplay lines come next; background talk (gossip, rumours, overheard remarks, people muttering as you pass) waits behind everything, at most two at a time, expires if it has waited 20 seconds, and the same thing is never said twice within a few minutes. A rumour about something Tobia did is overheard once; after that it still travels and still changes how people feel, silently. An examined object's text is no longer overwritten by the next queued line.
+
+**The keys.** Walter's key ring is modelled on van keys of the late seventies: a split steel ring; an ignition key with a black plastic head and a notched blade with a groove along its side; an all-steel door key with a stamped oval bow; a small brass padlock key; an oxblood leather fob with a stitched edge.
+
+**The bell.** Don Remo's station now rings the bell the way a swing-chimed bell is rung. The rope wraps on a spoked wheel fixed to the headstock and leaves it tangentially; it drops plumb to a guide pulley and from there runs down to the hands, with a striped woollen sally at the grip. The bell is a heavy pendulum (period about 2.2 s): each pull adds to the swing, so it builds over the first strokes (measured peaks 0.15, 0.30, 0.38, 0.42, 0.44 rad), and the wheel winds rope in on one swing (the hands are drawn up) and pays it out on the other (they haul down), with the lower length sagging when slack. The clapper lags the bell and strikes once per swing, at the turn.
+
+**Paper.** Reading a paper clue plays the sound of paper being handled: a soft swish as the sheet comes up and small dry crackles as the fingers settle; a shorter rustle when it is put down.
+
 ## Version 32 — sooner, one at a time, apart
 
 - **The dresser has a light inside.** Opening the door brings up a small warm light in the cupboard (and dims with the door), so the jars, the tin and Walter's keys on their hook can be seen; the keys hang nearer the door and catch the light.

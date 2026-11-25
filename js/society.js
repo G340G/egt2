@@ -134,10 +134,11 @@ export function createSociety(G) {
     // secondhand: the listener may pass it on once more, worse again
     const c2 = SOCIAL[r.listener]?.confidant; if (!r.second && c2 && c2 !== r.teller && Math.random() < .55) S.rumours.push({ at: now() + 60 + Math.random() * 90, teller: r.listener, listener: c2, ep: r.ep, act: told, second: true });
     // Tobia overhears his own story, told wrong, if he is near enough
-    if (G.zone() === 'home') {
-      const d = dist2(T);
-      if (d < 6.5) G.line(r.napkin ? `(${nm(r.teller)} slides a napkin to ${nm(r.listener)}. ${nm(r.listener)} reads it and looks at you.)` : `${UP(r.teller)} (low, to ${nm(r.listener)}): ${pick(['He', 'The guest', 'Him. The new one. He'])} ${phrase}. ${pick(['I saw it.', 'Don’t say I said.', 'Ask him.', ''])}`.trim());
-      else if (d < 10) G.line(`(By the ${pick(['stove', 'dresser', 'table'])}, two voices drop when you look over.)`);
+    S.overheard = S.overheard || new Set(); const heardBefore = S.overheard.has(told);
+    if (G.zone() === 'home' && !heardBefore) {
+      const d = dist2(T); if (d < 10) S.overheard.add(told);
+      if (d < 6.5) (G.ambient || G.line)(r.napkin ? `(${nm(r.teller)} slides a napkin to ${nm(r.listener)}. ${nm(r.listener)} reads it and looks at you.)` : `${UP(r.teller)} (low, to ${nm(r.listener)}): ${pick(['He', 'The guest', 'Him. The new one. He'])} ${phrase}. ${pick(['I saw it.', 'Don’t say I said.', 'Ask him.', ''])}`.trim());
+      else if (d < 10) (G.ambient || G.line)(`(By the ${pick(['stove', 'dresser', 'table'])}, two voices drop when you look over.)`);
       if (d < 10) tense(.12);
     }
   }
@@ -162,11 +163,25 @@ export function createSociety(G) {
     addBelonging('photo', ph, [-6.0, 1.585, -8.0], 'gabri', 'A PHOTOGRAPH ON THE FRIDGE');
     // Walter’s van keys: v30, on a cup hook inside the dresser, behind the right-hand lower door.
     // You have to open the door to see them.
-    const kg = new THREE.Group(); const ring = new THREE.Mesh(new THREE.TorusGeometry(.018, .003, 6, 14), M(0x9a8a60, .3, { metalness: .8 })); kg.add(ring);
-    for (let i = 0; i < 3; i++) { const k = new THREE.Mesh(new THREE.BoxGeometry(.004, .055, .014), M(0x9a8a60, .3, { metalness: .8 })); k.position.set(0, -.045, (i - 1) * .012); k.rotation.x = (i - 1) * .25; kg.add(k); }
-    const tag = new THREE.Mesh(new THREE.BoxGeometry(.004, .04, .03), M(0x6e2e26, .8)); tag.position.set(0, -.05, .025); kg.add(tag);
+    // v33: a van key ring of the late seventies, as in period photographs of Fiat and Volkswagen keys: a
+    // split steel ring; the ignition key with a black plastic head and a blade cut with a row of notches
+    // and a groove along its side (about 6 cm); an all-steel door key with a stamped oval bow; a small
+    // brass padlock key; and an oxblood leather fob with a stitched edge. Profiles are extruded, not boxes.
+    const kg = new THREE.Group();
+    const nickel = M(0xb8b4a8, .28, { metalness: .9 }), brass = M(0xb08d4a, .3, { metalness: .85 }), plastic = M(0x141312, .45), leather = M(0x5a1c16, .7);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.013, .0016, 6, 20), nickel); kg.add(ring);
+    const keyBlade = (len, teeth) => { const sh = new THREE.Shape(); sh.moveTo(0, -.0035); sh.lineTo(len - .004, -.0035); sh.lineTo(len, 0); sh.lineTo(len - .004, .0035); let x = len - .006; for (let t = 0; t < teeth; t++) { sh.lineTo(x, .0035); sh.lineTo(x - .0018, .0025 + (t % 2) * .0008); sh.lineTo(x - .0036, .0035); x -= .0042; } sh.lineTo(0, .0035); sh.closePath(); return new THREE.ExtrudeGeometry(sh, { depth: .0018, bevelEnabled: false }); };
+    const key = (headGeo, headMat, len, teeth, angle, drop) => { const k = new THREE.Group(); const h = new THREE.Mesh(headGeo, headMat); k.add(h); const b = new THREE.Mesh(keyBlade(len, teeth), nickel); b.position.set(.009, 0, -.0009); k.add(b); const groove = new THREE.Mesh(new THREE.BoxGeometry(len * .8, .0007, .0004), M(0x6e6a60, .5, { metalness: .8 })); groove.position.set(.009 + len * .42, 0, .0011); k.add(groove); const hole = new THREE.Mesh(new THREE.TorusGeometry(.0022, .0008, 4, 10), nickel); hole.position.set(-.006, 0, 0); k.add(hole); k.rotation.z = -Math.PI / 2 + angle; k.position.set(0, -.013 - drop, 0); return k; };
+    const ign = new THREE.Shape(); ign.moveTo(-.009, -.008); ign.lineTo(.009, -.006); ign.quadraticCurveTo(.011, 0, .009, .006); ign.lineTo(-.009, .008); ign.quadraticCurveTo(-.012, 0, -.009, -.008);
+    const k1 = key(new THREE.ExtrudeGeometry(ign, { depth: .004, bevelEnabled: true, bevelSize: .0008, bevelThickness: .0008, bevelSegments: 1 }), plastic, .032, 5, .12, 0); k1.children[0].position.z = -.002; kg.add(k1);
+    const oval = new THREE.Mesh(new THREE.CylinderGeometry(.009, .009, .0016, 18), nickel); oval.rotation.x = Math.PI / 2; oval.scale.set(1, 1, .8);
+    const k2 = key(oval.geometry, nickel, .026, 4, -.18, .002); k2.children[0].rotation.x = Math.PI / 2; k2.children[0].scale.set(1.15, 1, .85); kg.add(k2);
+    const k3 = key(new THREE.CylinderGeometry(.005, .005, .0012, 12).rotateX(Math.PI / 2), brass, .013, 2, .4, -.004); k3.children[1].material = brass; k3.scale.setScalar(.85); kg.add(k3);
+    const fobS = new THREE.Shape(); fobS.moveTo(-.007, 0); fobS.lineTo(.007, 0); fobS.lineTo(.009, -.04); fobS.quadraticCurveTo(0, -.048, -.009, -.04); fobS.closePath();
+    const fob = new THREE.Mesh(new THREE.ExtrudeGeometry(fobS, { depth: .003, bevelEnabled: true, bevelSize: .0006, bevelThickness: .0006, bevelSegments: 1 }), leather); fob.rotation.z = .5; fob.position.set(.006, -.012, -.006); kg.add(fob);
+    const stitch = new THREE.Mesh(new THREE.TorusGeometry(.0065, .0004, 3, 16), M(0xd8c8a0, .8)); stitch.rotation.z = .5; stitch.position.set(.017, -.031, -.002); stitch.scale.set(1, 1.6, 1); kg.add(stitch);
     const Dr = G.dresser?.(), hk = Dr ? Dr.hookWorld() : new THREE.Vector3(-8.76, .7, -4.38);
-    kg.scale.setScalar(1.5); kg.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0x3a2c10); o.material.emissiveIntensity = .6; } }); kg.rotation.y = Math.PI / 2;
+    kg.scale.setScalar(1.4); kg.rotation.y = Math.PI / 2;
     const KB = addBelonging('keys', kg, [hk.x, hk.y - .02, hk.z], 'walter', 'KEYS ON A HOOK');
     if (Dr) {
       setEntry(KB, false);
@@ -278,7 +293,7 @@ export function createSociety(G) {
       // the conversation stops for perhaps two seconds, then goes on as if it never stopped
       S.allLookUntil = now() + 2.6; G.clearLines(); G.audio()?.setMuffle?.(true, .2);
       setTimeout(() => G.audio()?.setMuffle?.(false, 1.2), 2300);
-      setTimeout(() => G.line(pick(['FRANCO: —so the coffee, anyway. Anna’s coffee.', 'SERGIO: …and then the bus never came. Where was I.', 'ANNA: More bread. Who wants more bread.'])), 2500);
+      setTimeout(() => (G.ambient || G.line)(pick(['FRANCO: —so the coffee, anyway. Anna’s coffee.', 'SERGIO: …and then the bus never came. Where was I.', 'ANNA: More bread. Who wants more bread.'])), 2500);
       tense(.28);
     }
     for (const k of near) {
@@ -455,7 +470,7 @@ export function createSociety(G) {
     const E = S.belong.earplugs;
     if (G.zone() !== 'home') return;
     if (E && E.state === 'here' && E.where === 'origin' && who('marta') && !S.martaTook) opts.push(() => { S.martaTook = true; E.mesh.visible = false; E.state = 'gone'; setEntry(E, false); S.truths.push('Marta took Il Primo’s earplugs from the table while you were wiping your nose.'); S.frameAt = now() + 80 + Math.random() * 60; S.missingEarplugs = now(); });
-    opts.push(() => setTimeout(() => G.line(pick(['SERGIO: …and that is why nobody opens the cellar window. (Laughter. You missed the first half.)', 'ANNA: …so that is decided, then. (You do not know what was decided.)', 'DARIO: …and the guest too, when it is time. (He stops when you lower the tissue.)'])), 2400));
+    opts.push(() => setTimeout(() => (G.ambient || G.line)(pick(['SERGIO: …and that is why nobody opens the cellar window. (Laughter. You missed the first half.)', 'ANNA: …so that is decided, then. (You do not know what was decided.)', 'DARIO: …and the guest too, when it is time. (He stops when you lower the tissue.)'])), 2400));
     pick(opts)();
   }
   function updateBleed(dt) {
@@ -541,7 +556,7 @@ export function createSociety(G) {
     if (has('walter') && has('gabri') && !S.didHumil?.has('walter')) list.push(() => humiliation('walter', 'gabri', 'WALTER: Nineteen, and he sits by the fridge like a dog waiting for a door.', '(Gabri looks at his hands.)'));
     if (has('ines') && has('sergio') && !S.helped) list.push(() => helpRequest());
     if (has('sergio') && !S.primoStopped && G.flags.has('sergio-truth')) list.push(() => primoIntervenes());
-    return list.length ? pick(list) : () => G.line(pick(['ANNA: More bread. Who wants more.', 'DARIO: Can you hear it tonight? Under the rain. Il Bianco is close.', 'MARTA: Another beam this week. Il Bianco does not wait for the wood to dry.', 'INES: Eat. Il Bianco fills the empty ones first.']));
+    return list.length ? pick(list) : () => (G.ambient || G.line)(pick(['ANNA: More bread. Who wants more.', 'DARIO: Can you hear it tonight? Under the rain. Il Bianco is close.', 'MARTA: Another beam this week. Il Bianco does not wait for the wood to dry.', 'INES: Eat. Il Bianco fills the empty ones first.']));
   }
   // Somebody is humiliated in public. Defending them, laughing, or looking at your plate are all things you did.
   function humiliation(agg, vic, line, reply) {
@@ -597,7 +612,7 @@ export function createSociety(G) {
     const cold = present().filter(p => p.key !== 'primo' && standing(p.key) <= -1).length;
     if ((now() - S.lastRumourAt < 120 && S.heardTold.length) || cold >= 4) {
       S.allLookUntil = now() + 3.2; S.talkStop = now();
-      setTimeout(() => G.line(pick(['(The talk stops when you come in. Somebody puts a glass down. After a while, the weather.)', '(A conversation by the stove ends in the middle of a word.)', '(Everyone is suddenly busy with their plates.)'])), 600);
+      setTimeout(() => (G.ambient || G.line)(pick(['(The talk stops when you come in. Somebody puts a glass down. After a while, the weather.)', '(A conversation by the stove ends in the middle of a word.)', '(Everyone is suddenly busy with their plates.)'])), 600);
       tense(.15);
     }
     if (S.frameAt && !S.framed && now() > S.frameAt) frame();
